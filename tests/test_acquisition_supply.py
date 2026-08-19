@@ -40,13 +40,17 @@ class AcquisitionSupplyTests(unittest.TestCase):
             anchors = [name for name in window if name.startswith("anchor_")]
             self.assertGreaterEqual(len(anchors), 2, f"start={start} window={window}")
 
-    def test_anchor_templates_cover_multiple_automation_families(self):
+    def test_anchor_templates_are_short_natural_queries(self):
         names = [name for name, _ in mod.ANCHOR_QUERY_PROFILES]
         self.assertEqual(len(names), len(set(names)))
-        self.assertGreaterEqual(len(names), 4)
+        self.assertGreaterEqual(len(names), 8)
         combined = " ".join(query for _, query in mod.ANCHOR_QUERY_PROFILES)
-        for term in ("データ入力", "AIトレーナー", "記事入稿", "Webリサーチ"):
+        for term in ("データ入力", "アノテーション", "AIトレーナー", "商品登録", "Webリサーチ"):
             self.assertIn(term, combined)
+        for name, query in mod.ANCHOR_QUERY_PROFILES:
+            self.assertNotIn(" OR ", query, name)
+            self.assertNotIn("(", query, name)
+            self.assertLessEqual(len(query), 40, name)
 
     def test_deep_budget_can_run_through_31_day_month(self):
         self.assertEqual(mod.DEEP_REQUESTS, 7)
