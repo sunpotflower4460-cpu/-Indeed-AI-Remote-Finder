@@ -96,7 +96,7 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual(mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=31))], now), [])
         self.assertEqual(mod.carryover_rows([], [row("b", published=now - timedelta(days=31))], now), [])
 
-    def test_live_rows_rank_before_reserve_and_pool_caps_at_100(self):
+    def test_live_rows_rank_before_reserve_and_pool_caps_at_150(self):
         now = datetime.now(timezone.utc)
         live = row("live", tier="review", company="Live", score=70)
         reserve = row("reserve", tier="review", company="Reserve", score=95, last_seen=now - timedelta(days=2))
@@ -104,9 +104,13 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual([x["id"] for x in got["jobs"]], ["live", "reserve"])
         self.assertEqual(got["candidate_reserve_max_days"], 30)
 
-        rows = [row(str(i), company=f"Company {i}", title=f"Role {i}") for i in range(130)]
+        rows = [row(str(i), company=f"Company {i}", title=f"Role {i}") for i in range(180)]
         capped = mod.process({"generated_at": now.isoformat(), "candidate_display_target": 100, "jobs": rows}, None)
-        self.assertEqual(len(capped["jobs"]), 100)
+        self.assertEqual(mod.POOL_LIMIT, 150)
+        self.assertEqual(len(capped["jobs"]), 150)
+        self.assertEqual(capped["candidate_pool_size"], 150)
+        self.assertEqual(capped["candidate_postprocess_pool_limit"], 150)
+        self.assertFalse(capped["pool_under_display_target"])
 
 
 if __name__ == "__main__":
