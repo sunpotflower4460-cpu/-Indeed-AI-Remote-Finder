@@ -1,0 +1,11 @@
+{
+  "name":"AI Remote Finder",
+  "short_name":"AI Jobs",
+  "description":"AIで代替しやすい可能性が高い完全リモート求人候補に特化したPWA",
+  "start_url":"./",
+  "scope":"./",
+  "display":"standalone",
+  "background_color":"#06101d",
+  "theme_color":"#07111f",
+  "icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
