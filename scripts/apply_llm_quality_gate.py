@@ -5,13 +5,14 @@ This gate is deliberately asymmetric. Missing LLM coverage never removes a
 candidate, so provider/API outages cannot empty the deterministic feed. It does,
 however, reject two classes of explicit mismatch before publication:
 
-1. Listing text that requires a human to remain continuously present/online,
-   wait for work, monitor in real time, or respond within an immediate SLA.
+1. Listing text that explicitly requires the *human worker* to remain present,
+   observable, at their desk/device, or available for human identity checks.
 2. An available LLM audit that confirms physical, synchronous, human-dependent,
    or materially low-automation work.
 
-A fixed work schedule by itself is NOT a blocker: software can run on a schedule.
-The blocker is an explicit requirement for continuous human attention.
+A fixed schedule, an always-on software session, or a fast machine-response SLA
+is NOT enough by itself: unattended software can satisfy those technically. The
+presence blocker must imply that the person themselves must stay available.
 """
 from __future__ import annotations
 
@@ -24,80 +25,110 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
 PRESENCE_GATE_VERSION = 1
 
-# Explicit continuous-presence wording. Keep this narrow: ordinary fixed hours,
-# deadlines, or scheduled batch work are not enough to reject a role.
+# Human-presence requirements that software cannot satisfy merely by remaining
+# logged in. Keep this narrow so automatable always-on jobs are not discarded.
 PRESENCE_BLOCKERS = (
-    "常時ログイン",
-    "常時オンライン",
-    "常時接続",
-    "常時待機",
-    "オンライン待機",
-    "待機業務",
-    "リアルタイム監視",
-    "リアルタイムで監視",
-    "即時対応必須",
-    "即時応答必須",
-    "即レス必須",
-    "always online",
-    "stay online",
-    "remain online",
-    "continuous monitoring",
-    "real-time monitoring",
-    "live monitoring",
-    "immediate response required",
-    "online throughout the shift",
+    "カメラ常時on",
+    "カメラ常時オン",
+    "常時カメラon",
+    "常時カメラオン",
+    "webカメラ常時on",
+    "webカメラ常時オン",
+    "zoom常時接続",
+    "teams常時接続",
+    "meet常時接続",
+    "画面共有常時",
+    "常時画面共有",
+    "pc前で待機",
+    "pcの前で待機",
+    "パソコン前で待機",
+    "パソコンの前で待機",
+    "端末前で待機",
+    "在席必須",
+    "在席確認",
+    "離席不可",
+    "離席禁止",
+    "本人が即時応答",
+    "本人による即時応答",
+    "本人確認に随時対応",
+    "camera on throughout",
+    "webcam on throughout",
+    "continuous screen sharing",
+    "must remain at your computer",
+    "must stay at your desk",
+    "presence monitoring",
+    "random attendance checks",
+    "random check-ins",
 )
 
 PRESENCE_NEGATIONS = (
-    "常時ログイン不要",
-    "常時ログインは不要",
-    "常時オンライン不要",
-    "常時オンラインは不要",
-    "常時接続不要",
-    "常時接続は不要",
-    "オンライン待機なし",
-    "オンライン待機不要",
-    "待機業務なし",
-    "待機業務ではありません",
-    "リアルタイム監視なし",
-    "リアルタイム監視不要",
-    "即時対応不要",
-    "即時応答不要",
-    "即レス不要",
-    "no need to stay online",
-    "no continuous monitoring",
-    "no real-time monitoring",
-    "no immediate response required",
+    "カメラ常時on不要",
+    "カメラ常時オン不要",
+    "カメラ常時onではありません",
+    "カメラ常時オンではありません",
+    "zoom常時接続不要",
+    "teams常時接続不要",
+    "画面共有常時不要",
+    "常時画面共有不要",
+    "pc前待機不要",
+    "パソコン前待機不要",
+    "在席必須ではありません",
+    "在席確認なし",
+    "在席確認不要",
+    "離席可能",
+    "離席可",
+    "no webcam requirement",
+    "camera does not need to stay on",
+    "no continuous screen sharing",
+    "no presence monitoring",
+    "no attendance checks",
 )
 
 PRESENCE_PATTERNS = (
     re.compile(
-        r"(?:勤務|稼働|シフト)[^。\n]{0,28}(?:常時|ずっと|常に)[^。\n]{0,16}"
-        r"(?:オンライン|ログイン|接続|待機)",
+        r"(?:カメラ|webカメラ|webcam|zoom|teams|google\s*meet|meet|画面共有)"
+        r"[^。\n]{0,24}(?:常時|ずっと|常に|勤務中|稼働中)[^。\n]{0,16}"
+        r"(?:on|オン|接続|共有|必須|必要)",
         re.I,
     ),
     re.compile(
-        r"(?:勤務|稼働|シフト)[^。\n]{0,28}(?:オンライン|ログイン|接続)[^。\n]{0,16}"
-        r"(?:必須|必要)",
+        r"(?:勤務|稼働|シフト)[^。\n]{0,30}(?:カメラ|webcam|画面共有)"
+        r"[^。\n]{0,16}(?:on|オン|接続|共有|必須|必要)",
         re.I,
     ),
-    re.compile(r"(?:5|10|15|20|30)[分分]\s*以内[^。\n]{0,12}(?:返信|応答|回答|対応)", re.I),
-    re.compile(r"respond\s+within\s+\d{1,2}\s+minutes?", re.I),
-    re.compile(r"(?:must|required to)\s+(?:stay|remain)\s+online", re.I),
+    re.compile(
+        r"(?:pc|パソコン|端末|デスク|席)[^。\n]{0,14}(?:前|に|で)"
+        r"[^。\n]{0,12}(?:待機|在席|離席不可|離席禁止)",
+        re.I,
+    ),
+    re.compile(
+        r"(?:ランダム|随時|不定期)[^。\n]{0,18}(?:在席確認|本人確認|呼び出し)"
+        r"[^。\n]{0,18}(?:即時|すぐ|応答|対応)",
+        re.I,
+    ),
+    re.compile(
+        r"(?:本人|作業者|担当者)[^。\n]{0,18}(?:5|10|15|20|30|５|１０|１５|２０|３０)"
+        r"\s*分\s*以内[^。\n]{0,12}(?:返信|応答|回答|対応)",
+        re.I,
+    ),
+    re.compile(r"(?:must|required to)\s+(?:remain|stay)\s+(?:at|by)\s+(?:your\s+)?(?:computer|desk)", re.I),
 )
 
 LLM_PRESENCE_TERMS = (
-    "常時",
-    "リアルタイム",
-    "即時",
-    "待機",
-    "オンコール",
-    "real-time",
-    "realtime",
-    "immediate",
-    "standby",
-    "always online",
-    "on-call",
+    "本人待機",
+    "人間の待機",
+    "在席",
+    "カメラ",
+    "webcam",
+    "画面共有",
+    "本人確認",
+    "離席不可",
+    "human standby",
+    "human presence",
+    "at the desk",
+    "at the computer",
+    "attendance check",
+    "presence monitoring",
 )
 
 
@@ -108,12 +139,11 @@ def _row_text(row: dict) -> str:
 
 
 def presence_requirement_signal(row: dict) -> str | None:
-    """Return explicit continuous-human-presence evidence, if any."""
+    """Return explicit human-presence evidence, if any."""
     if not isinstance(row, dict):
         return None
     text = _row_text(row)
     scrubbed = text
-    # Remove explicit negations before searching positive blocker phrases.
     for phrase in PRESENCE_NEGATIONS:
         scrubbed = scrubbed.replace(phrase.lower(), " ")
 
@@ -163,7 +193,7 @@ def llm_reject_reason(row: dict) -> str | None:
         return "confirmed-low-automation"
     blocker_text = " ".join(blockers).lower()
     if confidence >= 75 and any(term.lower() in blocker_text for term in LLM_PRESENCE_TERMS):
-        return "confirmed-continuous-presence"
+        return "confirmed-human-presence"
     if confidence >= 85 and blockers and automatable < 90:
         return "confirmed-material-blocker"
     return None
@@ -181,9 +211,9 @@ def apply(payload: dict) -> dict:
         return payload
     kept: list[dict] = []
     dropped: list[dict] = []
-    reasons: dict[str, int] = {}
-    presence_dropped = 0
-    llm_dropped = 0
+    all_reasons: dict[str, int] = {}
+    presence_reasons: dict[str, int] = {}
+    llm_reasons: dict[str, int] = {}
 
     for row in jobs:
         if not isinstance(row, dict):
@@ -196,19 +226,21 @@ def apply(payload: dict) -> dict:
             kept.append(row)
             continue
         dropped.append(row)
-        reasons[reason] = reasons.get(reason, 0) + 1
+        all_reasons[reason] = all_reasons.get(reason, 0) + 1
         if reason == "continuous-human-presence":
-            presence_dropped += 1
+            presence_reasons[reason] = presence_reasons.get(reason, 0) + 1
         else:
-            llm_dropped += 1
+            llm_reasons[reason] = llm_reasons.get(reason, 0) + 1
 
     payload["jobs"] = kept
     payload["candidate_presence_gate_version"] = PRESENCE_GATE_VERSION
     payload["candidate_requires_no_continuous_human_presence"] = True
     payload["quality_gate_dropped"] = len(dropped)
-    payload["presence_quality_dropped"] = presence_dropped
-    payload["llm_quality_dropped"] = llm_dropped
-    payload["llm_quality_drop_reasons"] = reasons
+    payload["quality_gate_drop_reasons"] = all_reasons
+    payload["presence_quality_dropped"] = sum(presence_reasons.values())
+    payload["presence_quality_drop_reasons"] = presence_reasons
+    payload["llm_quality_dropped"] = sum(llm_reasons.values())
+    payload["llm_quality_drop_reasons"] = llm_reasons
     payload["candidate_pool_size"] = len(kept)
     payload["live_jobs"] = sum(
         1 for row in kept if isinstance(row, dict) and not row.get("carryover")
