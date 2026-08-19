@@ -22,10 +22,13 @@ class AcquisitionSupplyTests(unittest.TestCase):
         names = [name for name, _ in profiles]
         self.assertEqual(len(names), len(set(names)))
 
-    def test_queries_remain_remote_and_task_focused(self):
+    def test_discovery_uses_broad_remote_terms_but_stays_task_focused(self):
+        self.assertIn("在宅ワーク", mod.DISCOVERY_REMOTE_QUERY)
+        self.assertIn("リモートワーク", mod.DISCOVERY_REMOTE_QUERY)
+        self.assertIn("完全在宅", mod.DISCOVERY_REMOTE_QUERY)
         forbidden = ("電話営業", "テレアポ", "接客", "訪問営業", "コールセンター")
         for name, query in mod.PRODUCTION_QUERY_PROFILES:
-            self.assertIn("リモート", query, name)
+            self.assertTrue(any(term in query for term in ("在宅", "リモート", "remote")), name)
             for term in forbidden:
                 self.assertNotIn(term, query, name)
 
