@@ -36,6 +36,12 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual(got[0]["duplicate_count"], 2)
         self.assertEqual(set(got[0]["alternate_locations"]), {"Tokyo", "Osaka"})
 
+    def test_same_title_without_company_does_not_collapse(self):
+        rows = [row("a", company="", location="Tokyo"), row("b", company="", location="Osaka")]
+        got, removed = mod.dedupe_rows(rows)
+        self.assertEqual(len(got), 2)
+        self.assertEqual(removed, 0)
+
     def test_recent_missing_job_is_carried_as_review(self):
         now = datetime.now(timezone.utc)
         carried = mod.carryover_rows([], [row("a", last_seen=now - timedelta(hours=8))], now)
