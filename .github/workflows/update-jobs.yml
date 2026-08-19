@@ -2,7 +2,7 @@ name: Update job candidates
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 */8 * * *'
+    - cron: '17 0,12 * * *'
   push:
     branches: ["main"]
     paths:
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -32,20 +32,18 @@ jobs:
           if [ -n "$OPENAI_API_KEY" ]; then echo "OpenAI: configured"; else echo "OpenAI: not configured"; fi
       - name: Run quality tests
         run: python -m unittest discover -s tests -q
-      - name: Preserve previous feed for carryover and LLM cache
+      - name: Preserve previous feed for rolling pool and LLM cache
         run: cp data/jobs.json /tmp/previous-jobs.json
-      - name: Refresh candidates
+      - name: Refresh rolling candidate pool
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
-        run: python scripts/fetch_jobs.py
-      - name: Deduplicate and guard against one flaky refresh
+          SERPAPI_MONTHLY_SEARCH_CAP: '225'
+        run: python scripts/fetch_pool.py
+      - name: Merge live results with reserve pool
         run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
       - name: Optional LLM second-opinion audit
         id: llm_audit
         continue-on-error: true
-        # Eight sequential requests each have a 60-second network timeout.
-        # Ten minutes leaves enough room for the configured worst case so a
-        # normal slow provider response cannot erase the reusable cache midway.
         timeout-minutes: 10
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -66,9 +64,6 @@ jobs:
           OPENAI_MODEL: gpt-5.6-luna
         run: |
           cp data/jobs.json /tmp/llm-failed-state.json
-          # max-new-reviews=0 guarantees this recovery cannot make another paid
-          # request. It only reattaches compatible reviews from the current or
-          # previous feed after a timeout/provider failure.
           python scripts/llm_review.py --previous /tmp/previous-jobs.json --max-new-reviews 0 --max-paid-attempts-per-month 700 >/tmp/llm-cache-recovery.out 2>/tmp/llm-cache-recovery.err || true
           python - <<'PY'
           import json
@@ -78,11 +73,6 @@ jobs:
           failed_path = Path("/tmp/llm-failed-state.json")
           current = json.loads(current_path.read_text(encoding="utf-8"))
           failed = json.loads(failed_path.read_text(encoding="utf-8"))
-
-          # If llm_review.py completed its own write before returning an error,
-          # keep its accurate counters/diagnostics. If it was killed before the
-          # final write, conservatively reserve up to one full run (8 attempts)
-          # in the monthly guard so repeated timeouts cannot silently overspend.
           completed_write = "llm_paid_attempts_month" in failed
           if completed_write:
               for key in (
@@ -104,10 +94,7 @@ jobs:
                   current.get("llm_provider_configured") is True
                   and current["llm_paid_attempts_month"] >= cap
               )
-
-          current_path.write_text(
-              json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8"
-          )
+          current_path.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
           PY
       - name: Redact public LLM diagnostics
         if: always()
@@ -145,33 +132,18 @@ jobs:
                   if item_status is not None:
                       status, error_type, error_code = item_status, item_type, item_code
                       break
-
-          # Provider failures are optional enrichment failures, not feed-fatal
-          # errors. Preserve only safe diagnostics and clear the fatal marker so
-          # the validated deterministic feed can still be committed.
           data["llm_error_status"] = status
           data["llm_error_type"] = error_type
           data["llm_error_code"] = error_code
           data["llm_fatal_error"] = None
-
           safe_errors = []
           for item in raw_errors:
               item_status, _, _ = classify(item)
               job_match = re.match(r"^([^:]+):", str(item))
               job_id = job_match.group(1) if job_match else "job"
-              safe_errors.append(
-                  f"{job_id}: OpenAI HTTP {item_status}" if item_status else f"{job_id}: LLM audit error"
-              )
+              safe_errors.append(f"{job_id}: OpenAI HTTP {item_status}" if item_status else f"{job_id}: LLM audit error")
           data["llm_errors"] = safe_errors[:8]
-
           path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-          if data.get("llm_review_failures"):
-              print(
-                  "LLM diagnostics redacted: "
-                  f"failures={data.get('llm_review_failures')} "
-                  f"status={data.get('llm_error_status')} "
-                  f"type={data.get('llm_error_type')} code={data.get('llm_error_code')}"
-              )
           PY
       - name: Validate generated feed
         run: |
