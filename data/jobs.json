@@ -1,7 +1,7 @@
 {
-  "generated_at": null,
-  "query_success": 0,
-  "query_total": 0,
+  "generated_at": "2026-08-19T08:00:10.649391+00:00",
+  "query_success": 12,
+  "query_total": 12,
   "errors": [],
   "method": "public-search-index-only",
   "jobs": []
