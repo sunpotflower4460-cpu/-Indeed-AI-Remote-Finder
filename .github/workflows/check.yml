@@ -33,6 +33,7 @@ jobs:
         run: |
           python - <<'PY'
           import importlib.util
+          import json
           import os
           import sys
           from pathlib import Path
@@ -67,7 +68,19 @@ jobs:
           try:
               review = mod.call_openai(row, key, os.environ.get("OPENAI_MODEL", mod.DEFAULT_MODEL))
           except mod.OpenAIRequestError as exc:
-              print(f"OpenAI live smoke failed: HTTP {exc.status}", file=sys.stderr)
+              error_type = "unknown"
+              error_code = "unknown"
+              try:
+                  payload = json.loads(exc.detail)
+                  err = payload.get("error") or {}
+                  error_type = str(err.get("type") or "unknown")
+                  error_code = str(err.get("code") or "unknown")
+              except Exception:
+                  pass
+              print(
+                  f"OpenAI live smoke failed: HTTP {exc.status} type={error_type} code={error_code}",
+                  file=sys.stderr,
+              )
               raise SystemExit(3)
           except Exception as exc:
               print(f"OpenAI live smoke failed: {type(exc).__name__}", file=sys.stderr)
