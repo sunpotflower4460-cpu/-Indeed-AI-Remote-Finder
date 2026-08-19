@@ -17,7 +17,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -41,8 +41,12 @@ jobs:
       - name: Deduplicate and guard against one flaky refresh
         run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
       - name: Optional LLM second-opinion audit
+        id: llm_audit
         continue-on-error: true
-        timeout-minutes: 3
+        # Eight sequential requests each have a 60-second network timeout.
+        # Ten minutes leaves enough room for the configured worst case so a
+        # normal slow provider response cannot erase the reusable cache midway.
+        timeout-minutes: 10
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: gpt-5.6-luna
@@ -55,6 +59,56 @@ jobs:
             echo "LLM audit returned non-zero status $status; detailed provider error is intentionally hidden."
           fi
           exit "$status"
+      - name: Recover reusable LLM cache after interrupted audit
+        if: always() && steps.llm_audit.outcome != 'success'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: gpt-5.6-luna
+        run: |
+          cp data/jobs.json /tmp/llm-failed-state.json
+          # max-new-reviews=0 guarantees this recovery cannot make another paid
+          # request. It only reattaches compatible reviews from the current or
+          # previous feed after a timeout/provider failure.
+          python scripts/llm_review.py --previous /tmp/previous-jobs.json --max-new-reviews 0 --max-paid-attempts-per-month 700 >/tmp/llm-cache-recovery.out 2>/tmp/llm-cache-recovery.err || true
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          current_path = Path("data/jobs.json")
+          failed_path = Path("/tmp/llm-failed-state.json")
+          current = json.loads(current_path.read_text(encoding="utf-8"))
+          failed = json.loads(failed_path.read_text(encoding="utf-8"))
+
+          # If llm_review.py completed its own write before returning an error,
+          # keep its accurate counters/diagnostics. If it was killed before the
+          # final write, conservatively reserve up to one full run (8 attempts)
+          # in the monthly guard so repeated timeouts cannot silently overspend.
+          completed_write = "llm_paid_attempts_month" in failed
+          if completed_write:
+              for key in (
+                  "llm_new_reviews",
+                  "llm_reused_reviews",
+                  "llm_review_failures",
+                  "llm_fatal_error",
+                  "llm_errors",
+                  "llm_paid_attempts_month",
+              ):
+                  if key in failed:
+                      current[key] = failed[key]
+          else:
+              cap = int(current.get("llm_max_paid_attempts_per_month") or 700)
+              attempts = int(current.get("llm_paid_attempts_month") or 0)
+              current["llm_paid_attempts_month"] = min(cap, attempts + 8)
+              current["llm_attempts_uncertain"] = True
+              current["llm_monthly_budget_exhausted"] = bool(
+                  current.get("llm_provider_configured") is True
+                  and current["llm_paid_attempts_month"] >= cap
+              )
+
+          current_path.write_text(
+              json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          PY
       - name: Redact public LLM diagnostics
         if: always()
         run: |
