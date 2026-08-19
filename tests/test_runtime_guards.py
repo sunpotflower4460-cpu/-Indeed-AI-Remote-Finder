@@ -46,7 +46,6 @@ class RuntimeGuardTests(unittest.TestCase):
             "PRESENCE_GATE_VERSION = 1",
         ):
             self.assertIn(needle, gate)
-        # Generic software availability is intentionally not a hard blocker.
         self.assertNotIn('    "常時ログイン",', gate)
         self.assertNotIn('    "オンライン待機",', gate)
         self.assertIn("presence_requirement_signal", validator)
@@ -58,10 +57,7 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn("presenceGateCacheMigrationV1", index)
         self.assertIn("localStorage.removeItem('candidateCacheV3')", index)
         self.assertIn("localStorage.setItem(migration,'1')", index)
-        self.assertLess(
-            index.index("presenceGateCacheMigrationV1"),
-            index.index('<script src="./app.js"></script>'),
-        )
+        self.assertLess(index.index("presenceGateCacheMigrationV1"), index.index('<script src="./app.js"></script>'))
 
     def test_production_update_uses_strict_remote_validator(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
@@ -100,7 +96,10 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn("REVIEW_HUMAN_RISK_MAX = 18", quality)
         self.assertIn("REVIEW_AUTOMATION_SIGNAL_MIN = 2", quality)
         self.assertIn("explicit_full_remote_evidence", quality)
-        self.assertIn("RICH_SNIPPET_MAX = 2400", quality)
+        self.assertIn("RICH_SNIPPET_MAX = 6000", quality)
+        self.assertIn("human_presence_blocker", quality)
+        self.assertIn('row["full_listing_presence_screened"] = True', quality)
+        self.assertIn('payload["candidate_full_listing_presence_screened"] = True', quality)
         self.assertIn("remote_api_filter=False", quality)
 
     def test_ai_substitution_policy_excludes_synchronous_attention_work(self):
