@@ -58,11 +58,19 @@ class LlmReviewTests(unittest.TestCase):
         self.assertEqual(body["reasoning"], {"effort": "none"})
         self.assertFalse(body["store"])
         self.assertEqual(body["max_output_tokens"], 900)
+        self.assertNotIn("freshness_confidence", body["input"])
 
     def test_input_hash_changes_with_material_text(self):
         a = mod.input_hash(job(snippet="データ入力と転記"))
         b = mod.input_hash(job(snippet="電話営業と顧客対応"))
         self.assertNotEqual(a, b)
+
+    def test_input_hash_ignores_freshness_only_changes(self):
+        a = job()
+        b = job()
+        a["freshness_confidence"] = 98
+        b["freshness_confidence"] = 52
+        self.assertEqual(mod.input_hash(a), mod.input_hash(b))
 
     def test_input_hash_changes_when_review_policy_changes(self):
         row = job()
@@ -109,6 +117,29 @@ class LlmReviewTests(unittest.TestCase):
         self.assertEqual(got["llm_reviewed_jobs"], 1)
         self.assertEqual(got["llm_reused_reviews"], 1)
         self.assertTrue(got["jobs"][0]["llm_strict_pass"])
+
+    def test_freshness_change_reuses_previous_review_without_api(self):
+        previous_row = job()
+        previous_row["freshness_confidence"] = 98
+        digest = mod.input_hash(previous_row)
+        previous_row.update(
+            {
+                "llm_input_hash": digest,
+                "llm_model": "test-model",
+                "llm_review": {**good_review(), "strict_pass": True},
+            }
+        )
+        current_row = job()
+        current_row["freshness_confidence"] = 70
+        with patch.object(mod, "call_openai", side_effect=AssertionError("must reuse cache")):
+            got = mod.enrich(
+                {"jobs": [current_row]},
+                {"jobs": [previous_row]},
+                api_key="fake-key",
+                model="test-model",
+            )
+        self.assertEqual(got["llm_new_reviews"], 0)
+        self.assertEqual(got["llm_reused_reviews"], 1)
 
     def test_model_change_does_not_reuse_old_review_when_api_enabled(self):
         row = job()

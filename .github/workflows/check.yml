@@ -17,9 +17,11 @@ jobs:
       - name: Python tests
         run: python -m unittest discover -s tests -q
       - name: Python syntax
-        run: python -m py_compile scripts/fetch_jobs.py scripts/postprocess_feed.py scripts/llm_review.py scripts/validate_feed.py
+        run: python -m py_compile scripts/fetch_jobs.py scripts/postprocess_feed.py scripts/llm_review.py scripts/validate_feed.py scripts/validate_remote_feed.py
       - name: Validate current feed
-        run: python scripts/validate_feed.py
+        run: |
+          python scripts/validate_feed.py
+          python scripts/validate_remote_feed.py
       - name: Validate manifest JSON
         run: python -m json.tool manifest.webmanifest > /dev/null
       - name: JavaScript syntax
