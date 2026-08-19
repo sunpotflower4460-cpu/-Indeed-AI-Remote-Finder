@@ -27,6 +27,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
 DEFAULT_MODEL = "gpt-5.6-luna"
 DEFAULT_MAX_NEW_REVIEWS = 8
+DEFAULT_MAX_PAID_ATTEMPTS_PER_MONTH = 700
+REASONING_EFFORT = "none"
 
 SCHEMA = {
     "type": "object",
@@ -79,6 +81,13 @@ Rules:
 - questions_to_confirm should be concise, at most 5 items.
 Return only the schema-defined result.
 """
+
+
+class OpenAIRequestError(RuntimeError):
+    def __init__(self, status: int, detail: str):
+        self.status = status
+        self.detail = detail
+        super().__init__(f"OpenAI HTTP {status}: {detail}")
 
 
 def load_json(path: Path) -> dict:
@@ -195,10 +204,11 @@ def normalize_review(raw: dict) -> dict:
     return review
 
 
-def call_openai(row: dict, api_key: str, model: str) -> dict:
-    body = {
+def request_body(row: dict, model: str) -> dict:
+    return {
         "model": model,
         "store": False,
+        "reasoning": {"effort": REASONING_EFFORT},
         "instructions": INSTRUCTIONS,
         "input": json.dumps(job_input(row), ensure_ascii=False),
         "text": {
@@ -211,6 +221,10 @@ def call_openai(row: dict, api_key: str, model: str) -> dict:
         },
         "max_output_tokens": 900,
     }
+
+
+def call_openai(row: dict, api_key: str, model: str) -> dict:
+    body = request_body(row, model)
     request = urllib.request.Request(
         "https://api.openai.com/v1/responses",
         data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
@@ -218,7 +232,7 @@ def call_openai(row: dict, api_key: str, model: str) -> dict:
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent": "AI-Remote-Finder/5.1",
+            "User-Agent": "AI-Remote-Finder/5.2",
         },
     )
     try:
@@ -226,21 +240,43 @@ def call_openai(row: dict, api_key: str, model: str) -> dict:
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:800]
-        raise RuntimeError(f"OpenAI HTTP {exc.code}: {detail}") from exc
+        raise OpenAIRequestError(exc.code, detail) from exc
     return normalize_review(json.loads(extract_output_text(payload)))
 
 
-def reusable_review(row: dict, expected_hash: str) -> tuple[dict, str] | None:
+def reusable_review(
+    row: dict,
+    expected_hash: str,
+    expected_model: str | None = None,
+) -> tuple[dict, str] | None:
     review = row.get("llm_review")
     old_hash = str(row.get("llm_input_hash") or "")
     model = str(row.get("llm_model") or "")
     if old_hash != expected_hash or not isinstance(review, dict) or not model:
+        return None
+    if expected_model and model != expected_model:
         return None
     try:
         normalized = normalize_review(review)
     except Exception:
         return None
     return normalized, model
+
+
+def month_key(now: datetime | None = None) -> str:
+    return (now or datetime.now(timezone.utc)).astimezone(timezone.utc).strftime("%Y-%m")
+
+
+def prior_month_attempts(current: dict, previous: dict, month: str) -> int:
+    values: list[int] = []
+    for source in (current, previous):
+        if str(source.get("llm_budget_month") or "") != month:
+            continue
+        try:
+            values.append(max(0, int(source.get("llm_paid_attempts_month") or 0)))
+        except Exception:
+            continue
+    return max(values, default=0)
 
 
 def enrich(
@@ -250,6 +286,7 @@ def enrich(
     api_key: str,
     model: str,
     max_new_reviews: int = DEFAULT_MAX_NEW_REVIEWS,
+    max_paid_attempts_per_month: int = DEFAULT_MAX_PAID_ATTEMPTS_PER_MONTH,
 ) -> dict:
     jobs = payload.get("jobs") or []
     prev_by_id = {
@@ -259,6 +296,12 @@ def enrich(
     }
     new_reviews = reused = failures = skipped_non_high = 0
     errors: list[str] = []
+    fatal_error: str | None = None
+    stop_after_transient_error = False
+    month = month_key()
+    monthly_cap = max(0, int(max_paid_attempts_per_month))
+    paid_attempts_month = prior_month_attempts(payload, previous, month)
+    required_model = model if api_key else None
 
     for row in jobs:
         if not isinstance(row, dict) or not row.get("id"):
@@ -267,7 +310,7 @@ def enrich(
         candidates = [row, prev_by_id.get(str(row["id"])) or {}]
         reused_value = None
         for candidate in candidates:
-            reused_value = reusable_review(candidate, digest)
+            reused_value = reusable_review(candidate, digest, required_model)
             if reused_value:
                 break
         if reused_value:
@@ -289,6 +332,12 @@ def enrich(
             continue
         if not api_key or new_reviews >= max_new_reviews:
             continue
+        if fatal_error or stop_after_transient_error:
+            continue
+        if paid_attempts_month >= monthly_cap:
+            continue
+
+        paid_attempts_month += 1
         try:
             review = call_openai(row, api_key, model)
             row["llm_review"] = review
@@ -297,15 +346,25 @@ def enrich(
             row["llm_reviewed_at"] = datetime.now(timezone.utc).isoformat()
             row["llm_strict_pass"] = bool(review.get("strict_pass"))
             new_reviews += 1
+        except OpenAIRequestError as exc:
+            failures += 1
+            errors.append(f"{row.get('id')}: {exc}")
+            print(f"WARN LLM review failed [{row.get('id')}]: {exc}", file=sys.stderr)
+            if 400 <= exc.status < 500:
+                fatal_error = str(exc)
+            else:
+                stop_after_transient_error = True
         except Exception as exc:
             failures += 1
             errors.append(f"{row.get('id')}: {exc}")
             print(f"WARN LLM review failed [{row.get('id')}]: {exc}", file=sys.stderr)
+            stop_after_transient_error = True
 
     reviewed = sum(1 for row in jobs if isinstance(row, dict) and isinstance(row.get("llm_review"), dict))
     strict = sum(1 for row in jobs if isinstance(row, dict) and row.get("llm_strict_pass") is True)
     payload["llm_provider_configured"] = bool(api_key)
     payload["llm_model"] = model if api_key or reviewed else None
+    payload["llm_reasoning_effort"] = REASONING_EFFORT
     payload["llm_reviewed_jobs"] = reviewed
     payload["llm_strict_jobs"] = strict
     payload["llm_new_reviews"] = new_reviews
@@ -313,6 +372,11 @@ def enrich(
     payload["llm_review_failures"] = failures
     payload["llm_skipped_non_high"] = skipped_non_high
     payload["llm_max_new_reviews_per_run"] = max_new_reviews
+    payload["llm_budget_month"] = month
+    payload["llm_paid_attempts_month"] = paid_attempts_month
+    payload["llm_max_paid_attempts_per_month"] = monthly_cap
+    payload["llm_monthly_budget_exhausted"] = bool(api_key and paid_attempts_month >= monthly_cap)
+    payload["llm_fatal_error"] = fatal_error
     payload["llm_errors"] = errors[:8]
     return payload
 
@@ -322,6 +386,11 @@ def main() -> None:
     parser.add_argument("--feed", type=Path, default=DEFAULT_FEED)
     parser.add_argument("--previous", type=Path)
     parser.add_argument("--max-new-reviews", type=int, default=DEFAULT_MAX_NEW_REVIEWS)
+    parser.add_argument(
+        "--max-paid-attempts-per-month",
+        type=int,
+        default=DEFAULT_MAX_PAID_ATTEMPTS_PER_MONTH,
+    )
     args = parser.parse_args()
 
     payload = load_json(args.feed)
@@ -338,18 +407,23 @@ def main() -> None:
         api_key=api_key,
         model=model,
         max_new_reviews=max(0, args.max_new_reviews),
+        max_paid_attempts_per_month=max(0, args.max_paid_attempts_per_month),
     )
     args.feed.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     if api_key:
         print(
             f"LLM audit: reviewed={payload['llm_reviewed_jobs']} strict={payload['llm_strict_jobs']} "
             f"new={payload['llm_new_reviews']} reused={payload['llm_reused_reviews']} "
+            f"attempts_month={payload['llm_paid_attempts_month']}/{payload['llm_max_paid_attempts_per_month']} "
             f"skipped_non_high={payload['llm_skipped_non_high']} failures={payload['llm_review_failures']}"
         )
     else:
         print(
             f"OPENAI_API_KEY not configured; preserved {payload['llm_reviewed_jobs']} reusable LLM reviews."
         )
+    if payload.get("llm_fatal_error"):
+        print(f"ERROR: {payload['llm_fatal_error']}", file=sys.stderr)
+        raise SystemExit(3)
 
 
 if __name__ == "__main__":
