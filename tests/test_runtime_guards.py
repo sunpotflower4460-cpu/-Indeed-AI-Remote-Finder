@@ -108,7 +108,6 @@ class RuntimeGuardTests(unittest.TestCase):
             self.assertIn(needle, adapter)
         for needle in ('"有人監視"', '"監視オペレーター"', "AUTONOMY_HUMAN_CONTEXT_PATTERNS"):
             self.assertIn(needle, adapter)
-        # Generic real-time machine work must not be a bare hard blocker.
         self.assertNotIn('    "常時監視",', adapter)
         self.assertNotIn('    "リアルタイム監視",', adapter)
         self.assertNotIn('    "即時対応",', adapter)
@@ -133,14 +132,20 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertNotIn("*/8", workflow)
         self.assertIn("DEEP_REQUESTS = 7", supply)
 
-    def test_client_migrates_to_v3_cache_and_v2_quality_gate(self):
+    def test_client_cache_requires_server_quality_parity(self):
         app = (ROOT / "app.js").read_text(encoding="utf-8")
-        self.assertIn("candidateCacheV3", app)
-        self.assertNotIn("candidateCacheV2", app)
+        self.assertIn("candidateCacheV4", app)
+        self.assertNotIn("candidateCacheV3", app)
         self.assertIn("QUALITY_POLICY_VERSION=2", app)
         self.assertIn("QUALITY_GATE='async-ai-remote-v2'", app)
+        self.assertIn("PRESENCE_GATE_VERSION=1", app)
         self.assertIn("REVIEW_AUTOMATION_MIN=64", app)
         self.assertIn("REVIEW_HUMAN_RISK_MAX=18", app)
+        self.assertIn("automatable<75", app)
+        self.assertIn("synchronous_human_interaction==='occasional'", app)
+        self.assertIn("human_dependency==='medium'", app)
+        self.assertIn("full_listing_presence_screened!==true", app)
+        self.assertIn("continuous_presence_risk!=='low'", app)
         self.assertIn("llmQualityRejected", app)
         self.assertIn("qualityEligible", app)
 
@@ -160,7 +165,7 @@ class RuntimeGuardTests(unittest.TestCase):
 
     def test_service_worker_rotated_and_awaits_cache_writes(self):
         sw = (ROOT / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("ai-remote-finder-v11", sw)
+        self.assertIn("ai-remote-finder-v12", sw)
         self.assertIn("await cache.put(key,response)", sw)
         self.assertIn("cacheKey:DATA_URL", sw)
         self.assertIn("cacheKey:INDEX_URL", sw)
