@@ -24,12 +24,33 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
         ordinary = set(mod.base.ANCHOR_QUERY_PROFILES)
         experimental = set(mod.EXPERIMENTAL_ANCHORS)
         self.assertTrue(ordinary.issubset(experimental))
-        biased = [(name, query) for name, query in mod.EXPERIMENTAL_ANCHORS if name.startswith("anchor_indeed_")]
+        biased = [(name, query) for name, query in mod.INDEED_BIAS_ANCHORS]
         self.assertEqual(len(biased), 4)
         for name, query in biased:
             self.assertIn("Indeed", query, name)
             self.assertNotIn(" OR ", query, name)
             self.assertLessEqual(len(query), 40, name)
+
+    def test_every_daily_window_has_ordinary_and_indeed_probe(self):
+        profiles = mod.PRODUCTION_QUERY_PROFILES
+        size = len(profiles)
+        self.assertGreaterEqual(size, mod.base.DEEP_REQUESTS)
+        for start in range(size):
+            window = [profiles[(start + offset) % size][0] for offset in range(mod.base.DEEP_REQUESTS)]
+            self.assertTrue(
+                any(name.startswith("anchor_indeed_") for name in window),
+                f"missing Indeed probe start={start} window={window}",
+            )
+            self.assertTrue(
+                any(name.startswith("anchor_") and not name.startswith("anchor_indeed_") for name in window),
+                f"missing ordinary anchor start={start} window={window}",
+            )
+
+    def test_rotation_keeps_same_seven_request_budget(self):
+        mod.base.PRODUCTION_QUERY_PROFILES = list(mod.PRODUCTION_QUERY_PROFILES)
+        mod.base.configure_supply_rotation()
+        self.assertEqual(mod.acquisition.MAX_REQUESTS_PER_RUN, 7)
+        self.assertEqual(mod.acquisition.request_limit_for_pool(0), 7)
 
     def test_telemetry_counts_apply_sources_without_persisting_urls(self):
         job = {
@@ -42,6 +63,7 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
         }
         mod.observe_job(job, "anchor_indeed_data_08")
         got = mod.yield_snapshot()
+        self.assertEqual(got["candidate_yield_telemetry_version"], 2)
         self.assertEqual(got["candidate_yield_jobs_seen"], 1)
         self.assertEqual(got["candidate_jobs_with_apply_options"], 1)
         self.assertEqual(got["candidate_jobs_with_indeed_apply"], 1)
