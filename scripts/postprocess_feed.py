@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Post-process the refreshed feed for stability and usability.
+"""Post-process refreshed results into a stable rolling candidate pool.
 
 - Drop rows that explicitly contradict full-remote work.
 - Collapse duplicate postings with the same normalized company/title.
 - Keep recently seen but missing jobs for up to 14 days as REVIEW only.
-  The longer rolling window supplies a deep next-best queue while still
-  expiring postings older than 30 days by known publication date.
+- Rank live/new rows ahead of carried reserve rows so the app changes day to day.
 - Keep at most 100 ranked candidates in the server-side pool.
 """
 from __future__ import annotations
@@ -22,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
 CARRYOVER_MAX = timedelta(days=14)
 PUBLISHED_MAX = timedelta(days=30)
+DISPLAY_TARGET = 30
 POOL_LIMIT = 100
 REMOTE_CONTRADICTIONS = (
     "フルリモート不可",
@@ -81,9 +81,7 @@ def hybrid_wording_is_negated(text: str) -> bool:
 
 
 def has_remote_contradiction(row: dict) -> bool:
-    text = " ".join(
-        str(row.get(key) or "") for key in ("title", "location", "snippet")
-    ).lower()
+    text = " ".join(str(row.get(key) or "") for key in ("title", "location", "snippet")).lower()
     if any(phrase.lower() in text for phrase in REMOTE_CONTRADICTIONS):
         return True
 
@@ -104,9 +102,10 @@ def drop_remote_contradictions(rows: list[dict]) -> tuple[list[dict], int]:
     return kept, len(rows) - len(kept)
 
 
-def row_rank(row: dict) -> tuple[int, int, int, int]:
+def row_rank(row: dict) -> tuple[int, int, int, int, int]:
     return (
         1 if row.get("tier") == "high" else 0,
+        1 if not row.get("carryover") else 0,
         int(row.get("freshness_confidence") or 0),
         int(row.get("score") or 0),
         int(row.get("automation_confidence") or 0),
@@ -151,46 +150,70 @@ def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> 
         if has_remote_contradiction(old):
             continue
         last_seen = parse_iso(old.get("last_seen"))
-        if not last_seen or now - last_seen > CARRYOVER_MAX:
+        if not last_seen:
+            continue
+        missing_for = now - last_seen
+        if missing_for > CARRYOVER_MAX:
             continue
         published = parse_iso(old.get("search_published_at"))
         if published and now - published > PUBLISHED_MAX:
             continue
 
+        days_missing = max(0, int(missing_for.total_seconds() // 86400))
         row = copy.deepcopy(old)
         row["tier"] = "review"
         row["carryover"] = True
-        row["carryover_reason"] = "最新スキャンでは未再検出。直近14日以内の候補として保持"
-        row["freshness_confidence"] = min(int(row.get("freshness_confidence") or 0), 58)
-        row["score"] = min(int(row.get("score") or 0), 72)
+        row["pool_reserve"] = True
+        row["carryover_reason"] = "最新スキャンでは未再検出。直近14日以内の予備候補として保持"
+        row["freshness_confidence"] = min(
+            int(row.get("freshness_confidence") or 0),
+            max(34, 58 - days_missing * 2),
+        )
+        row["score"] = min(int(row.get("score") or 0), max(46, 72 - days_missing * 2))
         carried.append(row)
     return carried
+
+
+def sort_key(row: dict) -> tuple[int, int, int, int, int, float]:
+    first_seen = parse_iso(row.get("first_seen"))
+    first_ts = first_seen.timestamp() if first_seen else 0.0
+    return (
+        0 if row.get("tier") == "high" else 1,
+        0 if not row.get("carryover") else 1,
+        1 if row.get("remote_search_only") else 0,
+        -int(row.get("freshness_confidence") or 0),
+        -int(row.get("score") or 0),
+        -first_ts,
+    )
 
 
 def process(current_payload: dict, previous_payload: dict | None = None) -> dict:
     generated = parse_iso(current_payload.get("generated_at")) or datetime.now(timezone.utc)
     current = [row for row in current_payload.get("jobs", []) if isinstance(row, dict)]
     previous = [row for row in (previous_payload or {}).get("jobs", []) if isinstance(row, dict)]
+    previous_ids = {str(row.get("id") or "") for row in previous}
 
     current, contradiction_dropped = drop_remote_contradictions(current)
     current, removed = dedupe_rows(current)
+    live_ids = {str(row.get("id") or "") for row in current}
     carried = carryover_rows(current, previous, generated)
     combined, removed_after_carry = dedupe_rows(current + carried)
     removed += removed_after_carry
 
-    combined.sort(
-        key=lambda row: (
-            0 if row.get("tier") == "high" else 1,
-            -int(row.get("freshness_confidence") or 0),
-            -int(row.get("score") or 0),
-            -int(row.get("automation_confidence") or 0),
-        )
+    combined.sort(key=sort_key)
+    visible = combined[:POOL_LIMIT]
+    current_payload["jobs"] = visible
+    current_payload["candidate_pool_size"] = len(visible)
+    current_payload["live_jobs"] = sum(1 for row in visible if str(row.get("id") or "") in live_ids)
+    current_payload["new_jobs"] = sum(
+        1 for row in visible
+        if str(row.get("id") or "") not in previous_ids and not row.get("carryover")
     )
-    current_payload["jobs"] = combined[:POOL_LIMIT]
-    current_payload["candidate_pool_size"] = len(current_payload["jobs"])
+    current_payload["remote_search_only_jobs"] = sum(1 for row in visible if row.get("remote_search_only"))
     current_payload["deduplicated_jobs"] = removed
     current_payload["remote_contradiction_dropped"] = contradiction_dropped
-    current_payload["carryover_jobs"] = sum(1 for row in combined[:POOL_LIMIT] if row.get("carryover"))
+    current_payload["carryover_jobs"] = sum(1 for row in visible if row.get("carryover"))
+    current_payload["pool_under_display_target"] = len(visible) < int(current_payload.get("candidate_display_target") or DISPLAY_TARGET)
     current_payload["postprocessed"] = True
     return current_payload
 
@@ -216,9 +239,10 @@ def main() -> None:
     args.feed.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(
         f"postprocessed {len(result.get('jobs', []))} jobs; "
+        f"live {result.get('live_jobs', 0)}, new {result.get('new_jobs', 0)}, "
+        f"reserve {result.get('carryover_jobs', 0)}, remote-text-check {result.get('remote_search_only_jobs', 0)}, "
         f"deduped {result.get('deduplicated_jobs', 0)}, "
-        f"remote contradictions {result.get('remote_contradiction_dropped', 0)}, "
-        f"carryover {result.get('carryover_jobs', 0)}"
+        f"remote contradictions {result.get('remote_contradiction_dropped', 0)}"
     )
 
 
