@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""Additional production-quality gates for AI-substitutable remote jobs.
+"""Production-quality gates for AI-substitutable remote jobs.
 
-This module deliberately does not relax the generic scorer. It layers four
-production rules on top of acquisition_remote:
+Discovery is intentionally broader than publication. Search queries may use
+ordinary 在宅/リモート wording to improve recall, but a published candidate must
+still prove full remote in the listing text itself and pass the autonomous-work
+quality gates below.
 
+Rules:
 1. Explicit partial/hybrid arrangements are rejected.
-2. Jobs that still imply ongoing human coordination/attention are rejected.
+2. Jobs that imply ongoing human coordination/attention are rejected.
 3. REVIEW rows must clear a meaningful automation floor and human-risk ceiling.
-4. Clearly equivalent async tasks (OCR verification, data extraction, metadata
-   tagging, AI-response rating, etc.) are mapped to scorer vocabulary so good
-   automation candidates are not missed merely because of wording differences.
-
-Production also stops relying on Google's deprecated Work From Home filter for
-quality scoring. Search queries themselves target explicit full-remote wording,
-and the published job text must independently prove full remote.
+4. Equivalent async tasks (OCR verification, extraction, metadata tagging,
+   AI-response rating, etc.) are mapped to scorer vocabulary to avoid false
+   negatives without padding the pool with weak work.
+5. Google's deprecated Work From Home filter never contributes to scoring.
 """
 from __future__ import annotations
 
@@ -28,11 +28,9 @@ QUALITY_GATE = "async-ai-remote"
 REVIEW_AUTOMATION_MIN = 55
 REVIEW_HUMAN_RISK_MAX = 25
 
-# Capture the generic primitives before acquisition_remote installs its legacy
-# Work-From-Home-filter wrappers. Production quality reuses the provider budget
-# and autonomy gates from acquisition_remote, but deliberately restores these
-# two generic primitives so ltype/remote_api_filter cannot make a hybrid job look
-# more remote than the actual job text proves.
+# Capture generic primitives before acquisition_remote installs provider-filter
+# wrappers. We keep its autonomy and budget protections, but scoring/publication
+# never trusts provider WFH classification as proof of full remote.
 GENERIC_SCORE_JOB = acquisition.legacy.score_job
 GENERIC_SERPAPI_FETCH = acquisition.serpapi_fetch
 
@@ -83,31 +81,16 @@ AUTOMATION_EQUIVALENTS: tuple[tuple[str, str], ...] = (
 )
 
 PARTIAL_REMOTE_PHRASES = (
-    "一部在宅",
-    "一部リモート",
-    "ハイブリッド勤務",
-    "ハイブリッドワーク",
-    "在宅あり",
-    "リモートあり",
-    "出社あり",
-    "出社併用",
-    "在宅併用",
-    "リモート併用",
-    "テレワーク併用",
-    "慣れたら在宅",
-    "慣れたらリモート",
-    "慣れてから在宅",
-    "慣れてからリモート",
+    "一部在宅", "一部リモート", "ハイブリッド勤務", "ハイブリッドワーク",
+    "在宅あり", "リモートあり", "出社あり", "出社併用", "在宅併用",
+    "リモート併用", "テレワーク併用", "慣れたら在宅", "慣れたらリモート",
+    "慣れてから在宅", "慣れてからリモート",
 )
 
 REMOTE_NEGATIONS = (
-    "ハイブリッド勤務は不可",
-    "ハイブリッド勤務不可",
-    "ハイブリッド不可",
-    "一部在宅ではありません",
-    "一部リモートではありません",
-    "出社併用なし",
-    "出社併用不要",
+    "ハイブリッド勤務は不可", "ハイブリッド勤務不可", "ハイブリッド不可",
+    "一部在宅ではありません", "一部リモートではありません",
+    "出社併用なし", "出社併用不要",
 )
 
 REMOTE_WEEKLY_PATTERNS = (
@@ -117,29 +100,14 @@ REMOTE_WEEKLY_PATTERNS = (
     re.compile(r"月\s*[1-9１-９]\s*回\s*(?:程度\s*)?(?:の)?\s*(?:在宅|リモート|テレワーク)", re.I),
 )
 
-# These are not necessarily real-time in every company, but they strongly imply
-# that the core value of the role is human coordination rather than an async
-# digital work product. Keep them out of the autonomous queue.
 QUALITY_ATTENTION_BLOCKERS = (
-    "調整業務",
-    "連絡調整",
-    "関係者との調整",
-    "社内外関係者との調整",
-    "関係部門との調整",
-    "進捗管理",
-    "進捗確認",
-    "顧客とのやり取り",
-    "クライアントとのやり取り",
-    "関係者とのやり取り",
+    "調整業務", "連絡調整", "関係者との調整", "社内外関係者との調整",
+    "関係部門との調整", "進捗管理", "進捗確認", "顧客とのやり取り",
+    "クライアントとのやり取り", "関係者とのやり取り",
 )
-
 QUALITY_ATTENTION_NEGATIONS = (
-    "調整業務なし",
-    "調整業務不要",
-    "連絡調整なし",
-    "連絡調整不要",
-    "進捗管理なし",
-    "進捗管理不要",
+    "調整業務なし", "調整業務不要", "連絡調整なし", "連絡調整不要",
+    "進捗管理なし", "進捗管理不要",
 )
 
 
@@ -153,7 +121,6 @@ def partial_remote_blockers(job: dict) -> list[str]:
         text = text.replace(phrase.lower(), " ")
     for phrase in REMOTE_NEGATIONS:
         text = text.replace(phrase.lower(), " ")
-
     found = [phrase for phrase in PARTIAL_REMOTE_PHRASES if phrase.lower() in text]
     for pattern in REMOTE_WEEKLY_PATTERNS:
         match = pattern.search(text)
@@ -175,9 +142,7 @@ def augment_automation_text(text: str) -> str:
     for phrase, equivalents in AUTOMATION_EQUIVALENTS:
         if phrase.lower() in lower:
             additions.append(equivalents)
-    if not additions:
-        return text
-    return f"{text} {' '.join(additions)}"
+    return f"{text} {' '.join(additions)}" if additions else text
 
 
 def review_row_meets_quality(row: dict) -> bool:
@@ -187,24 +152,31 @@ def review_row_meets_quality(row: dict) -> bool:
     )
 
 
+def quality_serpapi_fetch(query: str, api_key: str, next_page_token: str | None = None) -> dict:
+    """Use generic Google Jobs search and treat benign no-results as empty success."""
+    payload = GENERIC_SERPAPI_FETCH(query, api_key, next_page_token=next_page_token)
+    if not isinstance(payload, dict):
+        raise RuntimeError("SerpApi response is not an object")
+    try:
+        acquisition_remote.raise_classified_provider_error(payload)
+    except acquisition_remote.SerpApiNoResultsError:
+        return {"jobs_results": []}
+    return payload
+
+
 def configure_quality_policy() -> None:
     if getattr(acquisition, "_production_quality_policy_configured", False):
         return
     acquisition._production_quality_policy_configured = True
-
     acquisition_remote.configure_production_policy()
 
-    # Restore generic provider/search semantics after installing the remote
-    # module's autonomy and budget protections. Production queries themselves
-    # request explicit full remote, and the job text must prove it independently.
-    acquisition.serpapi_fetch = GENERIC_SERPAPI_FETCH
+    # Broaden discovery, not publication. No ltype is used and WFH provider
+    # classification never contributes to the remote score.
+    acquisition.serpapi_fetch = quality_serpapi_fetch
 
     def quality_score_job(text, published, previous, *, remote_api_filter=False):
         return GENERIC_SCORE_JOB(
-            augment_automation_text(text),
-            published,
-            previous,
-            remote_api_filter=False,
+            augment_automation_text(text), published, previous, remote_api_filter=False
         )
 
     acquisition.legacy.score_job = quality_score_job
@@ -213,20 +185,15 @@ def configure_quality_policy() -> None:
     def quality_build_row(job, category, previous):
         if partial_remote_blockers(job) or quality_attention_blockers(job):
             return None
-
         row = base_build_row(job, category, previous)
         if not row:
             return None
-
-        # REVIEW rows that only inherited a provider/search hint are not good
-        # enough for this product. Require the listing text itself to prove full
-        # remote; HIGH already has the same explicit evidence requirement.
+        # The actual listing must prove full remote; discovery wording alone is
+        # never enough to enter the recommendation queue.
         if row.get("remote_search_only") is True:
             return None
-
         if row.get("tier") == "review" and not review_row_meets_quality(row):
             return None
-
         row["quality_policy_version"] = QUALITY_POLICY_VERSION
         row["quality_gate"] = QUALITY_GATE
         return row
@@ -245,6 +212,7 @@ def stamp_quality_metadata() -> None:
         payload["candidate_review_human_risk_max"] = REVIEW_HUMAN_RISK_MAX
         payload["candidate_requires_explicit_full_remote"] = True
         payload["candidate_provider_wfh_filter_used"] = False
+        payload["candidate_discovery_can_use_broad_remote_terms"] = True
         acquisition.OUT.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
