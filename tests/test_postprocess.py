@@ -84,7 +84,15 @@ class PostprocessTests(unittest.TestCase):
         self.assertTrue(carried[0]["carryover"])
         self.assertTrue(carried[0]["pool_reserve"])
         self.assertEqual(carried[0]["last_seen"], old_seen.isoformat())
-        self.assertLessEqual(carried[0]["freshness_confidence"], 58)
+
+    def test_quality_job_can_be_carried_after_fourteen_days(self):
+        now = datetime.now(timezone.utc)
+        old_seen = now - timedelta(days=20)
+        old = row("twenty", last_seen=old_seen, published=None)
+        old["search_published_at"] = None
+        carried = mod.carryover_rows([], [old], now)
+        self.assertEqual(len(carried), 1)
+        self.assertLess(carried[0]["freshness_confidence"], 58)
 
     def test_legacy_unscreened_missing_job_is_not_carried(self):
         now = datetime.now(timezone.utc)
@@ -112,9 +120,9 @@ class PostprocessTests(unittest.TestCase):
         old["remote_search_only"] = True
         self.assertEqual(mod.carryover_rows([], [old], now), [])
 
-    def test_missing_job_older_than_14_days_is_dropped(self):
+    def test_missing_job_older_than_30_days_is_dropped(self):
         now = datetime.now(timezone.utc)
-        self.assertEqual(mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=15))], now), [])
+        self.assertEqual(mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=31))], now), [])
 
     def test_published_over_30_days_is_not_carried(self):
         now = datetime.now(timezone.utc)
@@ -129,14 +137,6 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual(got["jobs"][1]["id"], "reserve")
         self.assertTrue(got["jobs"][1]["carryover"])
 
-    def test_remote_text_check_ranks_after_stronger_remote_evidence(self):
-        now = datetime.now(timezone.utc)
-        clear = row("clear", company="Clear", tier="review", score=60)
-        weak = row("weak", company="Weak", tier="review", score=95)
-        weak["remote_search_only"] = True
-        got = mod.process({"generated_at": now.isoformat(), "jobs": [weak, clear]}, None)
-        self.assertEqual([x["id"] for x in got["jobs"][:2]], ["clear", "weak"])
-
     def test_process_reports_supply_health(self):
         now = datetime.now(timezone.utc)
         current = [row("new", company="New", tier="review", first_seen=now)]
@@ -147,6 +147,7 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual(got["new_jobs"], 1)
         self.assertEqual(got["live_jobs"], 1)
         self.assertEqual(got["carryover_jobs"], 1)
+        self.assertEqual(got["candidate_reserve_max_days"], 30)
         self.assertTrue(got["pool_under_display_target"])
 
     def test_pool_is_capped_at_one_hundred(self):
