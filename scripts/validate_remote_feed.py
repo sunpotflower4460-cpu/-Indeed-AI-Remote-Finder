@@ -130,6 +130,12 @@ def validate(payload: dict) -> list[str]:
         remote_search_only = row.get("remote_search_only")
         if remote_search_only not in {None, True, False}:
             errors.append(f"{prefix}.remote_search_only must be boolean")
+        if remote_search_only is True:
+            if row.get("tier") != "review":
+                errors.append(f"{prefix} remote-search-only row must be review tier")
+            tags = row.get("tags") or []
+            if not isinstance(tags, list) or "在宅要確認" not in tags:
+                errors.append(f"{prefix} remote-search-only row must show 在宅要確認 tag")
 
         if quality_active:
             if int(row.get("quality_policy_version") or 0) != QUALITY_POLICY_VERSION:
