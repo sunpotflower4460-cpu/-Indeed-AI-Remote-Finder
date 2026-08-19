@@ -47,7 +47,39 @@
       "seen_count": 1,
       "source": "Initial seed verified on Indeed via web search on 2026-08-19",
       "via": "Indeed",
-      "duplicate_count": 1
+      "duplicate_count": 1,
+      "llm_review": {
+        "verdict": "strong",
+        "automatable_fraction": 95,
+        "confidence": 91,
+        "human_dependency": "low",
+        "physical_presence_required": false,
+        "synchronous_human_interaction": "none",
+        "data_sensitivity_risk": "unknown",
+        "automation_summary": "The supplied text describes fully remote, flexible work reviewing map-based search queries for accuracy, user intent, and data quality. This is predominantly digital, repeatable evaluation work that appears highly delegable to AI/RPA, with Japanese-language judgment as the main residual human component.",
+        "automation_plan": [
+          "Ingest and normalize map-based search queries and associated results.",
+          "Use Japanese-language models and rules to score accuracy, intent alignment, and data quality.",
+          "Flag ambiguous, culturally nuanced, or low-confidence cases for human review.",
+          "Record evaluation labels, rationale, and quality metrics in the project system.",
+          "Sample completed evaluations for consistency and drift monitoring."
+        ],
+        "blockers": [
+          "Japanese-language and user-intent judgments may require nuanced contextual interpretation.",
+          "The text does not specify the data formats, evaluation rubric, or system interfaces needed for reliable end-to-end automation."
+        ],
+        "questions_to_confirm": [
+          "Is external AI or RPA use permitted for this AI-training project?",
+          "What confidentiality and personal-data handling restrictions apply to map queries and evaluation data?",
+          "Are human reviewers required for ambiguous cases or final quality approval?",
+          "What tools, data formats, and evaluation rubric are provided?"
+        ],
+        "strict_pass": false
+      },
+      "llm_input_hash": "7684d8fd78f2baaad7017cc326657bb395049f23b011248fa40cc60558f5c1af",
+      "llm_model": "gpt-5.6-luna",
+      "llm_reviewed_at": "2026-08-19T09:57:49.130311+00:00",
+      "llm_strict_pass": false
     },
     {
       "id": "3574515a4d5f505a",
@@ -85,7 +117,37 @@
       "seen_count": 1,
       "source": "Initial seed verified on Indeed via web search on 2026-08-19",
       "via": "Indeed",
-      "duplicate_count": 1
+      "duplicate_count": 1,
+      "llm_review": {
+        "verdict": "uncertain",
+        "automatable_fraction": 85,
+        "confidence": 78,
+        "human_dependency": "medium",
+        "physical_presence_required": false,
+        "synchronous_human_interaction": "none",
+        "data_sensitivity_risk": "unknown",
+        "automation_summary": "地図アプリの検索クエリに対するユーザー意図とデータ正確性の評価はデジタルで反復的ですが、評価基準に基づく人間の判断や曖昧なクエリの処理が含まれる可能性があります。",
+        "automation_plan": [
+          "検索クエリと関連データを取得する",
+          "定義済み基準で意図分類と正確性チェックを実行する",
+          "曖昧・低信頼ケースをフラグ付けする",
+          "判定結果を所定形式で記録し、品質サンプルを確認する"
+        ],
+        "blockers": [
+          "ユーザー意図やデータ正確性の最終判断に、文脈依存の人間判断が必要となる可能性がある",
+          "評価基準、入力データ形式、例外処理の詳細が提示されていない"
+        ],
+        "questions_to_confirm": [
+          "AI・RPAによる判定補助または自動化が許可されているか",
+          "アノテーション対象に個人データや機密情報が含まれるか",
+          "判断基準と曖昧な検索クエリのエスカレーション手順は定義されているか"
+        ],
+        "strict_pass": false
+      },
+      "llm_input_hash": "b112bc4efdd8192f2c2b8741228b13e990611611d86abdd3bbe19e3c1b91dee4",
+      "llm_model": "gpt-5.6-luna",
+      "llm_reviewed_at": "2026-08-19T09:57:52.696094+00:00",
+      "llm_strict_pass": false
     },
     {
       "id": "a505dcbfe122cdd4",
@@ -124,17 +186,48 @@
       "seen_count": 1,
       "source": "Initial seed verified on Indeed via web search on 2026-08-19",
       "via": "Indeed",
-      "duplicate_count": 1
+      "duplicate_count": 1,
+      "llm_review": {
+        "verdict": "strong",
+        "automatable_fraction": 95,
+        "confidence": 88,
+        "human_dependency": "low",
+        "physical_presence_required": false,
+        "synchronous_human_interaction": "none",
+        "data_sensitivity_risk": "unknown",
+        "automation_summary": "地図アプリの検索クエリ品質、検索意図、データ正確性を評価する完全在宅業務で、記述上はデジタルかつ反復的な評価作業が中心です。",
+        "automation_plan": [
+          "評価基準を整理し、クエリ・検索結果・地図データを入力として判定する",
+          "日本語・英語の検索意図とデータ正確性を分類する",
+          "不一致や低品質例をルールベースおよびAIでフラグ付けする",
+          "サンプルを人手で再確認し、評価結果を所定形式で提出する"
+        ],
+        "blockers": [
+          "実際の評価基準、ツール、例外処理、品質保証手順は求人文だけでは確認できない",
+          "検索結果や地図データへのアクセス方式が不明"
+        ],
+        "questions_to_confirm": [
+          "AIやRPAによる評価補助・外部AI利用が雇用主から許可されているか",
+          "検索クエリ、位置情報、利用者データを外部AIに入力できるか",
+          "最終判定や品質監査に人手承認が必要か",
+          "リアルタイムの会議・顧客対応・チーム連携が業務に含まれるか"
+        ],
+        "strict_pass": false
+      },
+      "llm_input_hash": "d9cc8e23d325ed4fbe16e3fb47d80a1a19e9611b9fe3018b5ca4bb5e7eea78aa",
+      "llm_model": "gpt-5.6-luna",
+      "llm_reviewed_at": "2026-08-19T09:57:56.718329+00:00",
+      "llm_strict_pass": false
     }
   ],
   "deduplicated_jobs": 0,
   "carryover_jobs": 0,
   "postprocessed": true,
-  "llm_provider_configured": false,
-  "llm_model": null,
-  "llm_reviewed_jobs": 0,
+  "llm_provider_configured": true,
+  "llm_model": "gpt-5.6-luna",
+  "llm_reviewed_jobs": 3,
   "llm_strict_jobs": 0,
-  "llm_new_reviews": 0,
+  "llm_new_reviews": 3,
   "llm_reused_reviews": 0,
   "llm_review_failures": 0,
   "llm_errors": [],
@@ -143,8 +236,10 @@
   "remote_contradiction_dropped": 0,
   "llm_reasoning_effort": "none",
   "llm_budget_month": "2026-08",
-  "llm_paid_attempts_month": 0,
+  "llm_paid_attempts_month": 3,
   "llm_max_paid_attempts_per_month": 700,
   "llm_monthly_budget_exhausted": false,
-  "llm_fatal_error": null
+  "llm_fatal_error": null,
+  "llm_error_type": null,
+  "llm_error_code": null
 }
