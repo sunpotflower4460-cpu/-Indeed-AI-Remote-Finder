@@ -8,9 +8,13 @@ import re
 import sys
 from pathlib import Path
 
-import apply_llm_quality_gate
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
-ROOT = Path(__file__).resolve().parents[1]
+import apply_llm_quality_gate  # noqa: E402
+
+ROOT = SCRIPT_DIR.parent
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
 QUALITY_POLICY_VERSION = 2
 QUALITY_GATE = "async-ai-remote-v2"
