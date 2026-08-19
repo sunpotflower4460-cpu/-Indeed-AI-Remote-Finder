@@ -50,13 +50,16 @@ class ProductionRemoteAcquisitionTests(unittest.TestCase):
     def setUpClass(cls):
         mod.configure_production_policy()
 
-    def test_server_stays_in_replenishment_until_one_hundred(self):
-        self.assertEqual(mod.SERVER_POOL_TARGET, 100)
+    def test_user_target_is_100_but_server_reserve_is_150(self):
+        self.assertEqual(mod.USER_DISPLAY_TARGET, 100)
+        self.assertEqual(mod.SERVER_POOL_TARGET, 150)
         self.assertEqual(mod.acquisition.DISPLAY_TARGET, 100)
-        self.assertEqual(mod.acquisition.POOL_TARGET, 100)
-        self.assertEqual(mod.acquisition.POOL_LIMIT, 100)
+        self.assertEqual(mod.acquisition.POOL_TARGET, 150)
+        self.assertEqual(mod.acquisition.POOL_LIMIT, 150)
         self.assertEqual(mod.acquisition.request_limit_for_pool(99), 30)
-        self.assertEqual(mod.acquisition.request_limit_for_pool(100), 2)
+        self.assertEqual(mod.acquisition.request_limit_for_pool(100), 4)
+        self.assertEqual(mod.acquisition.request_limit_for_pool(149), 4)
+        self.assertEqual(mod.acquisition.request_limit_for_pool(150), 2)
 
     def test_shallow_pool_can_sweep_all_profiles_and_page_deeper(self):
         self.assertGreaterEqual(
@@ -94,9 +97,7 @@ class ProductionRemoteAcquisitionTests(unittest.TestCase):
 
         with patch.object(mod.urllib.request, "urlopen", side_effect=fake_urlopen):
             mod.acquisition.serpapi_fetch("test", "NEW_SECRET")
-            mod.acquisition.serpapi_fetch(
-                "test", "NEW_SECRET", next_page_token="TOKEN123"
-            )
+            mod.acquisition.serpapi_fetch("test", "NEW_SECRET", next_page_token="TOKEN123")
 
         self.assertEqual(len(calls), 2)
         self.assertIn("ltype=1", calls[0])
@@ -167,13 +168,19 @@ class ProductionRemoteAcquisitionTests(unittest.TestCase):
         )
         self.assertIsNone(row)
 
-    def test_live_monitoring_is_hard_excluded(self):
-        row = mod.acquisition.build_row(
-            job("完全在宅。データチェックと常時監視、異常時の即時対応を行います。"),
-            "testing",
-            {},
+    def test_automated_realtime_monitoring_is_not_excluded_by_word_alone(self):
+        description = (
+            "完全在宅。自動監視システムを常時稼働し、異常を自動検知・自動記録します。"
+            "データチェックと記録整理を行います。"
         )
-        self.assertIsNone(row)
+        self.assertEqual(mod.autonomy_blockers(job(description)), [])
+
+    def test_human_monitoring_context_is_hard_excluded(self):
+        for description in (
+            "完全在宅。有人監視オペレーターとしてリアルタイム監視を行います。",
+            "完全在宅。常時監視し、異常時は担当者が即時対応・連絡します。",
+        ):
+            self.assertTrue(mod.autonomy_blockers(job(description)), description)
 
     def test_meeting_and_coordination_role_is_hard_excluded(self):
         row = mod.acquisition.build_row(
@@ -192,6 +199,12 @@ class ProductionRemoteAcquisitionTests(unittest.TestCase):
         self.assertIsNotNone(row)
         self.assertEqual(row["autonomy_attention_risk"], "low")
         self.assertIn("張り付きリスク低", row["tags"])
+
+    def test_negated_human_monitoring_is_not_false_excluded(self):
+        self.assertEqual(
+            mod.autonomy_blockers(job("完全在宅。有人監視なし。自動監視でデータを記録します。")),
+            [],
+        )
 
     def test_structured_work_from_home_is_review_evidence_not_high_proof(self):
         row = mod.acquisition.build_row(
