@@ -12,6 +12,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
+MAX_LLM_REVIEWS_PER_RUN = 8
+MAX_LLM_PAID_ATTEMPTS_PER_MONTH = 700
+BUDGET_MODEL = "gpt-5.6-luna"
 
 
 def parse_iso(value: str | None) -> datetime | None:
@@ -80,6 +83,53 @@ def validate_llm(row: dict, prefix: str, errors: list[str]) -> None:
         errors.append(f"{prefix}.llm_strict_pass inconsistent")
     if strict_flag is True and row.get("tier") != "high":
         errors.append(f"{prefix} LLM strict pass requires deterministic high tier")
+
+
+def validate_llm_metadata(payload: dict, errors: list[str]) -> None:
+    provider = payload.get("llm_provider_configured")
+    if provider not in {None, True, False}:
+        errors.append("llm_provider_configured must be boolean")
+
+    per_run = payload.get("llm_max_new_reviews_per_run")
+    if per_run is not None:
+        if not isinstance(per_run, int) or isinstance(per_run, bool) or not 0 <= per_run <= MAX_LLM_REVIEWS_PER_RUN:
+            errors.append(f"llm_max_new_reviews_per_run must be 0..{MAX_LLM_REVIEWS_PER_RUN}")
+    new_reviews = payload.get("llm_new_reviews")
+    if new_reviews is not None:
+        if not isinstance(new_reviews, int) or isinstance(new_reviews, bool) or new_reviews < 0:
+            errors.append("llm_new_reviews must be a non-negative integer")
+        elif isinstance(per_run, int) and new_reviews > per_run:
+            errors.append("llm_new_reviews exceeds per-run cap")
+
+    month = payload.get("llm_budget_month")
+    monthly_cap = payload.get("llm_max_paid_attempts_per_month")
+    attempts = payload.get("llm_paid_attempts_month")
+    if month is not None and not re.fullmatch(r"\d{4}-\d{2}", str(month)):
+        errors.append("llm_budget_month invalid")
+    if monthly_cap is not None:
+        if not isinstance(monthly_cap, int) or isinstance(monthly_cap, bool) or not 0 <= monthly_cap <= MAX_LLM_PAID_ATTEMPTS_PER_MONTH:
+            errors.append(f"llm_max_paid_attempts_per_month must be 0..{MAX_LLM_PAID_ATTEMPTS_PER_MONTH}")
+    if attempts is not None:
+        if not isinstance(attempts, int) or isinstance(attempts, bool) or attempts < 0:
+            errors.append("llm_paid_attempts_month must be a non-negative integer")
+        elif isinstance(monthly_cap, int) and attempts > monthly_cap:
+            errors.append("llm_paid_attempts_month exceeds monthly cap")
+
+    exhausted = payload.get("llm_monthly_budget_exhausted")
+    if exhausted not in {None, True, False}:
+        errors.append("llm_monthly_budget_exhausted must be boolean")
+    if isinstance(attempts, int) and isinstance(monthly_cap, int) and isinstance(exhausted, bool):
+        expected = bool(provider is True and attempts >= monthly_cap)
+        if exhausted is not expected:
+            errors.append("llm_monthly_budget_exhausted inconsistent")
+
+    if provider is True:
+        if payload.get("llm_model") != BUDGET_MODEL:
+            errors.append(f"configured LLM must use budget model {BUDGET_MODEL}")
+        if payload.get("llm_reasoning_effort") != "none":
+            errors.append("configured LLM must use reasoning effort none")
+    if payload.get("llm_fatal_error"):
+        errors.append("llm_fatal_error must not be committed")
 
 
 def validate(payload: dict) -> list[str]:
@@ -152,6 +202,7 @@ def validate(payload: dict) -> list[str]:
         errors.append("llm_strict_jobs metadata inconsistent")
     if payload.get("llm_reviewed_jobs") is not None and payload.get("llm_reviewed_jobs") != reviewed_count:
         errors.append("llm_reviewed_jobs metadata inconsistent")
+    validate_llm_metadata(payload, errors)
     return errors
 
 
