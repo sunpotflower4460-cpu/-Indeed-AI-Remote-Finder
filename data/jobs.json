@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-19T11:20:03.187725+00:00",
-  "query_success": 10,
-  "query_total": 10,
-  "raw_jobs": 90,
-  "indeed_apply_jobs": 21,
+  "generated_at": "2026-08-19T11:25:22.979940+00:00",
+  "query_success": 18,
+  "query_total": 18,
+  "raw_jobs": 164,
+  "indeed_apply_jobs": 43,
   "malformed_jobs": 0,
   "errors": [],
   "method": "serpapi-google-jobs-adaptive-indeed-apply-only",
@@ -12,10 +12,10 @@
   "candidate_pool_target": 80,
   "candidate_pool_limit": 100,
   "acquisition_mode": "replenish",
-  "pool_before_refresh": 4,
+  "pool_before_refresh": 5,
   "serpapi_budget_month": "2026-08",
-  "serpapi_requests_run": 10,
-  "serpapi_requests_month": 12,
+  "serpapi_requests_run": 18,
+  "serpapi_requests_month": 30,
   "serpapi_monthly_request_cap": 220,
   "serpapi_rotation_cursor": 10,
   "jobs": [
@@ -39,6 +39,7 @@
         "メール"
       ],
       "remote_reasons": [
+        "Google Jobs:在宅勤務フィルタ",
         "完全在宅",
         "フルリモート",
         "全国どこからでも",
@@ -56,10 +57,10 @@
       ],
       "category": "structured_data",
       "posted_label": "1 日前",
-      "search_published_at": "2026-08-18T11:20:03.187725+00:00",
+      "search_published_at": "2026-08-18T11:25:22.979940+00:00",
       "first_seen": "2026-08-19T11:01:18.963450+00:00",
-      "last_seen": "2026-08-19T11:20:03.187725+00:00",
-      "seen_count": 2,
+      "last_seen": "2026-08-19T11:25:22.979940+00:00",
+      "seen_count": 3,
       "source": "Google Jobs via SerpApi; Indeed apply option verified",
       "via": "Indeed.com",
       "duplicate_count": 1
@@ -75,7 +76,7 @@
       "score": 77,
       "automation_confidence": 83,
       "remote_confidence": 100,
-      "freshness_confidence": 98,
+      "freshness_confidence": 100,
       "human_dependency_risk": 38,
       "automation_reasons": [
         "商品登録",
@@ -84,6 +85,7 @@
         "shopify"
       ],
       "remote_reasons": [
+        "Google Jobs:在宅勤務フィルタ",
         "完全在宅",
         "フルリモート",
         "在宅勤務",
@@ -101,9 +103,46 @@
       ],
       "category": "ecommerce",
       "posted_label": "1 日前",
-      "search_published_at": "2026-08-18T11:20:03.187725+00:00",
+      "search_published_at": "2026-08-18T11:25:22.979940+00:00",
       "first_seen": "2026-08-19T11:20:03.187725+00:00",
-      "last_seen": "2026-08-19T11:20:03.187725+00:00",
+      "last_seen": "2026-08-19T11:25:22.979940+00:00",
+      "seen_count": 2,
+      "source": "Google Jobs via SerpApi; Indeed apply option verified",
+      "via": "Indeed.com",
+      "duplicate_count": 1
+    },
+    {
+      "id": "6e0d68cab8f6ff4a",
+      "title": "障がいをお持ちの方向け|在宅ワーク|データ入力や動画編集|就労継続支援B型",
+      "company": "株式会社ZOS",
+      "location": "愛知県",
+      "snippet": "仕事内容: ・・・・・・・・・・・・・・・・・・ 好きなことが、仕事になる。そんな場所です。 ・・・・・・・・・・・・・・・・・・ 〈こんなお仕事をお任せします〉 ▶ データ入力・リスト作成業務 ▶ 動画編集・カット・テロップ入れ ▶ SNS向けショート動画の制作 ▶ WEBサイトのコンテンツ制作補助 ▶ イラスト・バナー画像の作成 〈こんな方におすすめ！〉 ▶ パソコンを使った仕事をはじめてみたい方 ▶ 動画編集やクリエイティブな仕事に興味がある方 ▶ 在宅でスキルを身につけながら働きたい方 ▶ 自分のペースでチャレンジしてみたい方 〈安心のサポートつき！〉 はじめての方でも大丈夫。 ツールの使い方から制作の進め方まで、スタッフが一緒に確認します。 「やってみようかな」「面白そうだな」そう思ったら、ぜひ気軽にご連絡ください♪ アピールポイント: ・在宅勤務 ・障がいの特性に合わせた業務調整が可能！ ・体調に合わせて短時間勤務やお休みも取りやすい！ ・無理のないペースでOK ・・・・・・・・・・・・・・・・・・ 体調に合わせて無理なく働けます◎ 『病院に行く』『今日は少し休みたい』 そんなときも柔軟に対応OK！ （※その場合、工賃は発生しません） ・・・・・・・・・・・・・・・・・・ 求める人材: 〈こんな方をお待ちしています〉 ▶ パソコンを使った仕事をはじめてみたい方 ▶ 動画編集やWEB制作に興味がある方 ▶ クリエイティブな仕事にチャレンジしてみ...",
+      "url": "https://jp.indeed.com/viewjob?jk=6e0d68cab8f6ff4a",
+      "tier": "review",
+      "score": 86,
+      "automation_confidence": 79,
+      "remote_confidence": 100,
+      "freshness_confidence": 70,
+      "human_dependency_risk": 0,
+      "automation_reasons": [
+        "データ入力",
+        "リスト作成"
+      ],
+      "remote_reasons": [
+        "Google Jobs:在宅勤務フィルタ",
+        "在宅勤務",
+        "在宅ワーク",
+        "在宅"
+      ],
+      "risk_reasons": [],
+      "tags": [
+        "データ"
+      ],
+      "category": "structured_data",
+      "posted_label": "13 日前",
+      "search_published_at": "2026-08-06T11:25:22.979940+00:00",
+      "first_seen": "2026-08-19T11:25:22.979940+00:00",
+      "last_seen": "2026-08-19T11:25:22.979940+00:00",
       "seen_count": 1,
       "source": "Google Jobs via SerpApi; Indeed apply option verified",
       "via": "Indeed.com",
@@ -231,9 +270,46 @@
       "duplicate_count": 1,
       "carryover": true,
       "carryover_reason": "最新スキャンでは未再検出。直近14日以内の候補として保持"
+    },
+    {
+      "id": "f2429460f1819430",
+      "title": "【完全フルリモート】ゲーム・マンガ ローカライズ職(日本語→英語)",
+      "company": "株式会社サウスワークス",
+      "location": "東京都目黒区",
+      "snippet": "仕事内容: 【職務内容】 ゲーム会社でのお仕事です。 弊社は主に国産ゲームや漫画を英語や中国語、韓国語などに翻訳し、一部販売も担っています。日本のゲーム作品を英語に翻訳したテキストがキャラクターの性格・行動に合うように翻訳したり、他メンバーが翻訳したテキストに違和感がないかの確認及び校正（LQA）業務になります。 分野：ゲーム 言語：日本語→英語 ※募集背景※ 案件増加による増員募集となります。 【ご応募にあたって】 恐れ入りますが、ご応募の際は履歴書と職務経歴書をお送りください。 【選考の流れについて】 履歴書・職務経歴書ご提出→トライアル→面接→内定 必要書類ご提出後、トライアルを受けていただきます。 弊社よりテキストファイルを送付いたしますので、翻訳及び校正をお願いいたします。 アピールポイント: 【勤務確定後のフォロー体制】 サウスワークスでの勤務確定後、翻訳及び校正作業に慣れていただくためトレーニング及びフィードバック体制をしっかり用意しております。 求める人材: 【必須要件】 ゲーム翻訳または漫画の翻訳校正及びLQA経験のある方 英語ネイティブレベルでの読み書き及び会話可能な方 日本語能力試験N1・N2合格者の方又はN2合格レベルの方 業務上でのワード、エクセルの使用経験がある方 【歓迎要件】 英語圏への留学経験がある方又はTOEIC900点以上（またはTOEFL iBT／IELTSで同等レベル） お仕事をするうえで見直しのプロセスなどを自発...",
+      "url": "https://jp.indeed.com/viewjob?jk=f2429460f1819430",
+      "tier": "review",
+      "score": 77,
+      "automation_confidence": 69,
+      "remote_confidence": 100,
+      "freshness_confidence": 40,
+      "human_dependency_risk": 0,
+      "automation_reasons": [
+        "校正",
+        "翻訳",
+        "qa"
+      ],
+      "remote_reasons": [
+        "Google Jobs:在宅勤務フィルタ",
+        "フルリモート"
+      ],
+      "risk_reasons": [],
+      "tags": [
+        "完全リモート",
+        "文章"
+      ],
+      "category": "localization_qa",
+      "posted_label": null,
+      "search_published_at": null,
+      "first_seen": "2026-08-19T11:25:22.979940+00:00",
+      "last_seen": "2026-08-19T11:25:22.979940+00:00",
+      "seen_count": 1,
+      "source": "Google Jobs via SerpApi; Indeed apply option verified",
+      "via": "Indeed.com",
+      "duplicate_count": 1
     }
   ],
-  "candidate_pool_size": 5,
+  "candidate_pool_size": 7,
   "deduplicated_jobs": 0,
   "remote_contradiction_dropped": 0,
   "carryover_jobs": 3,
@@ -246,7 +322,7 @@
   "llm_new_reviews": 0,
   "llm_reused_reviews": 0,
   "llm_review_failures": 0,
-  "llm_skipped_non_high": 5,
+  "llm_skipped_non_high": 7,
   "llm_max_new_reviews_per_run": 8,
   "llm_budget_month": "2026-08",
   "llm_paid_attempts_month": 9,
