@@ -128,7 +128,7 @@ class RuntimeGuardTests(unittest.TestCase):
     def test_daily_schedule_and_month_safe_supply(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
         supply = (ROOT / "scripts/acquisition_supply.py").read_text(encoding="utf-8")
-        self.assertIn("cron: '17 0 * * *'", workflow)
+        self.assertIn("cron: '25 23 * * *'", workflow)
         self.assertNotIn("*/8", workflow)
         self.assertIn("DEEP_REQUESTS = 7", supply)
 
