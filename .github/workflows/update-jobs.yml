@@ -2,12 +2,11 @@ name: Update job candidates
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '17 */8 * * *'
   push:
     branches: ["main"]
     paths-ignore:
       - 'data/jobs.json'
-      - 'data/diagnostics.json'
 permissions:
   contents: write
 jobs:
@@ -19,17 +18,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Run scoring guard tests
+      - name: Run scoring and parser guard tests
         run: python -m unittest discover -s tests -q
-      - name: Refresh public search-index candidates
+      - name: Refresh Google Jobs candidates with verified Indeed apply links
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: python scripts/fetch_jobs.py
-      - name: Capture search-shape diagnostics
-        run: python scripts/diagnose_search.py
       - name: Commit refreshed feed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/jobs.json data/diagnostics.json
+          git add data/jobs.json
           git diff --cached --quiet && exit 0
-          git commit -m "chore: refresh high-confidence job candidates"
+          git commit -m "chore: refresh verified Indeed candidates"
           git push
