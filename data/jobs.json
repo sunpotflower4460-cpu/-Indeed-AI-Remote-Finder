@@ -137,5 +137,7 @@
   "llm_new_reviews": 0,
   "llm_reused_reviews": 0,
   "llm_review_failures": 0,
-  "llm_errors": []
+  "llm_errors": [],
+  "llm_skipped_non_high": 0,
+  "llm_max_new_reviews_per_run": 8
 }
