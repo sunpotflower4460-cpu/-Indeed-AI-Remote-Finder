@@ -7,10 +7,12 @@ The production policy has two independent requirements:
 2. The work must be technically suitable for asynchronous AI substitution.
 
 The second point is intentionally stricter than a generic "AI can help" score.
-Jobs that imply a person must stay present for calls, live chat, customer
-interaction, meetings, real-time monitoring, on-call coverage, negotiation,
-continuous coordination, or similar synchronous human attention are excluded
-even when the underlying text/data work is automatable.
+Jobs that inherently require calls, live customer interaction, meetings,
+on-call human coverage, negotiation, continuous coordination, or similar
+synchronous human attention are excluded even when some text/data subtasks are
+automatable. Generic real-time processing or monitoring is not rejected by
+word alone because unattended AI/RPA can perform it; human-attention context is
+required for that kind of exclusion.
 
 SerpApi's Google Jobs endpoint still accepts ltype=1 for Work From Home results,
 but Google marks that filter deprecated and Work From Home can include hybrid
@@ -32,6 +34,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.parse
 import urllib.request
 from datetime import timedelta
@@ -40,13 +43,13 @@ import acquisition
 
 ACCOUNT_API_URL = "https://serpapi.com/account.json"
 ACCOUNT_HOURLY_RESERVE = 2
-SERVER_POOL_TARGET = 100
-AUTONOMY_POLICY_VERSION = 1
+USER_DISPLAY_TARGET = 100
+SERVER_POOL_TARGET = 150
+AUTONOMY_POLICY_VERSION = 2
 
-# Phrases that strongly imply the employer expects a human to be present at a
-# particular moment. These are intentionally production-only hard exclusions:
-# they do not change the generic scorer, but they prevent these roles from being
-# published by this app's "AI-substitutable remote work" feed.
+# These phrases are inherently human/synchronous enough to exclude early.
+# Ambiguous words such as "real-time monitoring" are deliberately NOT here:
+# software can monitor or respond in real time without a person being present.
 AUTONOMY_BLOCKERS = (
     "コールセンター",
     "電話受付",
@@ -60,12 +63,6 @@ AUTONOMY_BLOCKERS = (
     "カスタマーサポート",
     "カスタマーサクセス",
     "顧客対応",
-    "リアルタイム対応",
-    "即時対応",
-    "即レス",
-    "常時対応",
-    "常時監視",
-    "リアルタイム監視",
     "オンコール",
     "顧客折衝",
     "商談",
@@ -81,6 +78,38 @@ AUTONOMY_BLOCKERS = (
     "マネジメント",
     "スケジュール調整",
     "指示出し",
+)
+
+# Contextual evidence that monitoring/rapid-response work is explicitly human,
+# rather than an unattended automated process.
+AUTONOMY_HUMAN_CONTEXT_BLOCKERS = (
+    "有人監視",
+    "有人対応",
+    "監視オペレーター",
+    "監視員",
+    "人による監視",
+    "スタッフによる監視",
+    "担当者による監視",
+    "オペレーターによる監視",
+)
+
+AUTONOMY_HUMAN_CONTEXT_PATTERNS = (
+    re.compile(
+        r"(?:顧客|ユーザー|問い合わせ|電話|チャット)[^。\n]{0,24}"
+        r"(?:即時|リアルタイム)[^。\n]{0,16}(?:対応|返信|応答)",
+        re.I,
+    ),
+    re.compile(
+        r"(?:有人|人手|スタッフ|担当者|オペレーター)[^。\n]{0,16}"
+        r"(?:常時|リアルタイム)?[^。\n]{0,12}(?:監視|対応)",
+        re.I,
+    ),
+    re.compile(
+        r"(?:常時|リアルタイム)?監視[^。\n]{0,30}"
+        r"(?:スタッフ|担当者|オペレーター|人手)[^。\n]{0,20}"
+        r"(?:対応|確認|連絡)",
+        re.I,
+    ),
 )
 
 AUTONOMY_NEGATIONS = (
@@ -106,11 +135,10 @@ AUTONOMY_NEGATIONS = (
     "ミーティング参加不要",
     "mtg参加なし",
     "mtg参加不要",
-    "リアルタイム対応なし",
-    "リアルタイム対応不要",
-    "即時対応不要",
-    "常時監視なし",
-    "常時監視不要",
+    "有人監視なし",
+    "有人監視不要",
+    "有人対応なし",
+    "有人対応不要",
     "オンコールなし",
     "オンコール不要",
 )
@@ -176,7 +204,7 @@ def fetch_serpapi_account(api_key: str) -> dict:
     params = urllib.parse.urlencode({"api_key": api_key})
     request = urllib.request.Request(
         f"{ACCOUNT_API_URL}?{params}",
-        headers={"User-Agent": "AI-Remote-Finder/6.8", "Accept": "application/json"},
+        headers={"User-Agent": "AI-Remote-Finder/6.9", "Accept": "application/json"},
     )
     with urllib.request.urlopen(request, timeout=15) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -223,11 +251,20 @@ def job_text(job: dict) -> str:
 
 
 def autonomy_blockers(job: dict) -> list[str]:
-    """Return synchronous-attention blockers after stripping explicit negation."""
+    """Return human-attention blockers after stripping explicit negation."""
     text = job_text(job)
     for phrase in AUTONOMY_NEGATIONS:
         text = text.replace(phrase.lower(), " ")
-    return [phrase for phrase in AUTONOMY_BLOCKERS if phrase.lower() in text]
+
+    found = [phrase for phrase in AUTONOMY_BLOCKERS if phrase.lower() in text]
+    found.extend(
+        phrase for phrase in AUTONOMY_HUMAN_CONTEXT_BLOCKERS if phrase.lower() in text
+    )
+    for pattern in AUTONOMY_HUMAN_CONTEXT_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            found.append(match.group(0))
+    return list(dict.fromkeys(found))[:8]
 
 
 def production_review_fallback(scores, published) -> bool:
@@ -248,10 +285,11 @@ def configure_production_policy() -> None:
         return
     acquisition._production_remote_policy_configured = True
 
-    # Keep the server stock at 100 before switching to the low-cost steady mode.
-    # DISPLAY_TARGET is used by acquisition.py both for aggressive request sizing
-    # and for deciding whether page 2 should be explored.
-    acquisition.DISPLAY_TARGET = SERVER_POOL_TARGET
+    # User-facing availability is 100 jobs, while the server maintains up to
+    # 150 quality-gated rows so applications/declines do not immediately drain
+    # the visible stock. The rotating supply layer keeps replenishing until the
+    # larger server target is reached.
+    acquisition.DISPLAY_TARGET = USER_DISPLAY_TARGET
     acquisition.POOL_TARGET = SERVER_POOL_TARGET
     acquisition.POOL_LIMIT = SERVER_POOL_TARGET
     acquisition.MAX_REQUESTS_PER_RUN = max(
@@ -269,7 +307,7 @@ def configure_production_policy() -> None:
     base_build_row = acquisition.build_row
 
     def build_row_with_remote_evidence(job, category, previous):
-        # A job that requires synchronous human presence is outside the product
+        # A job that requires synchronous human attention is outside the product
         # definition even if its text/data subtask is technically automatable.
         if autonomy_blockers(job):
             return None
@@ -317,8 +355,6 @@ def configure_production_policy() -> None:
             raise RuntimeError("invalid SerpApi pagination URL path")
 
         pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
-        # ltype is deprecated by Google. For page 2 retain SerpApi/Google's
-        # generated uds + token state but do not resend the deprecated alias.
         pairs = [
             (key, value)
             for key, value in pairs
@@ -330,7 +366,7 @@ def configure_production_policy() -> None:
         )
         request = urllib.request.Request(
             safe_url,
-            headers={"User-Agent": "AI-Remote-Finder/6.8", "Accept": "application/json"},
+            headers={"User-Agent": "AI-Remote-Finder/6.9", "Accept": "application/json"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
@@ -370,14 +406,13 @@ def configure_production_policy() -> None:
             "output": "json",
         }
         if next_page_token:
-            # Fallback path: page 2 deliberately omits deprecated ltype.
             params["next_page_token"] = next_page_token
         else:
             params["ltype"] = "1"
         url = "https://serpapi.com/search.json?" + urllib.parse.urlencode(params)
         request = urllib.request.Request(
             url,
-            headers={"User-Agent": "AI-Remote-Finder/6.8", "Accept": "application/json"},
+            headers={"User-Agent": "AI-Remote-Finder/6.9", "Accept": "application/json"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
@@ -431,13 +466,13 @@ def stamp_policy_metadata() -> None:
         if not payload:
             return
         payload["candidate_server_pool_target"] = SERVER_POOL_TARGET
+        payload["candidate_user_display_target"] = USER_DISPLAY_TARGET
         payload["candidate_quality_policy"] = "ai-substitutable-async-remote"
         payload["autonomy_policy_version"] = AUTONOMY_POLICY_VERSION
         acquisition.OUT.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
     except Exception:
-        # Metadata is useful but must never make a valid acquisition fail.
         pass
 
 
