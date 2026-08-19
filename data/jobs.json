@@ -1,13 +1,23 @@
 {
-  "generated_at": "2026-08-19T11:01:18.963450+00:00",
-  "query_success": 2,
-  "query_total": 2,
-  "raw_jobs": 16,
-  "indeed_apply_jobs": 4,
+  "generated_at": "2026-08-19T11:20:03.187725+00:00",
+  "query_success": 10,
+  "query_total": 10,
+  "raw_jobs": 90,
+  "indeed_apply_jobs": 21,
   "malformed_jobs": 0,
   "errors": [],
-  "method": "serpapi-google-jobs-indeed-apply-only",
+  "method": "serpapi-google-jobs-adaptive-indeed-apply-only",
   "provider_configured": true,
+  "candidate_display_target": 30,
+  "candidate_pool_target": 80,
+  "candidate_pool_limit": 100,
+  "acquisition_mode": "replenish",
+  "pool_before_refresh": 4,
+  "serpapi_budget_month": "2026-08",
+  "serpapi_requests_run": 10,
+  "serpapi_requests_month": 12,
+  "serpapi_monthly_request_cap": 220,
+  "serpapi_rotation_cursor": 10,
   "jobs": [
     {
       "id": "d362c3ac99164dcf",
@@ -17,10 +27,10 @@
       "snippet": "職種補足 【PCデータ入力スタッフ／完全在宅ワーク】オープニングスタッフ増員募集／データ入力／全国から大募集 仕事内容 岐阜県安八郡神戸町に 今年の3月に新しい事業所がオープンしました！ 完全在宅ワークのメンバーを全国から募集します。 パソコンを使った簡単な作業が中心なので、 未経験の方やPCが苦手な方も安心して始められます。 通勤不要のため、 全国どこからでもリモート勤務が可能です。 /////////////おすすめポイント///////////// 〇完全在宅ワーク（フルリモート） 〇通勤不要・全国どこからでも勤務OK 〇週1日～勤務OK 〇短時間勤務OK 〇未経験OK・PC初心者OK 〇体調優先で無理なく働ける 〇年齢不問（中高年・シニア歓迎） 〇オープンしたばかりの新規事業所 ////////////////////////////////////////////////// ＜お仕事内容＞ ご自宅でパソコンを使用した業務です。 ・文章作成(ライティング) ・検索によるデータ収集 ・デザイン など 未経験の方でもご安心ください。 難しい作業はなく、体調や集中力に合わせて ご自身のペースで進められます。 ＜募集対象＞ ・障がいをお持ちの方 ・難病・特定疾患をお持ちの方 ・現在通院中の方 年齢や学歴は問いません。 20代〜60代以上まで 幅広い年代の方が活躍できます。 ＜こんな方におすすめ＞ ・在宅で働きたい ・体調に合わせて働きたい ・短時間の仕...",
       "url": "https://jp.indeed.com/viewjob?jk=d362c3ac99164dcf",
       "tier": "review",
-      "score": 95,
+      "score": 96,
       "automation_confidence": 100,
       "remote_confidence": 100,
-      "freshness_confidence": 98,
+      "freshness_confidence": 100,
       "human_dependency_risk": 10,
       "automation_reasons": [
         "データ入力",
@@ -29,7 +39,6 @@
         "メール"
       ],
       "remote_reasons": [
-        "Google Jobs:在宅勤務フィルタ",
         "完全在宅",
         "フルリモート",
         "全国どこからでも",
@@ -45,11 +54,56 @@
         "文章",
         "事務"
       ],
-      "category": "structured",
+      "category": "structured_data",
       "posted_label": "1 日前",
-      "search_published_at": "2026-08-18T11:01:18.963450+00:00",
+      "search_published_at": "2026-08-18T11:20:03.187725+00:00",
       "first_seen": "2026-08-19T11:01:18.963450+00:00",
-      "last_seen": "2026-08-19T11:01:18.963450+00:00",
+      "last_seen": "2026-08-19T11:20:03.187725+00:00",
+      "seen_count": 2,
+      "source": "Google Jobs via SerpApi; Indeed apply option verified",
+      "via": "Indeed.com",
+      "duplicate_count": 1
+    },
+    {
+      "id": "68fe4487cb4ee957",
+      "title": "✳️PMアシスタント✳️楽天市場運営【フルリモート】",
+      "company": "株式会社Vanquet",
+      "location": "日本",
+      "snippet": "仕事内容: ・フルリモートのPMアシスタント ・EC商品登録から日々の運用 ・即日からリモート在宅勤務が可能 ■ポジション PMアシスタント └PM:弊社クライアント様のEC受託運営の社内プロジェクトの全体管理を対応、 そちらのアシスタント業務を対応していただける方(一般的PMO/営業業務となります) ■業務内容 ・社内外メール対応・スケジュール調整 └メール・Chatwork・Teams・Backlog等使用 ・社内外MTGでの議事録・タスク化 └ECの戦略的な会話がメインとなります。 ・データDL・集計・資料更新 └各ECsys(主に楽天RMS)からのレポートDL～集計、定例MTGでの資料作成(PowerPoint) ・販売商品の発注対応 └Exelの管理表を使用しての仕入数算出～社内外への発注連絡対応 ■スキル ・Exel(VLOOKUP・SUMIF関数、ピポットテーブル程度) ・PowePoint(資料作成) ・EC経験(MTG内での会話が売上獲得に向けた会話となるため、EC用語を理解している方) ・クライアントワーク経験(MTG調整等主にテキストベースで社外とのやりとり) ■ご準備頂きたいもの ・PC(OS:Windowsが望ましいです) ・Office(Exel/Word/PowerPoint) 弊社はWeb制作/開発、マーケティング事業をメインに行っているWeb制作会社です。 弊社で請け負っているクライアント先のECサイトの運営をご担当頂け...",
+      "url": "https://jp.indeed.com/viewjob?jk=68fe4487cb4ee957",
+      "tier": "review",
+      "score": 77,
+      "automation_confidence": 83,
+      "remote_confidence": 100,
+      "freshness_confidence": 98,
+      "human_dependency_risk": 38,
+      "automation_reasons": [
+        "商品登録",
+        "メール",
+        "集計",
+        "shopify"
+      ],
+      "remote_reasons": [
+        "完全在宅",
+        "フルリモート",
+        "在宅勤務",
+        "在宅"
+      ],
+      "risk_reasons": [
+        "営業",
+        "ディレクション"
+      ],
+      "tags": [
+        "完全リモート",
+        "データ",
+        "事務",
+        "EC"
+      ],
+      "category": "ecommerce",
+      "posted_label": "1 日前",
+      "search_published_at": "2026-08-18T11:20:03.187725+00:00",
+      "first_seen": "2026-08-19T11:20:03.187725+00:00",
+      "last_seen": "2026-08-19T11:20:03.187725+00:00",
       "seen_count": 1,
       "source": "Google Jobs via SerpApi; Indeed apply option verified",
       "via": "Indeed.com",
@@ -95,7 +149,7 @@
       "via": "Indeed",
       "duplicate_count": 1,
       "carryover": true,
-      "carryover_reason": "最新スキャンでは未再検出。最大48時間だけ要確認として保持"
+      "carryover_reason": "最新スキャンでは未再検出。直近14日以内の候補として保持"
     },
     {
       "id": "3574515a4d5f505a",
@@ -135,7 +189,7 @@
       "via": "Indeed",
       "duplicate_count": 1,
       "carryover": true,
-      "carryover_reason": "最新スキャンでは未再検出。最大48時間だけ要確認として保持"
+      "carryover_reason": "最新スキャンでは未再検出。直近14日以内の候補として保持"
     },
     {
       "id": "a505dcbfe122cdd4",
@@ -176,9 +230,10 @@
       "via": "Indeed",
       "duplicate_count": 1,
       "carryover": true,
-      "carryover_reason": "最新スキャンでは未再検出。最大48時間だけ要確認として保持"
+      "carryover_reason": "最新スキャンでは未再検出。直近14日以内の候補として保持"
     }
   ],
+  "candidate_pool_size": 5,
   "deduplicated_jobs": 0,
   "remote_contradiction_dropped": 0,
   "carryover_jobs": 3,
@@ -191,7 +246,7 @@
   "llm_new_reviews": 0,
   "llm_reused_reviews": 0,
   "llm_review_failures": 0,
-  "llm_skipped_non_high": 4,
+  "llm_skipped_non_high": 5,
   "llm_max_new_reviews_per_run": 8,
   "llm_budget_month": "2026-08",
   "llm_paid_attempts_month": 9,
