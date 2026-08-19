@@ -68,6 +68,18 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual(kept, [])
         self.assertEqual(dropped, 1)
 
+    def test_negated_hybrid_wording_is_not_false_rejected(self):
+        rows = [
+            row(
+                "a",
+                snippet="完全在宅で、ハイブリッド勤務は不可です",
+                remote_reasons=["完全在宅", "注意:ハイブリッド"],
+            )
+        ]
+        kept, dropped = mod.drop_remote_contradictions(rows)
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(dropped, 0)
+
     def test_normal_full_remote_text_is_kept(self):
         rows = [row("a", snippet="フルリモートでデータ入力を行います", remote_reasons=["フルリモート"])]
         kept, dropped = mod.drop_remote_contradictions(rows)
