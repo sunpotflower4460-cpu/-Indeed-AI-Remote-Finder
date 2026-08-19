@@ -70,12 +70,23 @@ class LlmQualityGateTests(unittest.TestCase):
             )
         )
 
-    def test_continuous_online_presence_is_rejected_without_llm(self):
+    def test_automatable_online_session_alone_is_not_rejected(self):
         for text in (
-            "完全在宅。勤務時間中は常にオンラインで待機してください。",
-            "完全在宅ですが常時ログインが必要です。",
-            "在宅でオンライン待機を行う業務です。",
-            "Work from home; online throughout the shift.",
+            "完全在宅。勤務時間中は常時ログインしてデータを自動処理します。",
+            "完全在宅。オンライン待機し、到着したデータをシステム処理します。",
+            "Work from home; software remains online throughout the shift.",
+            "完全在宅。依頼受信後10分以内に自動返信します。",
+        ):
+            self.assertIsNone(mod.reject_reason(row(snippet=text)), text)
+
+    def test_explicit_human_attendance_is_rejected_without_llm(self):
+        for text in (
+            "完全在宅ですが勤務中はカメラ常時ON必須です。",
+            "完全在宅。Zoom常時接続で在席してください。",
+            "完全在宅。PC前で待機し、離席不可です。",
+            "完全在宅。不定期の在席確認に即時対応してください。",
+            "Fully remote; webcam on throughout the shift.",
+            "Fully remote; you must remain at your computer during work hours.",
         ):
             self.assertEqual(
                 mod.reject_reason(row(snippet=text)),
@@ -83,16 +94,14 @@ class LlmQualityGateTests(unittest.TestCase):
                 text,
             )
 
-    def test_short_human_response_sla_is_rejected(self):
-        for text in (
-            "完全在宅。依頼受信後10分以内に返信してください。",
-            "Fully remote. Respond within 15 minutes when a task arrives.",
-        ):
-            self.assertEqual(
-                mod.reject_reason(row(snippet=text)),
-                "continuous-human-presence",
-                text,
-            )
+    def test_human_specific_short_response_sla_is_rejected(self):
+        self.assertEqual(
+            mod.reject_reason(row(snippet="完全在宅。本人が10分以内に応答する必要があります。")),
+            "continuous-human-presence",
+        )
+        self.assertIsNone(
+            mod.reject_reason(row(snippet="完全在宅。自動システムが10分以内に応答します。"))
+        )
 
     def test_fixed_schedule_alone_is_not_rejected(self):
         self.assertIsNone(
@@ -101,26 +110,26 @@ class LlmQualityGateTests(unittest.TestCase):
             )
         )
 
-    def test_negated_presence_requirement_is_not_false_rejected(self):
+    def test_negated_human_presence_requirement_is_not_false_rejected(self):
         for text in (
-            "完全在宅。常時ログイン不要。納期までにデータを提出すればOKです。",
-            "完全在宅。オンライン待機なし。好きな時間に作業できます。",
-            "Fully remote; no need to stay online. Work asynchronously.",
+            "完全在宅。カメラ常時ON不要。納期までにデータを提出すればOKです。",
+            "完全在宅。在席確認なし。好きな時間に作業できます。",
+            "Fully remote; no webcam requirement and no attendance checks.",
         ):
             self.assertIsNone(mod.reject_reason(row(snippet=text)), text)
 
-    def test_llm_presence_blocker_is_rejected_even_with_high_automation(self):
+    def test_llm_human_presence_blocker_is_rejected_even_with_high_automation(self):
         self.assertEqual(
             mod.reject_reason(
                 row(
                     review(
                         automatable_fraction=95,
                         confidence=82,
-                        blockers=["リアルタイム待機が業務要件として明記されている"],
+                        blockers=["本人待機と在席確認が業務要件として明記されている"],
                     )
                 )
             ),
-            "confirmed-continuous-presence",
+            "confirmed-human-presence",
         )
 
     def test_reviewed_job_below_seventy_five_percent_is_too_weak(self):
@@ -132,9 +141,9 @@ class LlmQualityGateTests(unittest.TestCase):
             mod.reject_reason(row(review(automatable_fraction=75, confidence=90)))
         )
 
-    def test_apply_updates_pool_and_presence_metadata(self):
+    def test_apply_updates_pool_and_separate_drop_metadata(self):
         bad = row(review(verdict="reject"))
-        presence = {**row(snippet="常時ログイン必須"), "id": "presence"}
+        presence = {**row(snippet="完全在宅。カメラ常時ON必須"), "id": "presence"}
         good = {
             "id": "b",
             "title": "完全在宅 データ入力",
@@ -150,6 +159,13 @@ class LlmQualityGateTests(unittest.TestCase):
         self.assertEqual(got["quality_gate_dropped"], 2)
         self.assertEqual(got["llm_quality_dropped"], 1)
         self.assertEqual(got["presence_quality_dropped"], 1)
+        self.assertEqual(got["quality_gate_drop_reasons"]["verdict-reject"], 1)
+        self.assertEqual(got["quality_gate_drop_reasons"]["continuous-human-presence"], 1)
+        self.assertEqual(got["llm_quality_drop_reasons"], {"verdict-reject": 1})
+        self.assertEqual(
+            got["presence_quality_drop_reasons"],
+            {"continuous-human-presence": 1},
+        )
         self.assertEqual(got["candidate_presence_gate_version"], 1)
         self.assertTrue(got["candidate_requires_no_continuous_human_presence"])
         self.assertEqual(got["jobs"][0]["continuous_presence_risk"], "low")
