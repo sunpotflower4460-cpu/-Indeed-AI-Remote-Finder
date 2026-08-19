@@ -86,7 +86,7 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn("REVIEW_AUTOMATION_MIN = 55", quality)
         self.assertIn("REVIEW_HUMAN_RISK_MAX = 25", quality)
         self.assertIn('row["quality_gate"] = QUALITY_GATE', quality)
-        self.assertIn('old.get("quality_gate") != QUALITY_GATE', postprocess)
+        self.assertIn('row.get("quality_gate") != QUALITY_GATE', postprocess)
         self.assertIn('"ai-substitutable-async-remote"', adapter)
 
     def test_daily_schedule_preserves_search_budget(self):
