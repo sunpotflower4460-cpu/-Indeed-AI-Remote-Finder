@@ -34,17 +34,21 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn("python scripts/apply_llm_quality_gate.py", workflow)
         self.assertLess(workflow.index("python scripts/apply_llm_quality_gate.py"), workflow.index("python scripts/validate_remote_feed.py"))
 
-    def test_final_gate_rejects_continuous_human_presence(self):
+    def test_final_gate_rejects_human_attendance_not_automatable_online_state(self):
         gate = (ROOT / "scripts/apply_llm_quality_gate.py").read_text(encoding="utf-8")
         validator = (ROOT / "scripts/validate_remote_feed.py").read_text(encoding="utf-8")
         for needle in (
-            '"常時ログイン"',
-            '"オンライン待機"',
-            '"real-time monitoring"',
-            '"online throughout the shift"',
+            '"カメラ常時on"',
+            '"zoom常時接続"',
+            '"pc前で待機"',
+            '"在席必須"',
+            '"must remain at your computer"',
             "PRESENCE_GATE_VERSION = 1",
         ):
             self.assertIn(needle, gate)
+        # Generic software availability is intentionally not a hard blocker.
+        self.assertNotIn('    "常時ログイン",', gate)
+        self.assertNotIn('    "オンライン待機",', gate)
         self.assertIn("presence_requirement_signal", validator)
         self.assertIn("continuous_presence_risk", validator)
         self.assertIn("candidate_requires_no_continuous_human_presence", validator)
