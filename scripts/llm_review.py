@@ -116,8 +116,23 @@ def job_input(row: dict) -> dict:
     }
 
 
+def review_policy_material() -> dict:
+    """Material changes here intentionally invalidate cached LLM reviews."""
+    return {
+        "instructions": INSTRUCTIONS,
+        "schema": SCHEMA,
+        "reasoning_effort": REASONING_EFFORT,
+        "max_output_tokens": 900,
+    }
+
+
 def input_hash(row: dict) -> str:
-    raw = json.dumps(job_input(row), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    raw = json.dumps(
+        {"job": job_input(row), "policy": review_policy_material()},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
