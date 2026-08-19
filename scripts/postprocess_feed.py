@@ -43,6 +43,14 @@ REMOTE_CONTRADICTIONS = (
     "not fully remote",
     "not 100% remote",
 )
+HYBRID_NEGATIONS = (
+    "ハイブリッド不可",
+    "ハイブリッドではありません",
+    "ハイブリッドではない",
+    "ハイブリッド勤務なし",
+    "not hybrid",
+    "hybrid not allowed",
+)
 
 
 def parse_iso(value: str | None) -> datetime | None:
@@ -80,14 +88,20 @@ def has_remote_contradiction(row: dict) -> bool:
     ).lower()
     if any(phrase.lower() in text for phrase in REMOTE_CONTRADICTIONS):
         return True
-    # The scorer records explicit negative remote signals (hybrid, required
-    # office attendance, on-site, etc.) as 注意:... reasons. Because this app is
-    # specifically for fully remote work, any such signal is disqualifying even
-    # if positive remote wording would otherwise saturate the numeric score.
-    return any(
-        str(reason or "").strip().startswith("注意:")
-        for reason in (row.get("remote_reasons") or [])
-    )
+
+    hybrid_is_negated = any(phrase.lower() in text for phrase in HYBRID_NEGATIONS)
+    for reason in row.get("remote_reasons") or []:
+        value = str(reason or "").strip()
+        if not value.startswith("注意:"):
+            continue
+        signal = value.removeprefix("注意:").strip().lower()
+        # The scorer sees the substring "ハイブリッド" even in a sentence such
+        # as "ハイブリッド不可". Do not turn that positive full-remote evidence
+        # into a false rejection.
+        if signal in {"ハイブリッド", "hybrid"} and hybrid_is_negated:
+            continue
+        return True
+    return False
 
 
 def drop_remote_contradictions(rows: list[dict]) -> tuple[list[dict], int]:
