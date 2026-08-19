@@ -23,7 +23,7 @@ Production recommendations are not a generic remote-job list. A published candid
 
 ## Quantity and API budget policy
 
-The user-facing goal is to keep at least 100 unapplied recommendations available. The server-side rolling pool may retain up to 150 quality-gated candidates so applications and declines do not immediately push the user's remaining stock below 100. The 150 limit is surplus inventory, never a permission to weaken the quality gates above.
+The user-facing goal is to keep at least 100 unapplied recommendations available. The server-side rolling pool may retain up to 150 quality-gated candidates so applications and declines do not immediately push the user's remaining stock below 100. **Quantity never overrides the quality gates above.** The 150 limit is surplus inventory, never a permission to pad the pool with weaker work.
 
 Discovery uses broad task-focused anchor searches interleaved with many narrower rotating task profiles. This improves the chance of finding Indeed-backed candidates every day without turning the feed into a generic remote-job list. Only rows that pass the same v2 publication gates enter the rolling pool.
 
