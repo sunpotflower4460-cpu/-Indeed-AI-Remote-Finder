@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
 """Production adapter for adaptive acquisition.
 
-SerpApi's current Google Jobs API supports ltype=1 as the Working From Home
-filter. Production uses that structured filter and treats it as remote evidence
-for REVIEW-tier scoring only. The deterministic HIGH tier still requires the
-job text itself to contain explicit full-remote wording, so this does not weaken
-our strict top tier.
+SerpApi's Google Jobs endpoint still accepts ltype=1 for Work From Home results,
+but Google marks that filter deprecated and Work From Home can include hybrid
+roles. Production therefore uses it only to widen acquisition/REVIEW scoring.
+The deterministic HIGH tier still requires explicit full-remote wording in the
+job text itself.
 
-While the rolling pool is below 30, query every configured search theme in one
-refresh to bootstrap a usable queue quickly. Once the pool recovers,
-acquisition.py's smaller adaptive request counts take over.
-
-REVIEW also intentionally keeps a broader next-best band: the listing must come
-from the structured work-from-home acquisition path, contain at least one
+REVIEW intentionally keeps a broader next-best band: the listing must come from
+the structured work-from-home acquisition path, contain at least one
 AI-automatable work signal detected from the actual job text, stay within the
-freshness window, and avoid high human/physical risk. These rows remain clearly
-labeled 要確認; the strict HIGH thresholds are untouched.
+freshness window, and avoid high human/physical risk. If the returned job text
+does not itself prove full remote, the row is marked `remote_search_only` and
+the PWA tells the user to verify complete remote eligibility.
 """
 from __future__ import annotations
 
@@ -44,7 +41,10 @@ def configure_production_policy() -> None:
     if getattr(acquisition, "_production_remote_policy_configured", False):
         return
     acquisition._production_remote_policy_configured = True
-    acquisition.MAX_REQUESTS_PER_RUN = len(acquisition.QUERY_PROFILES)
+    acquisition.MAX_REQUESTS_PER_RUN = max(
+        acquisition.MAX_REQUESTS_PER_RUN,
+        len(acquisition.QUERY_PROFILES),
+    )
     acquisition.review_fallback = production_review_fallback
 
     base_score_job = acquisition.legacy.score_job
@@ -54,7 +54,47 @@ def configure_production_policy() -> None:
 
     acquisition.legacy.score_job = score_with_remote_filter
 
-    def serpapi_fetch_work_from_home(query: str, api_key: str) -> dict:
+    base_build_row = acquisition.build_row
+
+    def build_row_with_remote_evidence(job, category, previous):
+        row = base_build_row(job, category, previous)
+        if not row or row.get("tier") != "review" or not isinstance(job, dict):
+            return row
+
+        title = acquisition.legacy.clean(str(job.get("title") or ""))
+        location = acquisition.legacy.clean(str(job.get("location") or ""))
+        description = acquisition.legacy.clean(str(job.get("description") or ""))
+        highlights = acquisition.legacy.flatten_highlights(job)
+        raw_extensions = job.get("extensions") or []
+        extensions = (
+            " ".join(acquisition.legacy.clean(str(x)) for x in raw_extensions)
+            if isinstance(raw_extensions, list)
+            else ""
+        )
+        text = " ".join([title, location, description, highlights, extensions]).lower()
+        explicit_full_remote = any(
+            phrase.lower() in text for phrase in acquisition.legacy.REMOTE_EXPLICIT_FULL
+        )
+        row["remote_search_only"] = not explicit_full_remote
+        if row["remote_search_only"]:
+            reasons = list(row.get("remote_reasons") or [])
+            marker = "検索条件:在宅候補（完全在宅は本文要確認）"
+            if marker not in reasons:
+                reasons.append(marker)
+            row["remote_reasons"] = reasons[:8]
+            tags = list(row.get("tags") or [])
+            if "在宅要確認" not in tags:
+                tags.append("在宅要確認")
+            row["tags"] = tags[:5]
+        return row
+
+    acquisition.build_row = build_row_with_remote_evidence
+
+    def serpapi_fetch_work_from_home(
+        query: str,
+        api_key: str,
+        next_page_token: str | None = None,
+    ) -> dict:
         params = {
             "engine": "google_jobs",
             "q": query,
@@ -65,10 +105,12 @@ def configure_production_policy() -> None:
             "api_key": api_key,
             "output": "json",
         }
+        if next_page_token:
+            params["next_page_token"] = next_page_token
         url = "https://serpapi.com/search.json?" + urllib.parse.urlencode(params)
         request = urllib.request.Request(
             url,
-            headers={"User-Agent": "AI-Remote-Finder/6.2", "Accept": "application/json"},
+            headers={"User-Agent": "AI-Remote-Finder/6.4", "Accept": "application/json"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
