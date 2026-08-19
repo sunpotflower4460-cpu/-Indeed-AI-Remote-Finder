@@ -32,11 +32,14 @@ OUT = ROOT / "data" / "jobs.json"
 NOW = datetime.now(timezone.utc)
 
 DISPLAY_TARGET = 30
+DAILY_APPLICATION_TARGET = 10
 POOL_TARGET = 80
 POOL_LIMIT = 100
 ROLLING_DAYS = 14
 STEADY_REQUESTS = 2
-MAX_REQUESTS_PER_RUN = 10
+# When the visible pool is shallow, sweep every search profile once. This is
+# intentionally temporary; the monthly guard below still limits total spend.
+MAX_REQUESTS_PER_RUN = 18
 # Keep headroom below a small account allowance. This is a safety rail rather
 # than a promise about a specific SerpApi plan; it can be raised deliberately.
 DEFAULT_MONTHLY_REQUEST_CAP = 220
@@ -162,7 +165,7 @@ def serpapi_fetch(query: str, api_key: str) -> dict:
     url = "https://serpapi.com/search.json?" + urllib.parse.urlencode(params)
     request = urllib.request.Request(
         url,
-        headers={"User-Agent": "AI-Remote-Finder/6.0", "Accept": "application/json"},
+        headers={"User-Agent": "AI-Remote-Finder/6.1", "Accept": "application/json"},
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -172,15 +175,23 @@ def serpapi_fetch(query: str, api_key: str) -> dict:
 
 
 def review_fallback(scores: legacy.Scores, published: datetime | None) -> bool:
+    """Allow a transparent next-best reserve without weakening `high`.
+
+    All acquisition profiles already ask Google Jobs for remote-specific digital
+    work. Some result payloads omit the remote phrase from the returned text,
+    which previously caused plausible candidates to disappear. We therefore
+    allow those rows into REVIEW when they still have a meaningful automation
+    signal and low human/physical risk. Any explicit remote contradiction still
+    blocks the fallback and post-processing applies another contradiction guard.
+    """
     fresh = published is None or NOW - published <= timedelta(days=30)
-    positive_remote = any(not str(x).startswith("注意:") for x in scores.remote_reasons)
+    remote_conflict = any(str(x).startswith("注意:") for x in scores.remote_reasons)
     return bool(
         fresh
-        and scores.automation >= 45
-        and scores.remote >= 50
+        and scores.automation >= 30
         and scores.risk <= 45
         and scores.automation_reasons
-        and positive_remote
+        and not remote_conflict
     )
 
 
@@ -218,6 +229,15 @@ def build_row(job: dict, category: str, previous: dict[str, dict]) -> dict | Non
     if tier == "hidden":
         return None
 
+    remote_reasons = list(scores.remote_reasons)
+    tags = legacy.tags_for(text)
+    positive_remote = any(not str(x).startswith("注意:") for x in remote_reasons)
+    remote_search_only = tier == "review" and not positive_remote
+    if remote_search_only:
+        remote_reasons.append("検索条件:完全在宅候補（本文要確認）")
+        if "在宅要確認" not in tags:
+            tags = (tags + ["在宅要確認"])[:5]
+
     snippet = description or highlights
     if len(snippet) > 640:
         snippet = snippet[:637].rstrip() + "..."
@@ -236,9 +256,10 @@ def build_row(job: dict, category: str, previous: dict[str, dict]) -> dict | Non
         "freshness_confidence": scores.freshness,
         "human_dependency_risk": scores.risk,
         "automation_reasons": scores.automation_reasons,
-        "remote_reasons": scores.remote_reasons,
+        "remote_reasons": remote_reasons,
         "risk_reasons": scores.risk_reasons,
-        "tags": legacy.tags_for(text),
+        "tags": tags,
+        "remote_search_only": remote_search_only,
         "category": category,
         "posted_label": posted_text or None,
         "search_published_at": published.isoformat() if published else None,
@@ -334,6 +355,7 @@ def main() -> None:
         found.values(),
         key=lambda row: (
             0 if row["tier"] == "high" else 1,
+            1 if row.get("remote_search_only") else 0,
             -row["freshness_confidence"],
             -row["score"],
             -row["automation_confidence"],
@@ -351,6 +373,7 @@ def main() -> None:
         "method": "serpapi-google-jobs-adaptive-indeed-apply-only",
         "provider_configured": True,
         "candidate_display_target": DISPLAY_TARGET,
+        "candidate_daily_application_target": DAILY_APPLICATION_TARGET,
         "candidate_pool_target": POOL_TARGET,
         "candidate_pool_limit": POOL_LIMIT,
         "acquisition_mode": "replenish" if pool_size < POOL_TARGET else "steady",
@@ -366,9 +389,11 @@ def main() -> None:
     OUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     high = sum(1 for row in jobs if row["tier"] == "high")
     review = sum(1 for row in jobs if row["tier"] == "review")
+    remote_search_only = sum(1 for row in jobs if row.get("remote_search_only"))
     print(
-        f"wrote {len(jobs)} fresh candidates ({high} high / {review} review); "
-        f"queries {query_success}/{requests_run}, raw {raw_jobs}, Indeed apply {indeed_apply_jobs}; "
+        f"wrote {len(jobs)} fresh candidates ({high} high / {review} review; "
+        f"{remote_search_only} remote-text-check); queries {query_success}/{requests_run}, "
+        f"raw {raw_jobs}, Indeed apply {indeed_apply_jobs}; "
         f"rolling pool before refresh {pool_size}, SerpApi month {requests_month}/{monthly_cap}"
     )
 
