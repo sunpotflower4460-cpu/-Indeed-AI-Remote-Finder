@@ -1,11 +1,12 @@
 const $=s=>document.querySelector(s);
 const DEFAULT_VISIBLE=30;
 const DAILY_TARGET=10;
-const SERVER_POOL_TARGET=100;
+const USER_STOCK_TARGET=100;
 const LOCAL_POOL_LIMIT=250;
-const LOCAL_CACHE_KEY='candidateCacheV3';
+const LOCAL_CACHE_KEY='candidateCacheV4';
 const QUALITY_POLICY_VERSION=2;
 const QUALITY_GATE='async-ai-remote-v2';
+const PRESENCE_GATE_VERSION=1;
 const REVIEW_AUTOMATION_MIN=64;
 const REVIEW_HUMAN_RISK_MAX=18;
 const REVIEW_AUTOMATION_SIGNAL_MIN=2;
@@ -56,14 +57,17 @@ function isNewCandidate(j){return(ageDays(j.first_seen)??99)<1.5&&!j.carryover&&
 function isCurrentEnough(j){const seen=ageDays(j.last_seen);const published=ageDays(j.search_published_at);return(seen===null||seen<=30)&&(published===null||published<=30);}
 function llmQualityRejected(j){
   const r=j?.llm_review;if(!r||typeof r!=='object')return false;
+  const confidence=Number(r.confidence||0),automatable=Number(r.automatable_fraction||0),blockers=Array.isArray(r.blockers)?r.blockers.filter(Boolean):[];
   if(r.verdict==='reject'||r.physical_presence_required===true||r.synchronous_human_interaction==='frequent'||r.human_dependency==='high')return true;
-  return Number(r.confidence||0)>=80&&Number(r.automatable_fraction||0)<65;
+  if(confidence>=80&&(r.synchronous_human_interaction==='occasional'||r.human_dependency==='medium'||automatable<75))return true;
+  return confidence>=85&&blockers.length>0&&automatable<90;
 }
 function qualityEligible(j,policyActive=true){
   if(!isCurrentEnough(j)||llmQualityRejected(j))return false;
   if(!policyActive)return true;
   if(Number(j.quality_policy_version||0)!==QUALITY_POLICY_VERSION||j.quality_gate!==QUALITY_GATE)return false;
   if(j.autonomy_attention_risk!=='low'||j.remote_search_only===true)return false;
+  if(j.full_listing_presence_screened!==true||Number(j.presence_gate_version||0)!==PRESENCE_GATE_VERSION||j.continuous_presence_risk!=='low')return false;
   if(effectiveTier(j)==='review'){
     if(Number(j.automation_confidence||0)<REVIEW_AUTOMATION_MIN||Number(j.human_dependency_risk||0)>REVIEW_HUMAN_RISK_MAX)return false;
     const reasons=new Set((j.automation_reasons||[]).map(x=>String(x||'').trim().toLowerCase()).filter(Boolean));
@@ -170,6 +174,7 @@ function updateHealth(d){
   if(Number.isInteger(d.new_jobs))text+=`・新着 ${d.new_jobs}件`;
   if(Number.isInteger(d.live_jobs))text+=`・今回検出 ${d.live_jobs}件`;
   if(Number.isInteger(d.carryover_jobs)&&d.carryover_jobs>0)text+=`・予備 ${d.carryover_jobs}件`;
+  if(Number.isInteger(d.presence_quality_dropped)&&d.presence_quality_dropped>0)text+=`・本人在席要件 ${d.presence_quality_dropped}件除外`;
   if(Number.isInteger(d.llm_quality_dropped)&&d.llm_quality_dropped>0)text+=`・LLM品質除外 ${d.llm_quality_dropped}件`;
   if(Number.isInteger(d.serpapi_paginated_requests_run)&&d.serpapi_paginated_requests_run>0)text+=`・追加ページ ${d.serpapi_paginated_requests_run}回`;
   if(Number.isInteger(d.serpapi_requests_month)&&Number.isInteger(d.serpapi_monthly_request_cap))text+=` / 検索API ${d.serpapi_requests_month}/${d.serpapi_monthly_request_cap}`;
@@ -177,8 +182,8 @@ function updateHealth(d){
   if(d.llm_provider_configured===false)text+=' / LLM二次審査はOPENAI_API_KEY未設定';
   else if(d.llm_provider_configured===true){text+=` / LLM審査 ${d.llm_reviewed_jobs||0}件・二重通過 ${d.llm_strict_jobs||0}件`;if(Number.isInteger(d.llm_paid_attempts_month)&&Number.isInteger(d.llm_max_paid_attempts_per_month))text+=`・今月 ${d.llm_paid_attempts_month}/${d.llm_max_paid_attempts_per_month}`;if(d.llm_monthly_budget_exhausted)text+='・今月上限到達';if((d.llm_review_failures||0)>0)text+=`・失敗 ${d.llm_review_failures}件`;}
   if(Number.isFinite(h)&&h>24)text+=` / データ更新から${Math.floor(h)}時間`;
-  if(serverPool<SERVER_POOL_TARGET)text+=` / 100件未満のため自動補充モード`;
-  const warn=d.provider_configured===false||d.llm_provider_configured===false||(d.query_success||0)<(d.query_total||0)||(d.llm_review_failures||0)>0||d.llm_monthly_budget_exhausted===true||(Number.isFinite(h)&&h>24)||serverPool<SERVER_POOL_TARGET||available<100;
+  if(serverPool<USER_STOCK_TARGET)text+=` / 100件未満のため自動補充モード`;
+  const warn=d.provider_configured===false||d.llm_provider_configured===false||(d.query_success||0)<(d.query_total||0)||(d.llm_review_failures||0)>0||d.llm_monthly_budget_exhausted===true||(Number.isFinite(h)&&h>24)||serverPool<USER_STOCK_TARGET||available<USER_STOCK_TARGET;
   $('#sourceHealth').textContent=text;$('#sourceHealth').classList.toggle('warnText',warn);
 }
 
