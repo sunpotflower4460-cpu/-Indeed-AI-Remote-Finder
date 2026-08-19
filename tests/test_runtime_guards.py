@@ -26,6 +26,16 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn('current["llm_attempts_uncertain"] = True', workflow)
         self.assertIn("attempts + 8", workflow)
 
+    def test_production_update_uses_strict_remote_validator(self):
+        workflow = (ROOT / ".github" / "workflows" / "update-jobs.yml").read_text(encoding="utf-8")
+        check = (ROOT / ".github" / "workflows" / "check.yml").read_text(encoding="utf-8")
+        self.assertIn("python scripts/validate_remote_feed.py", workflow)
+        self.assertIn("python scripts/validate_remote_feed.py", check)
+        self.assertLess(
+            workflow.index("python scripts/validate_remote_feed.py"),
+            workflow.index("- name: Commit refreshed feed"),
+        )
+
     def test_actions_use_node24_setup_python(self):
         for relative in (
             Path(".github/workflows/check.yml"),
