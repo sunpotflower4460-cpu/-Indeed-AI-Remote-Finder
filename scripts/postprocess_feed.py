@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Post-process refreshed results into a stable rolling candidate pool.
 
-- Drop rows that explicitly contradict full-remote work.
+- Drop rows that explicitly contradict unconditional full-remote work.
 - Collapse duplicate postings with the same normalized company/title.
-- Keep quality-screened missing jobs for up to the 30-day freshness window.
+- Keep only v2 quality-screened missing jobs for up to the 30-day freshness window.
 - Rank live/new rows ahead of carried reserve rows so the app changes day to day.
 - Keep at most 100 ranked candidates in the server-side pool.
 """
@@ -23,9 +23,11 @@ CARRYOVER_MAX = timedelta(days=30)
 PUBLISHED_MAX = timedelta(days=30)
 DISPLAY_TARGET = 30
 POOL_LIMIT = 100
-QUALITY_GATE = "async-ai-remote"
-REVIEW_AUTOMATION_MIN = 55
-REVIEW_HUMAN_RISK_MAX = 25
+QUALITY_POLICY_VERSION = 2
+QUALITY_GATE = "async-ai-remote-v2"
+REVIEW_AUTOMATION_MIN = 64
+REVIEW_HUMAN_RISK_MAX = 18
+REVIEW_AUTOMATION_SIGNAL_MIN = 2
 REMOTE_CONTRADICTIONS = (
     "フルリモート不可", "完全在宅不可", "完全リモート不可",
     "100%リモート不可", "100％リモート不可",
@@ -35,6 +37,30 @@ REMOTE_CONTRADICTIONS = (
     "完全在宅ではない", "完全リモートではない", "100%リモートではない",
     "100％リモートではない", "フルリモートではなく", "完全在宅ではなく",
     "完全リモートではなく", "not fully remote", "not 100% remote",
+    "一部在宅", "一部リモート", "ハイブリッド勤務", "ハイブリッドワーク",
+    "在宅あり", "リモートあり", "出社あり", "出社併用", "在宅併用",
+    "リモート併用", "テレワーク併用", "慣れたら在宅", "慣れたらリモート",
+    "慣れてから在宅", "慣れてからリモート", "原則在宅", "基本在宅",
+    "原則リモート", "基本リモート", "原則フルリモート", "基本フルリモート",
+    "ほぼフルリモート", "フルリモート応相談", "完全在宅応相談",
+    "フルリモート相談可", "完全在宅相談可", "必要に応じて出社",
+    "必要に応じ出社", "場合により出社", "場合によって出社",
+    "研修期間は出社", "研修中は出社", "初日のみ出社", "初日は出社",
+    "将来的にフルリモート", "将来的に完全在宅",
+)
+REMOTE_NEGATIONS = (
+    "ハイブリッド勤務は不可", "ハイブリッド勤務不可", "ハイブリッド不可",
+    "一部在宅ではありません", "一部リモートではありません",
+    "出社併用なし", "出社併用不要", "出社の可能性なし",
+)
+REMOTE_PARTIAL_PATTERNS = (
+    re.compile(r"(?:在宅(?:勤務|ワーク)?|リモート(?:勤務|ワーク)?|テレワーク)\s*週\s*[1-6１-６一二三四五六]\s*(?:[～〜~\-－ー]\s*[1-6１-６一二三四五六])?\s*日", re.I),
+    re.compile(r"週\s*[1-6１-６一二三四五六]\s*(?:[～〜~\-－ー]\s*[1-6１-６一二三四五六])?\s*日\s*(?:程度\s*)?(?:の)?\s*(?:在宅|リモート|テレワーク)", re.I),
+    re.compile(r"(?:在宅|リモート|テレワーク)\s*(?:勤務)?\s*月\s*[1-9１-９]\s*回", re.I),
+    re.compile(r"月\s*[1-9１-９]\s*回\s*(?:程度\s*)?(?:の)?\s*(?:在宅|リモート|テレワーク)", re.I),
+    re.compile(r"(?:週|月)\s*[1-9１-９]\s*回(?:程度)?\s*(?:の)?\s*出社", re.I),
+    re.compile(r"出社\s*(?:は)?\s*(?:週|月)\s*[1-9１-９]\s*回", re.I),
+    re.compile(r"(?:研修|オンボーディング)[^。\n]{0,30}出社", re.I),
 )
 
 
@@ -73,8 +99,14 @@ def hybrid_wording_is_negated(text: str) -> bool:
 
 def has_remote_contradiction(row: dict) -> bool:
     text = " ".join(str(row.get(key) or "") for key in ("title", "location", "snippet")).lower()
-    if any(phrase.lower() in text for phrase in REMOTE_CONTRADICTIONS):
+    scrubbed = text
+    for phrase in REMOTE_NEGATIONS:
+        scrubbed = scrubbed.replace(phrase.lower(), " ")
+    if any(phrase.lower() in scrubbed for phrase in REMOTE_CONTRADICTIONS):
         return True
+    if any(pattern.search(scrubbed) for pattern in REMOTE_PARTIAL_PATTERNS):
+        return True
+
     hybrid_is_negated = hybrid_wording_is_negated(text)
     for reason in row.get("remote_reasons") or []:
         value = str(reason or "").strip()
@@ -129,14 +161,21 @@ def dedupe_rows(rows: list[dict]) -> tuple[list[dict], int]:
 def reserve_row_is_quality_gated(row: dict) -> bool:
     if row.get("autonomy_attention_risk") != "low":
         return False
+    if int(row.get("quality_policy_version") or 0) != QUALITY_POLICY_VERSION:
+        return False
     if row.get("quality_gate") != QUALITY_GATE:
         return False
     if row.get("remote_search_only") is True:
+        return False
+    if has_remote_contradiction(row):
         return False
     if row.get("tier") == "review":
         if int(row.get("automation_confidence") or 0) < REVIEW_AUTOMATION_MIN:
             return False
         if int(row.get("human_dependency_risk") or 0) > REVIEW_HUMAN_RISK_MAX:
+            return False
+        reasons = {str(value or "").strip().lower() for value in row.get("automation_reasons") or [] if str(value or "").strip()}
+        if len(reasons) < REVIEW_AUTOMATION_SIGNAL_MIN:
             return False
     return True
 
@@ -151,7 +190,7 @@ def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> 
             continue
         if old.get("tier") not in {"high", "review"}:
             continue
-        if not reserve_row_is_quality_gated(old) or has_remote_contradiction(old):
+        if not reserve_row_is_quality_gated(old):
             continue
         last_seen = parse_iso(old.get("last_seen"))
         if not last_seen:
@@ -168,7 +207,7 @@ def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> 
         row["tier"] = "review"
         row["carryover"] = True
         row["pool_reserve"] = True
-        row["carryover_reason"] = "最新スキャンでは未再検出。30日以内の品質確認済み予備候補として保持"
+        row["carryover_reason"] = "最新スキャンでは未再検出。30日以内のv2品質確認済み予備候補として保持"
         row["freshness_confidence"] = min(
             int(row.get("freshness_confidence") or 0), max(24, 60 - days_missing * 2)
         )
