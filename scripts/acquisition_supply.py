@@ -15,10 +15,12 @@ safety cap this can run throughout a 31-day month (217 requests) instead of
 burning the allowance early.
 
 To avoid an entire daily run landing on niche themes that have no Indeed apply
-option, broad task-focused anchor searches are interleaved through the rotating
-profile list. Every seven-profile window contains at least two anchors while the
-remaining requests continue to explore narrower task themes. Quantity never
-changes the publication threshold.
+option, short natural-language anchor searches are interleaved through the
+rotating profile list. The anchors deliberately avoid large nested OR expressions
+because broad, simple job-search phrases are more robust discovery inputs. Every
+seven-profile window contains at least two anchors while the remaining requests
+continue to explore narrower task themes. Quantity never changes the publication
+threshold.
 
 Request cadence:
 - 0..19 candidates: 7 searches/run
@@ -47,26 +49,18 @@ DISCOVERY_REMOTE_QUERY = (
 )
 R = DISCOVERY_REMOTE_QUERY
 
-# These are deliberately broad within the product definition. They are not a
-# quality bypass: every returned job still passes explicit-full-remote,
-# autonomy, deterministic automation and optional LLM-veto gates downstream.
+# Anchors are intentionally short and close to phrases people actually use in
+# job search. They are only discovery inputs; every returned row must still pass
+# the strict v2 full-remote/automation/autonomy gates before publication.
 ANCHOR_QUERY_PROFILES: list[tuple[str, str]] = [
-    (
-        "anchor_structured",
-        f'{R} ("データ入力" OR "データ整理" OR "データチェック" OR "書類チェック" OR "商品登録" OR "リスト作成" OR OCR)',
-    ),
-    (
-        "anchor_ai_language",
-        f'{R} (アノテーション OR "AIトレーナー" OR rater OR "AI評価" OR "文字起こし" OR 校正 OR 翻訳 OR LQA)',
-    ),
-    (
-        "anchor_content_ops",
-        f'{R} (CMS OR "記事入稿" OR "コンテンツ入稿" OR メタデータ OR "カテゴリー設定" OR "データ更新" OR "品質チェック")',
-    ),
-    (
-        "anchor_research_qa",
-        f'{R} ("Webリサーチ" OR "情報収集" OR "ファクトチェック" OR "検索評価" OR QA OR "動作確認" OR "データ検証")',
-    ),
+    ("anchor_data_entry", "完全在宅 データ入力"),
+    ("anchor_fullhome_entry", "フル在宅 入力業務"),
+    ("anchor_annotation", "フルリモート アノテーション"),
+    ("anchor_ai_trainer", "完全在宅 AIトレーナー"),
+    ("anchor_rater", "フルリモート rater AI評価"),
+    ("anchor_language", "完全在宅 翻訳 校正 文字起こし"),
+    ("anchor_content_ops", "完全在宅 商品登録 CMS データ更新"),
+    ("anchor_research_qa", "フルリモート Webリサーチ データチェック QA"),
 ]
 
 TASK_QUERY_PROFILES: list[tuple[str, str]] = [
@@ -184,7 +178,7 @@ def stamp_supply_metadata() -> None:
         payload = acquisition.load_payload()
         if not payload:
             return
-        payload["candidate_search_strategy"] = "interleaved-anchor-rotation-strict-full-remote-v2"
+        payload["candidate_search_strategy"] = "simple-anchor-rotation-strict-full-remote-v2"
         payload["candidate_search_profile_count"] = len(PRODUCTION_QUERY_PROFILES)
         payload["candidate_search_anchor_templates"] = len(ANCHOR_QUERY_PROFILES)
         payload["candidate_search_daily_deep_limit"] = DEEP_REQUESTS
