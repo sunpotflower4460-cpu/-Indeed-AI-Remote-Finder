@@ -12,8 +12,13 @@ evidence in the listing itself and rejects partial/hybrid or human-attention-hea
 
 The default deep cadence is seven searches/day. With the 220-request monthly
 safety cap this can run throughout a 31-day month (217 requests) instead of
-burning the allowance early. Seventy-two task themes therefore rotate in about
-11 days, while quality-gated candidates can remain in the 30-day reserve pool.
+burning the allowance early.
+
+To avoid an entire daily run landing on niche themes that have no Indeed apply
+option, broad task-focused anchor searches are interleaved through the rotating
+profile list. Every seven-profile window contains at least two anchors while the
+remaining requests continue to explore narrower task themes. Quantity never
+changes the publication threshold.
 
 Request cadence:
 - 0..19 candidates: 7 searches/run
@@ -42,7 +47,29 @@ DISCOVERY_REMOTE_QUERY = (
 )
 R = DISCOVERY_REMOTE_QUERY
 
-PRODUCTION_QUERY_PROFILES: list[tuple[str, str]] = [
+# These are deliberately broad within the product definition. They are not a
+# quality bypass: every returned job still passes explicit-full-remote,
+# autonomy, deterministic automation and optional LLM-veto gates downstream.
+ANCHOR_QUERY_PROFILES: list[tuple[str, str]] = [
+    (
+        "anchor_structured",
+        f'{R} ("データ入力" OR "データ整理" OR "データチェック" OR "書類チェック" OR "商品登録" OR "リスト作成" OR OCR)',
+    ),
+    (
+        "anchor_ai_language",
+        f'{R} (アノテーション OR "AIトレーナー" OR rater OR "AI評価" OR "文字起こし" OR 校正 OR 翻訳 OR LQA)',
+    ),
+    (
+        "anchor_content_ops",
+        f'{R} (CMS OR "記事入稿" OR "コンテンツ入稿" OR メタデータ OR "カテゴリー設定" OR "データ更新" OR "品質チェック")',
+    ),
+    (
+        "anchor_research_qa",
+        f'{R} ("Webリサーチ" OR "情報収集" OR "ファクトチェック" OR "検索評価" OR QA OR "動作確認" OR "データ検証")',
+    ),
+]
+
+TASK_QUERY_PROFILES: list[tuple[str, str]] = [
     ("data_entry_basic", f'{R} ("データ入力" OR "入力業務" OR 転記)'),
     ("data_entry_excel", f'{R} (Excel OR スプレッドシート) ("データ入力" OR 転記 OR 集計)'),
     ("csv_ops", f'{R} (CSV OR "データ整形" OR "データ変換")'),
@@ -118,6 +145,23 @@ PRODUCTION_QUERY_PROFILES: list[tuple[str, str]] = [
 ]
 
 
+def interleave_anchor_profiles(tasks: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Ensure every short rotation window gets broad recall plus niche novelty."""
+    combined: list[tuple[str, str]] = []
+    anchor_index = 0
+    for offset in range(0, len(tasks), 2):
+        combined.extend(tasks[offset: offset + 2])
+        anchor_name, anchor_query = ANCHOR_QUERY_PROFILES[
+            anchor_index % len(ANCHOR_QUERY_PROFILES)
+        ]
+        combined.append((f"{anchor_name}_{anchor_index:02d}", anchor_query))
+        anchor_index += 1
+    return combined
+
+
+PRODUCTION_QUERY_PROFILES = interleave_anchor_profiles(TASK_QUERY_PROFILES)
+
+
 def supply_request_limit(pool_size: int) -> int:
     if pool_size < 20:
         return DEEP_REQUESTS
@@ -140,8 +184,9 @@ def stamp_supply_metadata() -> None:
         payload = acquisition.load_payload()
         if not payload:
             return
-        payload["candidate_search_strategy"] = "rotating-broad-discovery-strict-full-remote-v2"
+        payload["candidate_search_strategy"] = "interleaved-anchor-rotation-strict-full-remote-v2"
         payload["candidate_search_profile_count"] = len(PRODUCTION_QUERY_PROFILES)
+        payload["candidate_search_anchor_templates"] = len(ANCHOR_QUERY_PROFILES)
         payload["candidate_search_daily_deep_limit"] = DEEP_REQUESTS
         payload["candidate_search_pagination_expected"] = False
         payload["candidate_search_budget_monthly_safe_at_31_days"] = DEEP_REQUESTS * 31 <= 220
