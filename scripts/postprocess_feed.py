@@ -43,8 +43,11 @@ def normalize_identity(value: str | None) -> str:
 def fingerprint(row: dict) -> str:
     company = normalize_identity(row.get("company"))
     title = normalize_identity(row.get("title"))
-    if not title:
-        return f"id:{row.get('id', '')}"
+    jid = str(row.get("id") or "")
+    # Do not collapse rows solely because they share a generic title. Company is
+    # part of the identity; if either side is missing, keep the provider job id.
+    if not company or not title:
+        return f"id:{jid}"
     return f"{company}|{title}"
 
 
