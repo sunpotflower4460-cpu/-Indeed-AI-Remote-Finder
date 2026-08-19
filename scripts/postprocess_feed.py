@@ -3,7 +3,7 @@
 
 - Drop rows that explicitly contradict full-remote work.
 - Collapse duplicate postings with the same normalized company/title.
-- Keep recently seen, quality-screened missing jobs for up to 14 days as REVIEW.
+- Keep quality-screened missing jobs for up to the 30-day freshness window.
 - Rank live/new rows ahead of carried reserve rows so the app changes day to day.
 - Keep at most 100 ranked candidates in the server-side pool.
 """
@@ -19,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
-CARRYOVER_MAX = timedelta(days=14)
+CARRYOVER_MAX = timedelta(days=30)
 PUBLISHED_MAX = timedelta(days=30)
 DISPLAY_TARGET = 30
 POOL_LIMIT = 100
@@ -27,26 +27,14 @@ QUALITY_GATE = "async-ai-remote"
 REVIEW_AUTOMATION_MIN = 55
 REVIEW_HUMAN_RISK_MAX = 25
 REMOTE_CONTRADICTIONS = (
-    "フルリモート不可",
-    "完全在宅不可",
-    "完全リモート不可",
-    "100%リモート不可",
-    "100％リモート不可",
-    "フルリモートではありません",
-    "完全在宅ではありません",
-    "完全リモートではありません",
-    "100%リモートではありません",
-    "100％リモートではありません",
-    "フルリモートではない",
-    "完全在宅ではない",
-    "完全リモートではない",
-    "100%リモートではない",
-    "100％リモートではない",
-    "フルリモートではなく",
-    "完全在宅ではなく",
-    "完全リモートではなく",
-    "not fully remote",
-    "not 100% remote",
+    "フルリモート不可", "完全在宅不可", "完全リモート不可",
+    "100%リモート不可", "100％リモート不可",
+    "フルリモートではありません", "完全在宅ではありません",
+    "完全リモートではありません", "100%リモートではありません",
+    "100％リモートではありません", "フルリモートではない",
+    "完全在宅ではない", "完全リモートではない", "100%リモートではない",
+    "100％リモートではない", "フルリモートではなく", "完全在宅ではなく",
+    "完全リモートではなく", "not fully remote", "not 100% remote",
 )
 
 
@@ -87,7 +75,6 @@ def has_remote_contradiction(row: dict) -> bool:
     text = " ".join(str(row.get(key) or "") for key in ("title", "location", "snippet")).lower()
     if any(phrase.lower() in text for phrase in REMOTE_CONTRADICTIONS):
         return True
-
     hybrid_is_negated = hybrid_wording_is_negated(text)
     for reason in row.get("remote_reasons") or []:
         value = str(reason or "").strip()
@@ -119,7 +106,6 @@ def dedupe_rows(rows: list[dict]) -> tuple[list[dict], int]:
     groups: dict[str, list[dict]] = {}
     for row in rows:
         groups.setdefault(fingerprint(row), []).append(row)
-
     merged: list[dict] = []
     removed = 0
     for group in groups.values():
@@ -165,11 +151,7 @@ def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> 
             continue
         if old.get("tier") not in {"high", "review"}:
             continue
-        # Reserve rows must have passed the same current quality gate. Older
-        # policy rows may re-enter only when a fresh scan evaluates them again.
-        if not reserve_row_is_quality_gated(old):
-            continue
-        if has_remote_contradiction(old):
+        if not reserve_row_is_quality_gated(old) or has_remote_contradiction(old):
             continue
         last_seen = parse_iso(old.get("last_seen"))
         if not last_seen:
@@ -186,12 +168,11 @@ def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> 
         row["tier"] = "review"
         row["carryover"] = True
         row["pool_reserve"] = True
-        row["carryover_reason"] = "最新スキャンでは未再検出。直近14日以内の品質確認済み予備候補として保持"
+        row["carryover_reason"] = "最新スキャンでは未再検出。30日以内の品質確認済み予備候補として保持"
         row["freshness_confidence"] = min(
-            int(row.get("freshness_confidence") or 0),
-            max(34, 58 - days_missing * 2),
+            int(row.get("freshness_confidence") or 0), max(24, 60 - days_missing * 2)
         )
-        row["score"] = min(int(row.get("score") or 0), max(46, 72 - days_missing * 2))
+        row["score"] = min(int(row.get("score") or 0), max(40, 74 - days_missing * 2))
         carried.append(row)
     return carried
 
@@ -214,27 +195,25 @@ def process(current_payload: dict, previous_payload: dict | None = None) -> dict
     current = [row for row in current_payload.get("jobs", []) if isinstance(row, dict)]
     previous = [row for row in (previous_payload or {}).get("jobs", []) if isinstance(row, dict)]
     previous_ids = {str(row.get("id") or "") for row in previous}
-
     current, contradiction_dropped = drop_remote_contradictions(current)
     current, removed = dedupe_rows(current)
     live_ids = {str(row.get("id") or "") for row in current}
     carried = carryover_rows(current, previous, generated)
     combined, removed_after_carry = dedupe_rows(current + carried)
     removed += removed_after_carry
-
     combined.sort(key=sort_key)
     visible = combined[:POOL_LIMIT]
     current_payload["jobs"] = visible
     current_payload["candidate_pool_size"] = len(visible)
     current_payload["live_jobs"] = sum(1 for row in visible if str(row.get("id") or "") in live_ids)
     current_payload["new_jobs"] = sum(
-        1 for row in visible
-        if str(row.get("id") or "") not in previous_ids and not row.get("carryover")
+        1 for row in visible if str(row.get("id") or "") not in previous_ids and not row.get("carryover")
     )
     current_payload["remote_search_only_jobs"] = sum(1 for row in visible if row.get("remote_search_only"))
     current_payload["deduplicated_jobs"] = removed
     current_payload["remote_contradiction_dropped"] = contradiction_dropped
     current_payload["carryover_jobs"] = sum(1 for row in visible if row.get("carryover"))
+    current_payload["candidate_reserve_max_days"] = int(CARRYOVER_MAX.days)
     current_payload["pool_under_display_target"] = len(visible) < int(current_payload.get("candidate_display_target") or DISPLAY_TARGET)
     current_payload["postprocessed"] = True
     return current_payload
@@ -252,7 +231,6 @@ def main() -> None:
     parser.add_argument("--feed", type=Path, default=DEFAULT_FEED)
     parser.add_argument("--previous", type=Path)
     args = parser.parse_args()
-
     current = load(args.feed)
     if not current:
         raise SystemExit(f"feed missing or invalid: {args.feed}")
@@ -263,8 +241,7 @@ def main() -> None:
         f"postprocessed {len(result.get('jobs', []))} jobs; "
         f"live {result.get('live_jobs', 0)}, new {result.get('new_jobs', 0)}, "
         f"reserve {result.get('carryover_jobs', 0)}, remote-text-check {result.get('remote_search_only_jobs', 0)}, "
-        f"deduped {result.get('deduplicated_jobs', 0)}, "
-        f"remote contradictions {result.get('remote_contradiction_dropped', 0)}"
+        f"deduped {result.get('deduplicated_jobs', 0)}, remote contradictions {result.get('remote_contradiction_dropped', 0)}"
     )
 
 
