@@ -22,10 +22,23 @@
       "remote_confidence": 100,
       "freshness_confidence": 84,
       "human_dependency_risk": 0,
-      "automation_reasons": ["aiトレーナー", "ai trainer", "ai評価", "データ評価"],
-      "remote_reasons": ["完全在宅", "フルリモート", "100%リモート", "在宅"],
+      "automation_reasons": [
+        "aiトレーナー",
+        "ai trainer",
+        "ai評価",
+        "データ評価"
+      ],
+      "remote_reasons": [
+        "完全在宅",
+        "フルリモート",
+        "100%リモート",
+        "在宅"
+      ],
       "risk_reasons": [],
-      "tags": ["完全リモート", "AI評価"],
+      "tags": [
+        "完全リモート",
+        "AI評価"
+      ],
       "category": "ai_language",
       "posted_label": "5日前（2026-08-19確認時）",
       "search_published_at": "2026-08-14T08:13:02.872392+00:00",
@@ -33,7 +46,8 @@
       "last_seen": "2026-08-19T08:13:02.872392+00:00",
       "seen_count": 1,
       "source": "Initial seed verified on Indeed via web search on 2026-08-19",
-      "via": "Indeed"
+      "via": "Indeed",
+      "duplicate_count": 1
     },
     {
       "id": "3574515a4d5f505a",
@@ -48,10 +62,21 @@
       "remote_confidence": 100,
       "freshness_confidence": 70,
       "human_dependency_risk": 0,
-      "automation_reasons": ["アノテーション", "ai評価", "データ評価"],
-      "remote_reasons": ["完全在宅", "フルリモート", "在宅"],
+      "automation_reasons": [
+        "アノテーション",
+        "ai評価",
+        "データ評価"
+      ],
+      "remote_reasons": [
+        "完全在宅",
+        "フルリモート",
+        "在宅"
+      ],
       "risk_reasons": [],
-      "tags": ["完全リモート", "AI評価"],
+      "tags": [
+        "完全リモート",
+        "AI評価"
+      ],
       "category": "ai_language",
       "posted_label": "9日前（2026-08-19確認時）",
       "search_published_at": "2026-08-10T08:13:02.872392+00:00",
@@ -59,7 +84,8 @@
       "last_seen": "2026-08-19T08:13:02.872392+00:00",
       "seen_count": 1,
       "source": "Initial seed verified on Indeed via web search on 2026-08-19",
-      "via": "Indeed"
+      "via": "Indeed",
+      "duplicate_count": 1
     },
     {
       "id": "a505dcbfe122cdd4",
@@ -74,10 +100,22 @@
       "remote_confidence": 100,
       "freshness_confidence": 70,
       "human_dependency_risk": 0,
-      "automation_reasons": ["ai trainer", "ai評価", "データ評価", "品質評価"],
-      "remote_reasons": ["完全在宅", "フルリモート", "在宅"],
+      "automation_reasons": [
+        "ai trainer",
+        "ai評価",
+        "データ評価",
+        "品質評価"
+      ],
+      "remote_reasons": [
+        "完全在宅",
+        "フルリモート",
+        "在宅"
+      ],
       "risk_reasons": [],
-      "tags": ["完全リモート", "AI評価"],
+      "tags": [
+        "完全リモート",
+        "AI評価"
+      ],
       "category": "ai_language",
       "posted_label": "13日前（2026-08-19確認時）",
       "search_published_at": "2026-08-06T08:13:02.872392+00:00",
@@ -85,7 +123,11 @@
       "last_seen": "2026-08-19T08:13:02.872392+00:00",
       "seen_count": 1,
       "source": "Initial seed verified on Indeed via web search on 2026-08-19",
-      "via": "Indeed"
+      "via": "Indeed",
+      "duplicate_count": 1
     }
-  ]
+  ],
+  "deduplicated_jobs": 0,
+  "carryover_jobs": 0,
+  "postprocessed": true
 }
