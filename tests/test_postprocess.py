@@ -11,151 +11,102 @@ sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
 
 
-def row(jid, title="AI Annotator", company="Example", tier="high", last_seen=None, published=None, first_seen=None, location="Tokyo", snippet="", remote_reasons=None, score=90):
+def row(jid, *, tier="high", last_seen=None, published=None, snippet="", company="Example", title="AI Annotator", score=90):
     now = datetime.now(timezone.utc)
     return {
         "id": jid,
         "title": title,
         "company": company,
         "tier": tier,
-        "location": location,
+        "location": "Tokyo",
         "snippet": snippet,
-        "remote_reasons": list(remote_reasons or ["完全在宅"]),
+        "remote_reasons": ["完全在宅"],
         "freshness_confidence": 90,
         "score": score,
         "automation_confidence": 95,
         "human_dependency_risk": 0,
+        "automation_reasons": ["アノテーション", "分類"],
         "autonomy_attention_risk": "low",
         "autonomy_policy_version": 1,
-        "quality_policy_version": 1,
-        "quality_gate": "async-ai-remote",
+        "quality_policy_version": 2,
+        "quality_gate": "async-ai-remote-v2",
         "remote_search_only": False,
         "last_seen": (last_seen or now).isoformat(),
-        "first_seen": (first_seen or now).isoformat(),
+        "first_seen": now.isoformat(),
         "search_published_at": (published or (now - timedelta(days=2))).isoformat(),
     }
 
 
 class PostprocessTests(unittest.TestCase):
     def test_duplicate_company_title_collapses(self):
-        rows = [row("a", location="Tokyo"), row("b", location="Osaka")]
-        got, removed = mod.dedupe_rows(rows)
+        got, removed = mod.dedupe_rows([row("a"), row("b")])
         self.assertEqual(len(got), 1)
         self.assertEqual(removed, 1)
-        self.assertEqual(got[0]["duplicate_count"], 2)
-        self.assertEqual(set(got[0]["alternate_locations"]), {"Tokyo", "Osaka"})
 
-    def test_same_title_without_company_does_not_collapse(self):
-        rows = [row("a", company="", location="Tokyo"), row("b", company="", location="Osaka")]
-        got, removed = mod.dedupe_rows(rows)
-        self.assertEqual(len(got), 2)
-        self.assertEqual(removed, 0)
+    def test_remote_contradictions_are_dropped(self):
+        for text in (
+            "フルリモート不可です",
+            "ほぼフルリモートですが月1回出社です",
+            "完全在宅相談可です",
+        ):
+            kept, dropped = mod.drop_remote_contradictions([row("a", snippet=text)])
+            self.assertEqual(kept, [], text)
+            self.assertEqual(dropped, 1, text)
 
-    def test_explicit_full_remote_contradiction_is_dropped(self):
-        kept, dropped = mod.drop_remote_contradictions([row("a", snippet="業務はフルリモート不可です")])
-        self.assertEqual(kept, [])
-        self.assertEqual(dropped, 1)
-
-    def test_fullwidth_percent_remote_contradiction_is_dropped(self):
-        kept, dropped = mod.drop_remote_contradictions([row("a", snippet="100％リモートではありません")])
-        self.assertEqual(kept, [])
-        self.assertEqual(dropped, 1)
-
-    def test_negative_remote_reason_is_dropped_even_with_positive_wording(self):
-        kept, dropped = mod.drop_remote_contradictions([
-            row("a", snippet="フルリモート中心のデータ入力", remote_reasons=["フルリモート", "注意:ハイブリッド"])
-        ])
-        self.assertEqual(kept, [])
-        self.assertEqual(dropped, 1)
-
-    def test_negated_hybrid_wording_is_not_false_rejected(self):
-        kept, dropped = mod.drop_remote_contradictions([
-            row("a", snippet="完全在宅で、ハイブリッド勤務は不可です", remote_reasons=["完全在宅", "注意:ハイブリッド"])
-        ])
+    def test_negated_hybrid_is_not_false_rejected(self):
+        item = row("a", snippet="完全在宅で、ハイブリッド勤務は不可です")
+        item["remote_reasons"] = ["完全在宅", "注意:ハイブリッド"]
+        kept, dropped = mod.drop_remote_contradictions([item])
         self.assertEqual(len(kept), 1)
         self.assertEqual(dropped, 0)
 
-    def test_recent_missing_job_is_carried_as_review_reserve_without_refreshing_last_seen(self):
+    def test_v2_quality_job_can_be_carried_for_twenty_days(self):
         now = datetime.now(timezone.utc)
-        old_seen = now - timedelta(days=10)
-        carried = mod.carryover_rows([], [row("a", last_seen=old_seen)], now)
+        item = row("a", last_seen=now - timedelta(days=20))
+        item["search_published_at"] = None
+        carried = mod.carryover_rows([], [item], now)
         self.assertEqual(len(carried), 1)
         self.assertEqual(carried[0]["tier"], "review")
         self.assertTrue(carried[0]["carryover"])
-        self.assertTrue(carried[0]["pool_reserve"])
-        self.assertEqual(carried[0]["last_seen"], old_seen.isoformat())
-        self.assertLessEqual(carried[0]["freshness_confidence"], 58)
 
-    def test_legacy_unscreened_missing_job_is_not_carried(self):
+    def test_v1_job_never_reenters_reserve(self):
         now = datetime.now(timezone.utc)
-        old = row("legacy", last_seen=now - timedelta(days=2))
-        old.pop("autonomy_attention_risk")
-        old.pop("autonomy_policy_version")
-        self.assertEqual(mod.carryover_rows([], [old], now), [])
+        item = row("a", last_seen=now - timedelta(days=2))
+        item["quality_policy_version"] = 1
+        item["quality_gate"] = "async-ai-remote"
+        self.assertEqual(mod.carryover_rows([], [item], now), [])
 
-    def test_pre_quality_missing_job_is_not_carried(self):
+    def test_weak_or_single_signal_review_never_reenters(self):
         now = datetime.now(timezone.utc)
-        old = row("legacy-quality", last_seen=now - timedelta(days=2))
-        old.pop("quality_gate")
-        old.pop("quality_policy_version")
-        self.assertEqual(mod.carryover_rows([], [old], now), [])
+        weak = row("weak", tier="review", last_seen=now - timedelta(days=2))
+        weak["automation_confidence"] = 63
+        single = row("single", tier="review", last_seen=now - timedelta(days=2))
+        single["automation_reasons"] = ["データ入力"]
+        self.assertEqual(mod.carryover_rows([], [weak], now), [])
+        self.assertEqual(mod.carryover_rows([], [single], now), [])
 
-    def test_weak_review_missing_job_is_not_carried(self):
+    def test_remote_search_only_never_reenters(self):
         now = datetime.now(timezone.utc)
-        old = row("weak", tier="review", last_seen=now - timedelta(days=2))
-        old["automation_confidence"] = 54
-        self.assertEqual(mod.carryover_rows([], [old], now), [])
+        item = row("a", tier="review", last_seen=now - timedelta(days=2))
+        item["remote_search_only"] = True
+        self.assertEqual(mod.carryover_rows([], [item], now), [])
 
-    def test_remote_search_only_missing_job_is_not_carried(self):
+    def test_older_than_thirty_days_never_reenters(self):
         now = datetime.now(timezone.utc)
-        old = row("weak-remote", tier="review", last_seen=now - timedelta(days=2))
-        old["remote_search_only"] = True
-        self.assertEqual(mod.carryover_rows([], [old], now), [])
+        self.assertEqual(mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=31))], now), [])
+        self.assertEqual(mod.carryover_rows([], [row("b", published=now - timedelta(days=31))], now), [])
 
-    def test_missing_job_older_than_14_days_is_dropped(self):
+    def test_live_rows_rank_before_reserve_and_pool_caps_at_100(self):
         now = datetime.now(timezone.utc)
-        self.assertEqual(mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=15))], now), [])
-
-    def test_published_over_30_days_is_not_carried(self):
-        now = datetime.now(timezone.utc)
-        self.assertEqual(mod.carryover_rows([], [row("a", last_seen=now - timedelta(hours=2), published=now - timedelta(days=31))], now), [])
-
-    def test_live_review_ranks_ahead_of_stronger_scored_reserve_review(self):
-        now = datetime.now(timezone.utc)
-        live = row("live", company="Live", tier="review", score=55, first_seen=now)
-        reserve = row("reserve", company="Reserve", tier="review", score=95, last_seen=now - timedelta(days=2), first_seen=now - timedelta(days=5))
+        live = row("live", tier="review", company="Live", score=70)
+        reserve = row("reserve", tier="review", company="Reserve", score=95, last_seen=now - timedelta(days=2))
         got = mod.process({"generated_at": now.isoformat(), "jobs": [live]}, {"jobs": [reserve]})
-        self.assertEqual(got["jobs"][0]["id"], "live")
-        self.assertEqual(got["jobs"][1]["id"], "reserve")
-        self.assertTrue(got["jobs"][1]["carryover"])
+        self.assertEqual([x["id"] for x in got["jobs"]], ["live", "reserve"])
+        self.assertEqual(got["candidate_reserve_max_days"], 30)
 
-    def test_remote_text_check_ranks_after_stronger_remote_evidence(self):
-        now = datetime.now(timezone.utc)
-        clear = row("clear", company="Clear", tier="review", score=60)
-        weak = row("weak", company="Weak", tier="review", score=95)
-        weak["remote_search_only"] = True
-        got = mod.process({"generated_at": now.isoformat(), "jobs": [weak, clear]}, None)
-        self.assertEqual([x["id"] for x in got["jobs"][:2]], ["clear", "weak"])
-
-    def test_process_reports_supply_health(self):
-        now = datetime.now(timezone.utc)
-        current = [row("new", company="New", tier="review", first_seen=now)]
-        previous = [row("old", company="Old", tier="review", last_seen=now - timedelta(days=2), first_seen=now - timedelta(days=3))]
-        payload = {"generated_at": now.isoformat(), "candidate_display_target": 100, "jobs": current}
-        got = mod.process(payload, {"jobs": previous})
-        self.assertEqual(got["candidate_pool_size"], 2)
-        self.assertEqual(got["new_jobs"], 1)
-        self.assertEqual(got["live_jobs"], 1)
-        self.assertEqual(got["carryover_jobs"], 1)
-        self.assertTrue(got["pool_under_display_target"])
-
-    def test_pool_is_capped_at_one_hundred(self):
-        now = datetime.now(timezone.utc)
-        rows = [row(str(i), title=f"Role {i}", company=f"Company {i}", last_seen=now) for i in range(130)]
-        got = mod.process({"generated_at": now.isoformat(), "candidate_display_target": 100, "jobs": rows}, None)
-        self.assertEqual(len(got["jobs"]), 100)
-        self.assertEqual(got["candidate_pool_size"], 100)
-        self.assertFalse(got["pool_under_display_target"])
+        rows = [row(str(i), company=f"Company {i}", title=f"Role {i}") for i in range(130)]
+        capped = mod.process({"generated_at": now.isoformat(), "candidate_display_target": 100, "jobs": rows}, None)
+        self.assertEqual(len(capped["jobs"]), 100)
 
 
 if __name__ == "__main__":

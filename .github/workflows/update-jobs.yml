@@ -43,9 +43,7 @@ jobs:
       - name: Optional LLM second-opinion audit
         id: llm_audit
         continue-on-error: true
-        # Eight sequential requests each have a 60-second network timeout.
-        # Ten minutes leaves enough room for the configured worst case so a
-        # normal slow provider response cannot erase the reusable cache midway.
+        # At most eight paid attempts are permitted across both LLM audit steps.
         timeout-minutes: 10
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -66,9 +64,6 @@ jobs:
           OPENAI_MODEL: gpt-5.6-luna
         run: |
           cp data/jobs.json /tmp/llm-failed-state.json
-          # max-new-reviews=0 guarantees this recovery cannot make another paid
-          # request. It only reattaches compatible reviews from the current or
-          # previous feed after a timeout/provider failure.
           python scripts/llm_review.py --previous /tmp/previous-jobs.json --max-new-reviews 0 --max-paid-attempts-per-month 700 >/tmp/llm-cache-recovery.out 2>/tmp/llm-cache-recovery.err || true
           python - <<'PY'
           import json
@@ -78,11 +73,6 @@ jobs:
           failed_path = Path("/tmp/llm-failed-state.json")
           current = json.loads(current_path.read_text(encoding="utf-8"))
           failed = json.loads(failed_path.read_text(encoding="utf-8"))
-
-          # If llm_review.py completed its own write before returning an error,
-          # keep its accurate counters/diagnostics. If it was killed before the
-          # final write, conservatively reserve up to one full run (8 attempts)
-          # in the monthly guard so repeated timeouts cannot silently overspend.
           completed_write = "llm_paid_attempts_month" in failed
           if completed_write:
               for key in (
@@ -104,11 +94,26 @@ jobs:
                   current.get("llm_provider_configured") is True
                   and current["llm_paid_attempts_month"] >= cap
               )
-
           current_path.write_text(
               json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8"
           )
           PY
+      - name: Use spare LLM run budget on review candidates
+        id: llm_review_tier
+        continue-on-error: true
+        timeout-minutes: 10
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: gpt-5.6-luna
+        run: |
+          set +e
+          python scripts/llm_review_quality.py --previous /tmp/previous-jobs.json --run-attempt-cap 8 --max-paid-attempts-per-month 700 2>/tmp/llm-review-tier.err
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            echo "Review-tier LLM audit returned non-zero status $status; detailed provider error is intentionally hidden."
+          fi
+          exit "$status"
       - name: Redact public LLM diagnostics
         if: always()
         run: |
@@ -146,9 +151,6 @@ jobs:
                       status, error_type, error_code = item_status, item_type, item_code
                       break
 
-          # Provider failures are optional enrichment failures, not feed-fatal
-          # errors. Preserve only safe diagnostics and clear the fatal marker so
-          # the validated deterministic feed can still be committed.
           data["llm_error_status"] = status
           data["llm_error_type"] = error_type
           data["llm_error_code"] = error_code
@@ -173,6 +175,8 @@ jobs:
                   f"type={data.get('llm_error_type')} code={data.get('llm_error_code')}"
               )
           PY
+      - name: Apply LLM quality vetoes
+        run: python scripts/apply_llm_quality_gate.py
       - name: Validate generated feed
         run: |
           python scripts/validate_feed.py
