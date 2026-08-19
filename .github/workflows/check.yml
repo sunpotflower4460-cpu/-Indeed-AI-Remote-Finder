@@ -26,3 +26,59 @@ jobs:
         run: |
           node --check app.js
           node --check sw.js
+      - name: OpenAI live smoke (temporary)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: gpt-5.6-luna
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import os
+          import sys
+          from pathlib import Path
+
+          key = os.environ.get("OPENAI_API_KEY", "").strip()
+          if not key:
+              print("OPENAI_API_KEY unavailable to workflow", file=sys.stderr)
+              raise SystemExit(2)
+
+          path = Path("scripts/llm_review.py")
+          spec = importlib.util.spec_from_file_location("llm_review_smoke", path)
+          mod = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = mod
+          spec.loader.exec_module(mod)
+
+          row = {
+              "id": "smoke-openai",
+              "title": "完全在宅 データ入力・転記・分類",
+              "company": "Smoke Test",
+              "location": "日本 / フルリモート",
+              "snippet": "完全在宅で定型データの入力、転記、分類、品質チェックを行うデジタル業務。電話、対面、物理作業はない。",
+              "tier": "high",
+              "automation_confidence": 100,
+              "remote_confidence": 100,
+              "freshness_confidence": 100,
+              "human_dependency_risk": 0,
+              "automation_reasons": ["データ入力", "転記", "分類", "品質チェック"],
+              "risk_reasons": [],
+              "tags": ["完全リモート", "データ"],
+          }
+
+          try:
+              review = mod.call_openai(row, key, os.environ.get("OPENAI_MODEL", mod.DEFAULT_MODEL))
+          except mod.OpenAIRequestError as exc:
+              print(f"OpenAI live smoke failed: HTTP {exc.status}", file=sys.stderr)
+              raise SystemExit(3)
+          except Exception as exc:
+              print(f"OpenAI live smoke failed: {type(exc).__name__}", file=sys.stderr)
+              raise SystemExit(4)
+
+          if review.get("verdict") not in {"strong", "uncertain", "reject"}:
+              print("OpenAI live smoke returned invalid structured result", file=sys.stderr)
+              raise SystemExit(5)
+          print(
+              "OpenAI live smoke success: "
+              f"verdict={review['verdict']} automatable={review['automatable_fraction']} "
+              f"confidence={review['confidence']}"
+          )
+          PY
