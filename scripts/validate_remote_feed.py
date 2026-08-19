@@ -18,6 +18,7 @@ ROOT = SCRIPT_DIR.parent
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
 QUALITY_POLICY_VERSION = 2
 QUALITY_GATE = "async-ai-remote-v2"
+PRESENCE_GATE_VERSION = 1
 REVIEW_AUTOMATION_MIN = 64
 REVIEW_HUMAN_RISK_MAX = 18
 REVIEW_AUTOMATION_SIGNAL_MIN = 2
@@ -63,6 +64,16 @@ def _quality_active(payload: dict) -> bool:
         return False
 
 
+def _presence_active(payload: dict) -> bool:
+    try:
+        return bool(
+            payload.get("candidate_requires_no_continuous_human_presence") is True
+            or int(payload.get("candidate_presence_gate_version") or 0) >= PRESENCE_GATE_VERSION
+        )
+    except Exception:
+        return False
+
+
 def _row_text(row: dict) -> str:
     return " ".join(str(row.get(key) or "") for key in ("title", "location", "snippet")).lower()
 
@@ -94,6 +105,7 @@ def validate(payload: dict) -> list[str]:
         errors.append("malformed_jobs must be a non-negative integer")
 
     quality_active = _quality_active(payload)
+    presence_active = _presence_active(payload)
     if quality_active:
         if int(payload.get("candidate_review_automation_min") or 0) != REVIEW_AUTOMATION_MIN:
             errors.append("feed review automation threshold does not match v2 policy")
@@ -105,6 +117,12 @@ def validate(payload: dict) -> list[str]:
             errors.append("quality feed must require explicit full remote")
         if payload.get("candidate_provider_wfh_filter_used") is not False:
             errors.append("quality feed must not use provider WFH filter for scoring")
+
+    if presence_active:
+        if int(payload.get("candidate_presence_gate_version") or 0) != PRESENCE_GATE_VERSION:
+            errors.append("feed presence-gate version does not match active policy")
+        if payload.get("candidate_requires_no_continuous_human_presence") is not True:
+            errors.append("active presence gate must require no continuous human presence")
 
     for index, row in enumerate(jobs):
         if not isinstance(row, dict):
@@ -151,7 +169,7 @@ def validate(payload: dict) -> list[str]:
             partial = partial_remote_signal(row)
             if partial:
                 errors.append(f"{prefix} contains partial/hybrid remote wording: {partial}")
-            llm_reject = apply_llm_quality_gate.reject_reason(row)
+            llm_reject = apply_llm_quality_gate.llm_reject_reason(row)
             if llm_reject:
                 errors.append(f"{prefix} still contains LLM quality veto: {llm_reject}")
             if row.get("tier") == "review":
@@ -174,6 +192,17 @@ def validate(payload: dict) -> list[str]:
                     errors.append(
                         f"{prefix} review has fewer than {REVIEW_AUTOMATION_SIGNAL_MIN} automation signals"
                     )
+
+        if presence_active:
+            presence_signal = apply_llm_quality_gate.presence_requirement_signal(row)
+            if presence_signal:
+                errors.append(
+                    f"{prefix} requires continuous human presence: {presence_signal}"
+                )
+            if row.get("continuous_presence_risk") != "low":
+                errors.append(f"{prefix} continuous presence risk is not low")
+            if int(row.get("presence_gate_version") or 0) != PRESENCE_GATE_VERSION:
+                errors.append(f"{prefix} missing active presence-gate stamp")
 
     return errors
 

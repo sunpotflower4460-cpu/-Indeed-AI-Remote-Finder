@@ -34,6 +34,35 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn("python scripts/apply_llm_quality_gate.py", workflow)
         self.assertLess(workflow.index("python scripts/apply_llm_quality_gate.py"), workflow.index("python scripts/validate_remote_feed.py"))
 
+    def test_final_gate_rejects_human_attendance_not_automatable_online_state(self):
+        gate = (ROOT / "scripts/apply_llm_quality_gate.py").read_text(encoding="utf-8")
+        validator = (ROOT / "scripts/validate_remote_feed.py").read_text(encoding="utf-8")
+        for needle in (
+            '"カメラ常時on"',
+            '"zoom常時接続"',
+            '"pc前で待機"',
+            '"在席必須"',
+            '"must remain at your computer"',
+            "PRESENCE_GATE_VERSION = 1",
+        ):
+            self.assertIn(needle, gate)
+        # Generic software availability is intentionally not a hard blocker.
+        self.assertNotIn('    "常時ログイン",', gate)
+        self.assertNotIn('    "オンライン待機",', gate)
+        self.assertIn("presence_requirement_signal", validator)
+        self.assertIn("continuous_presence_risk", validator)
+        self.assertIn("candidate_requires_no_continuous_human_presence", validator)
+
+    def test_pre_presence_local_candidate_cache_is_purged_once(self):
+        index = (ROOT / "index.html").read_text(encoding="utf-8")
+        self.assertIn("presenceGateCacheMigrationV1", index)
+        self.assertIn("localStorage.removeItem('candidateCacheV3')", index)
+        self.assertIn("localStorage.setItem(migration,'1')", index)
+        self.assertLess(
+            index.index("presenceGateCacheMigrationV1"),
+            index.index('<script src="./app.js"></script>'),
+        )
+
     def test_production_update_uses_strict_remote_validator(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
         check = (ROOT / ".github/workflows/check.yml").read_text(encoding="utf-8")

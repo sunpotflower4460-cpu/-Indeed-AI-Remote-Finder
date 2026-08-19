@@ -15,7 +15,7 @@ def row(**overrides):
         "id": "a",
         "title": "完全在宅 データ入力",
         "location": "日本",
-        "snippet": "完全在宅でデータ入力と転記を行います。",
+        "snippet": "完全在宅でデータ入力と転記を非同期で行います。",
         "tier": "review",
         "remote_reasons": ["完全在宅"],
         "remote_search_only": False,
@@ -26,13 +26,15 @@ def row(**overrides):
         "autonomy_attention_risk": "low",
         "quality_policy_version": 2,
         "quality_gate": "async-ai-remote-v2",
+        "continuous_presence_risk": "low",
+        "presence_gate_version": 1,
     }
     base.update(overrides)
     return base
 
 
-def payload(job_row):
-    return {
+def payload(job_row, *, presence_active=True):
+    data = {
         "candidate_quality_policy_version": 2,
         "candidate_quality_gate": "async-ai-remote-v2",
         "candidate_review_automation_min": 64,
@@ -42,6 +44,10 @@ def payload(job_row):
         "candidate_provider_wfh_filter_used": False,
         "jobs": [job_row],
     }
+    if presence_active:
+        data["candidate_presence_gate_version"] = 1
+        data["candidate_requires_no_continuous_human_presence"] = True
+    return data
 
 
 class RemoteQualityValidatorTests(unittest.TestCase):
@@ -84,11 +90,48 @@ class RemoteQualityValidatorTests(unittest.TestCase):
         errors = mod.validate(payload(row(llm_review=bad_review)))
         self.assertTrue(any("LLM quality veto" in error for error in errors))
 
+    def test_explicit_human_presence_text_cannot_survive_active_gate(self):
+        errors = mod.validate(
+            payload(row(snippet="完全在宅ですが勤務中はカメラ常時ON必須です。"))
+        )
+        self.assertTrue(any("continuous human presence" in error for error in errors))
+
+    def test_automatable_online_state_is_not_presence_failure(self):
+        self.assertEqual(
+            mod.validate(
+                payload(row(snippet="完全在宅。勤務中はシステムを常時ログイン状態にして自動処理します。"))
+            ),
+            [],
+        )
+
+    def test_presence_stamp_is_required_when_gate_is_active(self):
+        errors = mod.validate(payload(row(continuous_presence_risk=None)))
+        self.assertTrue(any("continuous presence risk" in error for error in errors))
+        errors = mod.validate(payload(row(presence_gate_version=0)))
+        self.assertTrue(any("presence-gate stamp" in error for error in errors))
+
+    def test_presence_gate_metadata_must_be_consistent(self):
+        data = payload(row())
+        data["candidate_presence_gate_version"] = 2
+        errors = mod.validate(data)
+        self.assertTrue(any("presence-gate version" in error for error in errors))
+
+    def test_pre_presence_feed_remains_backward_compatible_during_rollout(self):
+        old = row()
+        old.pop("continuous_presence_risk")
+        old.pop("presence_gate_version")
+        self.assertEqual(mod.validate(payload(old, presence_active=False)), [])
+
     def test_v1_feed_remains_backward_compatible_during_rollout(self):
         legacy = row()
-        legacy.pop("quality_gate")
-        legacy.pop("quality_policy_version")
-        legacy.pop("autonomy_attention_risk")
+        for key in (
+            "quality_gate",
+            "quality_policy_version",
+            "autonomy_attention_risk",
+            "continuous_presence_risk",
+            "presence_gate_version",
+        ):
+            legacy.pop(key, None)
         self.assertEqual(mod.validate({"candidate_quality_policy_version": 1, "jobs": [legacy]}), [])
 
 
