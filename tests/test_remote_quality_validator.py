@@ -90,11 +90,19 @@ class RemoteQualityValidatorTests(unittest.TestCase):
         errors = mod.validate(payload(row(llm_review=bad_review)))
         self.assertTrue(any("LLM quality veto" in error for error in errors))
 
-    def test_continuous_presence_text_cannot_survive_active_gate(self):
+    def test_explicit_human_presence_text_cannot_survive_active_gate(self):
         errors = mod.validate(
-            payload(row(snippet="完全在宅ですが勤務時間中は常にオンラインで待機します。"))
+            payload(row(snippet="完全在宅ですが勤務中はカメラ常時ON必須です。"))
         )
         self.assertTrue(any("continuous human presence" in error for error in errors))
+
+    def test_automatable_online_state_is_not_presence_failure(self):
+        self.assertEqual(
+            mod.validate(
+                payload(row(snippet="完全在宅。勤務中はシステムを常時ログイン状態にして自動処理します。"))
+            ),
+            [],
+        )
 
     def test_presence_stamp_is_required_when_gate_is_active(self):
         errors = mod.validate(payload(row(continuous_presence_risk=None)))
