@@ -32,21 +32,25 @@ class AcquisitionSupplyTests(unittest.TestCase):
             for term in forbidden:
                 self.assertNotIn(term, query, name)
 
+    def test_deep_budget_can_run_through_31_day_month(self):
+        self.assertEqual(mod.DEEP_REQUESTS, 7)
+        self.assertLessEqual(mod.DEEP_REQUESTS * 31, 220)
+
     def test_request_budget_tapers_as_pool_grows(self):
-        self.assertEqual(mod.supply_request_limit(0), 15)
-        self.assertEqual(mod.supply_request_limit(19), 15)
-        self.assertEqual(mod.supply_request_limit(20), 10)
-        self.assertEqual(mod.supply_request_limit(49), 10)
-        self.assertEqual(mod.supply_request_limit(50), 6)
-        self.assertEqual(mod.supply_request_limit(99), 6)
+        self.assertEqual(mod.supply_request_limit(0), 7)
+        self.assertEqual(mod.supply_request_limit(19), 7)
+        self.assertEqual(mod.supply_request_limit(20), 6)
+        self.assertEqual(mod.supply_request_limit(49), 6)
+        self.assertEqual(mod.supply_request_limit(50), 4)
+        self.assertEqual(mod.supply_request_limit(99), 4)
         self.assertEqual(mod.supply_request_limit(100), 2)
 
     def test_supply_configuration_prefers_breadth_over_page_two(self):
         mod.configure_supply_rotation()
-        self.assertEqual(mod.acquisition.MAX_REQUESTS_PER_RUN, 15)
+        self.assertEqual(mod.acquisition.MAX_REQUESTS_PER_RUN, 7)
         self.assertEqual(mod.acquisition.QUERY_PROFILES, mod.PRODUCTION_QUERY_PROFILES)
         self.assertGreater(len(mod.acquisition.QUERY_PROFILES), mod.acquisition.MAX_REQUESTS_PER_RUN)
-        self.assertEqual(mod.acquisition.request_limit_for_pool(4), 15)
+        self.assertEqual(mod.acquisition.request_limit_for_pool(4), 7)
 
 
 if __name__ == "__main__":
