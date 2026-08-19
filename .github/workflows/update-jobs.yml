@@ -34,7 +34,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: gpt-5.6-luna
-        run: python scripts/llm_review.py --previous /tmp/previous-jobs.json --max-new-reviews 30
+        run: python scripts/llm_review.py --previous /tmp/previous-jobs.json --max-new-reviews 8
       - name: Validate generated feed
         run: python scripts/validate_feed.py
       - name: Commit refreshed feed
