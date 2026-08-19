@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """Production search-supply orchestrator.
 
-The strict publication policy lives in acquisition_remote.py. This module only
-changes *where* we look so quality is not relaxed to reach the stock target.
+The strict publication policy lives in acquisition_remote.py plus the final
+quality layer in acquisition_quality.py. This module changes only *where* we
+look and how many first-page searches we spend as the rolling stock grows.
 
-Instead of repeatedly querying the same small set and spending requests on page
-2 (which Google Jobs often reports as exhausted), we rotate many narrowly
-focused, asynchronous/AI-friendly first-page queries. The request budget shrinks
-as the rolling pool grows:
+Instead of repeating a small query set or padding with weak jobs, production
+rotates many narrowly focused async/AI-friendly queries:
 
 - 0..19 candidates: 15 searches/run
 - 20..49 candidates: 10 searches/run
 - 50..99 candidates: 6 searches/run
 - 100 candidates: 2 searches/run
 
-The daily workflow plus 14-day carryover can therefore accumulate diverse valid
-jobs while preserving SerpApi monthly/hourly guards.
+All queries now ask for explicit full-remote wording. The quality layer also
+requires the listing text itself to prove full remote, so deprecated provider
+Work-From-Home filtering cannot promote hybrid jobs.
 """
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ import json
 import os
 
 import acquisition
+import acquisition_quality
 import acquisition_remote
 
 DEEP_REQUESTS = 15
@@ -30,11 +31,14 @@ MID_REQUESTS = 10
 TOPUP_REQUESTS = 6
 STEADY_REQUESTS = 2
 
-R = acquisition.REMOTE_QUERY
+R = (
+    '("完全在宅" OR "フルリモート" OR "完全リモート" OR "100%リモート" '
+    'OR "100％リモート" OR "fully remote" OR "100% remote")'
+)
 
 # Deliberately task-oriented rather than role-title-oriented. These searches aim
 # at work that can often be completed asynchronously by an automated pipeline.
-# Synchronous/contact-heavy rows are still rejected later by acquisition_remote.
+# Synchronous/contact-heavy rows and partial remote roles are rejected later.
 PRODUCTION_QUERY_PROFILES: list[tuple[str, str]] = [
     ("data_entry_basic", f'{R} ("データ入力" OR "入力業務" OR 転記)'),
     ("data_entry_excel", f'{R} (Excel OR スプレッドシート) ("データ入力" OR 転記 OR 集計)'),
@@ -122,11 +126,11 @@ def supply_request_limit(pool_size: int) -> int:
 
 
 def configure_supply_rotation() -> None:
-    # First install all strict remote/autonomy gates.
-    acquisition_remote.configure_production_policy()
+    # Install autonomy, explicit-full-remote and review-quality gates first.
+    acquisition_quality.configure_quality_policy()
 
-    # Then replace only the discovery surface and request cadence. The strict
-    # build_row/review policy above remains authoritative.
+    # Then replace only discovery surface and request cadence. Quality remains
+    # authoritative because acquisition.build_row was wrapped above.
     acquisition.QUERY_PROFILES = list(PRODUCTION_QUERY_PROFILES)
     acquisition.MAX_REQUESTS_PER_RUN = DEEP_REQUESTS
     acquisition.request_limit_for_pool = supply_request_limit
@@ -137,7 +141,7 @@ def stamp_supply_metadata() -> None:
         payload = acquisition.load_payload()
         if not payload:
             return
-        payload["candidate_search_strategy"] = "rotating-async-first-pages"
+        payload["candidate_search_strategy"] = "rotating-explicit-full-remote-first-pages"
         payload["candidate_search_profile_count"] = len(PRODUCTION_QUERY_PROFILES)
         payload["candidate_search_daily_deep_limit"] = DEEP_REQUESTS
         payload["candidate_search_pagination_expected"] = False
@@ -165,6 +169,7 @@ def main() -> None:
 
     acquisition.main()
     acquisition_remote.stamp_policy_metadata()
+    acquisition_quality.stamp_quality_metadata()
     stamp_supply_metadata()
 
 
