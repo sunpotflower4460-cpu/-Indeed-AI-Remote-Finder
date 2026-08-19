@@ -21,6 +21,9 @@ import acquisition
 
 
 def configure_production_policy() -> None:
+    if getattr(acquisition, "_production_remote_policy_configured", False):
+        return
+    acquisition._production_remote_policy_configured = True
     acquisition.MAX_REQUESTS_PER_RUN = len(acquisition.QUERY_PROFILES)
 
     base_score_job = acquisition.legacy.score_job
