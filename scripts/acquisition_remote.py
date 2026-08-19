@@ -20,15 +20,75 @@ page 2, especially around deprecated filters. Reusing SerpApi's generated next
 URL preserves the server-selected pagination/filter state instead of rebuilding
 it locally. The URL is host/path validated and the API key is replaced in memory
 before the request; it is never written to the feed or logs.
+
+Before paid/search-counted Google Jobs requests, production also queries
+SerpApi's free Account API. The provider-reported hourly and monthly usage is
+used as a hard upper bound, so repeated workflow triggers cannot burn through an
+hourly allowance or make our local counter drift upward after failed searches.
+If Account API is temporarily unavailable, the existing local monthly guard
+remains in force and the feed continues to use the last known-good policy.
 """
 from __future__ import annotations
 
 import json
+import os
 import urllib.parse
 import urllib.request
 from datetime import timedelta
 
 import acquisition
+
+ACCOUNT_API_URL = "https://serpapi.com/account.json"
+ACCOUNT_HOURLY_RESERVE = 2
+
+
+def _nonnegative_int(value) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        result = int(value)
+    except (TypeError, ValueError):
+        return None
+    return result if result >= 0 else None
+
+
+def provider_request_budget(account: dict, *, reserve: int = ACCOUNT_HOURLY_RESERVE) -> int | None:
+    """Return safe provider-side request headroom, or None if unknown."""
+    if not isinstance(account, dict):
+        return None
+    limits: list[int] = []
+
+    hourly_limit = _nonnegative_int(account.get("account_rate_limit_per_hour"))
+    hourly_used = _nonnegative_int(account.get("this_hour_searches"))
+    if hourly_limit is not None and hourly_used is not None:
+        limits.append(max(0, hourly_limit - hourly_used - max(0, reserve)))
+
+    total_left = _nonnegative_int(account.get("total_searches_left"))
+    if total_left is None:
+        total_left = _nonnegative_int(account.get("plan_searches_left"))
+    if total_left is not None:
+        limits.append(total_left)
+
+    return min(limits) if limits else None
+
+
+def provider_month_usage(account: dict) -> int | None:
+    if not isinstance(account, dict):
+        return None
+    return _nonnegative_int(account.get("this_month_usage"))
+
+
+def fetch_serpapi_account(api_key: str) -> dict:
+    params = urllib.parse.urlencode({"api_key": api_key})
+    request = urllib.request.Request(
+        f"{ACCOUNT_API_URL}?{params}",
+        headers={"User-Agent": "AI-Remote-Finder/6.6", "Accept": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=15) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    if not isinstance(payload, dict):
+        raise RuntimeError("SerpApi account response is not an object")
+    return payload
 
 
 def production_review_fallback(scores, published) -> bool:
@@ -122,7 +182,7 @@ def configure_production_policy() -> None:
         )
         request = urllib.request.Request(
             safe_url,
-            headers={"User-Agent": "AI-Remote-Finder/6.5", "Accept": "application/json"},
+            headers={"User-Agent": "AI-Remote-Finder/6.6", "Accept": "application/json"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
@@ -168,7 +228,7 @@ def configure_production_policy() -> None:
         url = "https://serpapi.com/search.json?" + urllib.parse.urlencode(params)
         request = urllib.request.Request(
             url,
-            headers={"User-Agent": "AI-Remote-Finder/6.5", "Accept": "application/json"},
+            headers={"User-Agent": "AI-Remote-Finder/6.6", "Accept": "application/json"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
@@ -180,8 +240,52 @@ def configure_production_policy() -> None:
     acquisition.serpapi_fetch = serpapi_fetch_work_from_home
 
 
+def configure_provider_budget(api_key: str) -> int | None:
+    """Apply provider-reported usage as stricter runtime guards.
+
+    Returns the provider-side request budget for this run, or None if Account API
+    could not be read. No raw account payload is logged or persisted.
+    """
+    if not api_key:
+        return None
+    try:
+        account = fetch_serpapi_account(api_key)
+    except Exception:
+        print("SerpApi account guard unavailable; using local safety limits only.")
+        return None
+
+    provider_cap = provider_request_budget(account)
+    exact_month_usage = provider_month_usage(account)
+
+    if exact_month_usage is not None:
+        base_previous_request_count = acquisition.previous_request_count
+        current_month = acquisition.month_key()
+
+        def provider_synced_request_count(payload: dict, month: str) -> int:
+            if month == current_month:
+                return exact_month_usage
+            return base_previous_request_count(payload, month)
+
+        acquisition.previous_request_count = provider_synced_request_count
+
+    if provider_cap is not None:
+        base_request_limit = acquisition.request_limit_for_pool
+
+        def provider_guarded_request_limit(pool_size: int) -> int:
+            return min(base_request_limit(pool_size), provider_cap)
+
+        acquisition.request_limit_for_pool = provider_guarded_request_limit
+
+    return provider_cap
+
+
 def main() -> None:
     configure_production_policy()
+    api_key = os.environ.get("SERPAPI_KEY", "").strip()
+    provider_cap = configure_provider_budget(api_key)
+    if provider_cap == 0:
+        print("SerpApi provider usage guard has no safe request headroom; preserving last known-good feed.")
+        return
     acquisition.main()
 
 
