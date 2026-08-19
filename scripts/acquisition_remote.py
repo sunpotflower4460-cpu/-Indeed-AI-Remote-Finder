@@ -1,32 +1,32 @@
 #!/usr/bin/env python3
 """Production adapter for adaptive acquisition.
 
+The production policy has two independent requirements:
+
+1. The work must be genuinely remote enough to be usable from home.
+2. The work must be technically suitable for asynchronous AI substitution.
+
+The second point is intentionally stricter than a generic "AI can help" score.
+Jobs that imply a person must stay present for calls, live chat, customer
+interaction, meetings, real-time monitoring, on-call coverage, negotiation,
+continuous coordination, or similar synchronous human attention are excluded
+even when the underlying text/data work is automatable.
+
 SerpApi's Google Jobs endpoint still accepts ltype=1 for Work From Home results,
 but Google marks that filter deprecated and Work From Home can include hybrid
 roles. Production therefore uses it only to widen acquisition/REVIEW scoring.
 The deterministic HIGH tier still requires explicit full-remote wording in the
 job text itself.
 
-REVIEW intentionally keeps a broader next-best band: the listing must come from
-the structured work-from-home acquisition path, contain at least one
-AI-automatable work signal detected from the actual job text, stay within the
-freshness window, and avoid high human/physical risk. If the returned job text
-does not itself prove full remote, the row is marked `remote_search_only` and
-the PWA tells the user to verify complete remote eligibility.
+For pagination, prefer SerpApi's own `serpapi_pagination.next` URL. The deprecated
+`ltype` parameter is deliberately removed from page 2 while the server-generated
+`uds` / pagination state is retained. The URL is host/path validated and the API
+key is replaced in memory before the request; it is never written to feed/logs.
 
-For pagination, prefer SerpApi's own `serpapi_pagination.next` URL. Google Jobs
-pagination can change which filter parameters are accepted between page 1 and
-page 2, especially around deprecated filters. Reusing SerpApi's generated next
-URL preserves the server-selected pagination/filter state instead of rebuilding
-it locally. The URL is host/path validated and the API key is replaced in memory
-before the request; it is never written to the feed or logs.
-
-Before paid/search-counted Google Jobs requests, production also queries
-SerpApi's free Account API. The provider-reported hourly and monthly usage is
-used as a hard upper bound, so repeated workflow triggers cannot burn through an
-hourly allowance or make our local counter drift upward after failed searches.
-If Account API is temporarily unavailable, the existing local monthly guard
-remains in force and the feed continues to use the last known-good policy.
+Before counted Google Jobs requests, production queries SerpApi's free Account
+API. Provider-reported hourly/monthly usage becomes a hard upper bound so
+repeated workflow triggers cannot burn through the allowance. Raw account data
+is never logged or persisted.
 """
 from __future__ import annotations
 
@@ -40,6 +40,100 @@ import acquisition
 
 ACCOUNT_API_URL = "https://serpapi.com/account.json"
 ACCOUNT_HOURLY_RESERVE = 2
+SERVER_POOL_TARGET = 100
+AUTONOMY_POLICY_VERSION = 1
+
+# Phrases that strongly imply the employer expects a human to be present at a
+# particular moment. These are intentionally production-only hard exclusions:
+# they do not change the generic scorer, but they prevent these roles from being
+# published by this app's "AI-substitutable remote work" feed.
+AUTONOMY_BLOCKERS = (
+    "コールセンター",
+    "電話受付",
+    "電話対応",
+    "受電",
+    "架電",
+    "テレアポ",
+    "問い合わせ対応",
+    "チャット対応",
+    "チャットサポート",
+    "カスタマーサポート",
+    "カスタマーサクセス",
+    "顧客対応",
+    "リアルタイム対応",
+    "即時対応",
+    "即レス",
+    "常時対応",
+    "常時監視",
+    "リアルタイム監視",
+    "オンコール",
+    "顧客折衝",
+    "商談",
+    "採用面接",
+    "面談対応",
+    "会議参加",
+    "ミーティング参加",
+    "mtg参加",
+    "定例会議",
+    "定例mtg",
+    "進行管理",
+    "ディレクション",
+    "マネジメント",
+    "スケジュール調整",
+    "指示出し",
+)
+
+AUTONOMY_NEGATIONS = (
+    "電話対応なし",
+    "電話対応不要",
+    "電話対応はありません",
+    "電話受付なし",
+    "受電なし",
+    "受電不要",
+    "架電なし",
+    "架電不要",
+    "テレアポなし",
+    "テレアポ不要",
+    "問い合わせ対応なし",
+    "問い合わせ対応不要",
+    "チャット対応なし",
+    "チャット対応不要",
+    "顧客対応なし",
+    "顧客対応不要",
+    "会議参加なし",
+    "会議参加不要",
+    "ミーティング参加なし",
+    "ミーティング参加不要",
+    "mtg参加なし",
+    "mtg参加不要",
+    "リアルタイム対応なし",
+    "リアルタイム対応不要",
+    "即時対応不要",
+    "常時監視なし",
+    "常時監視不要",
+    "オンコールなし",
+    "オンコール不要",
+)
+
+
+class SerpApiNoResultsError(RuntimeError):
+    pass
+
+
+class SerpApiRateLimitError(RuntimeError):
+    pass
+
+
+class SerpApiPaginationError(RuntimeError):
+    pass
+
+
+class SerpApiInvalidRequestError(RuntimeError):
+    pass
+
+
+class SerpApiProviderError(RuntimeError):
+    pass
 
 
 def _nonnegative_int(value) -> int | None:
@@ -82,7 +176,7 @@ def fetch_serpapi_account(api_key: str) -> dict:
     params = urllib.parse.urlencode({"api_key": api_key})
     request = urllib.request.Request(
         f"{ACCOUNT_API_URL}?{params}",
-        headers={"User-Agent": "AI-Remote-Finder/6.6", "Accept": "application/json"},
+        headers={"User-Agent": "AI-Remote-Finder/6.8", "Accept": "application/json"},
     )
     with urllib.request.urlopen(request, timeout=15) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -91,14 +185,59 @@ def fetch_serpapi_account(api_key: str) -> dict:
     return payload
 
 
+def raise_classified_provider_error(payload: dict) -> None:
+    """Raise only a safe error class; never expose the provider's raw message."""
+    message = str(payload.get("error") or "").strip()
+    if not message:
+        return
+    lower = message.lower()
+    if any(term in lower for term in ("no result", "no jobs", "hasn't returned", "has not returned", "empty result")):
+        raise SerpApiNoResultsError("provider returned no further results")
+    if any(term in lower for term in ("rate limit", "throughput", "too many request", "quota")):
+        raise SerpApiRateLimitError("provider rate limit")
+    if any(term in lower for term in ("next_page_token", "page token", "pagination")):
+        raise SerpApiPaginationError("provider pagination error")
+    if any(term in lower for term in ("invalid parameter", "incorrect parameter", "not supported", "unsupported", "missing parameter")):
+        raise SerpApiInvalidRequestError("provider request rejected")
+    raise SerpApiProviderError("provider error")
+
+
+def job_text(job: dict) -> str:
+    if not isinstance(job, dict):
+        return ""
+    raw_extensions = job.get("extensions") or []
+    extensions = (
+        " ".join(acquisition.legacy.clean(str(x)) for x in raw_extensions)
+        if isinstance(raw_extensions, list)
+        else ""
+    )
+    return " ".join(
+        [
+            acquisition.legacy.clean(str(job.get("title") or "")),
+            acquisition.legacy.clean(str(job.get("location") or "")),
+            acquisition.legacy.clean(str(job.get("description") or "")),
+            acquisition.legacy.flatten_highlights(job),
+            extensions,
+        ]
+    ).lower()
+
+
+def autonomy_blockers(job: dict) -> list[str]:
+    """Return synchronous-attention blockers after stripping explicit negation."""
+    text = job_text(job)
+    for phrase in AUTONOMY_NEGATIONS:
+        text = text.replace(phrase.lower(), " ")
+    return [phrase for phrase in AUTONOMY_BLOCKERS if phrase.lower() in text]
+
+
 def production_review_fallback(scores, published) -> bool:
     fresh = published is None or acquisition.NOW - published <= timedelta(days=30)
     positive_remote = any(not str(x).startswith("注意:") for x in scores.remote_reasons)
     return bool(
         fresh
-        and scores.automation >= 22
+        and scores.automation >= 32
         and scores.remote >= 62
-        and scores.risk <= 35
+        and scores.risk <= 25
         and scores.automation_reasons
         and positive_remote
     )
@@ -108,6 +247,13 @@ def configure_production_policy() -> None:
     if getattr(acquisition, "_production_remote_policy_configured", False):
         return
     acquisition._production_remote_policy_configured = True
+
+    # Keep the server stock at 100 before switching to the low-cost steady mode.
+    # DISPLAY_TARGET is used by acquisition.py both for aggressive request sizing
+    # and for deciding whether page 2 should be explored.
+    acquisition.DISPLAY_TARGET = SERVER_POOL_TARGET
+    acquisition.POOL_TARGET = SERVER_POOL_TARGET
+    acquisition.POOL_LIMIT = SERVER_POOL_TARGET
     acquisition.MAX_REQUESTS_PER_RUN = max(
         acquisition.MAX_REQUESTS_PER_RUN,
         len(acquisition.QUERY_PROFILES),
@@ -120,25 +266,29 @@ def configure_production_policy() -> None:
         return base_score_job(text, published, previous, remote_api_filter=True)
 
     acquisition.legacy.score_job = score_with_remote_filter
-
     base_build_row = acquisition.build_row
 
     def build_row_with_remote_evidence(job, category, previous):
+        # A job that requires synchronous human presence is outside the product
+        # definition even if its text/data subtask is technically automatable.
+        if autonomy_blockers(job):
+            return None
+
         row = base_build_row(job, category, previous)
-        if not row or row.get("tier") != "review" or not isinstance(job, dict):
+        if not row or not isinstance(job, dict):
             return row
 
-        title = acquisition.legacy.clean(str(job.get("title") or ""))
-        location = acquisition.legacy.clean(str(job.get("location") or ""))
-        description = acquisition.legacy.clean(str(job.get("description") or ""))
-        highlights = acquisition.legacy.flatten_highlights(job)
-        raw_extensions = job.get("extensions") or []
-        extensions = (
-            " ".join(acquisition.legacy.clean(str(x)) for x in raw_extensions)
-            if isinstance(raw_extensions, list)
-            else ""
-        )
-        text = " ".join([title, location, description, highlights, extensions]).lower()
+        row["autonomy_attention_risk"] = "low"
+        row["autonomy_policy_version"] = AUTONOMY_POLICY_VERSION
+        tags = list(row.get("tags") or [])
+        if "張り付きリスク低" not in tags:
+            tags.append("張り付きリスク低")
+        row["tags"] = tags[:5]
+
+        if row.get("tier") != "review":
+            return row
+
+        text = job_text(job)
         explicit_full_remote = any(
             phrase.lower() in text for phrase in acquisition.legacy.REMOTE_EXPLICIT_FULL
         )
@@ -156,7 +306,6 @@ def configure_production_policy() -> None:
         return row
 
     acquisition.build_row = build_row_with_remote_evidence
-
     pagination_next_urls: dict[str, str] = {}
 
     def read_serpapi_url(url: str, api_key: str) -> dict:
@@ -168,26 +317,26 @@ def configure_production_policy() -> None:
             raise RuntimeError("invalid SerpApi pagination URL path")
 
         pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
-        pairs = [(key, value) for key, value in pairs if key not in {"api_key", "output"}]
+        # ltype is deprecated by Google. For page 2 retain SerpApi/Google's
+        # generated uds + token state but do not resend the deprecated alias.
+        pairs = [
+            (key, value)
+            for key, value in pairs
+            if key not in {"api_key", "output", "ltype"}
+        ]
         pairs.extend([("api_key", api_key), ("output", "json")])
         safe_url = urllib.parse.urlunparse(
-            (
-                "https",
-                host,
-                parsed.path,
-                "",
-                urllib.parse.urlencode(pairs),
-                "",
-            )
+            ("https", host, parsed.path, "", urllib.parse.urlencode(pairs), "")
         )
         request = urllib.request.Request(
             safe_url,
-            headers={"User-Agent": "AI-Remote-Finder/6.6", "Accept": "application/json"},
+            headers={"User-Agent": "AI-Remote-Finder/6.8", "Accept": "application/json"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
         if not isinstance(payload, dict):
             raise RuntimeError("SerpApi response is not an object")
+        raise_classified_provider_error(payload)
         return payload
 
     def remember_next_url(payload: dict) -> None:
@@ -217,23 +366,24 @@ def configure_production_policy() -> None:
             "location": "Japan",
             "hl": "ja",
             "gl": "jp",
-            "ltype": "1",
             "api_key": api_key,
             "output": "json",
         }
         if next_page_token:
-            # Safe fallback if an older/partial response provided a token but no
-            # generated next URL. The generated URL path above is preferred.
+            # Fallback path: page 2 deliberately omits deprecated ltype.
             params["next_page_token"] = next_page_token
+        else:
+            params["ltype"] = "1"
         url = "https://serpapi.com/search.json?" + urllib.parse.urlencode(params)
         request = urllib.request.Request(
             url,
-            headers={"User-Agent": "AI-Remote-Finder/6.6", "Accept": "application/json"},
+            headers={"User-Agent": "AI-Remote-Finder/6.8", "Accept": "application/json"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
         if not isinstance(payload, dict):
             raise RuntimeError("SerpApi response is not an object")
+        raise_classified_provider_error(payload)
         remember_next_url(payload)
         return payload
 
@@ -241,11 +391,7 @@ def configure_production_policy() -> None:
 
 
 def configure_provider_budget(api_key: str) -> int | None:
-    """Apply provider-reported usage as stricter runtime guards.
-
-    Returns the provider-side request budget for this run, or None if Account API
-    could not be read. No raw account payload is logged or persisted.
-    """
+    """Apply provider-reported usage as stricter runtime guards."""
     if not api_key:
         return None
     try:
@@ -279,14 +425,34 @@ def configure_provider_budget(api_key: str) -> int | None:
     return provider_cap
 
 
+def stamp_policy_metadata() -> None:
+    try:
+        payload = acquisition.load_payload()
+        if not payload:
+            return
+        payload["candidate_server_pool_target"] = SERVER_POOL_TARGET
+        payload["candidate_quality_policy"] = "ai-substitutable-async-remote"
+        payload["autonomy_policy_version"] = AUTONOMY_POLICY_VERSION
+        acquisition.OUT.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception:
+        # Metadata is useful but must never make a valid acquisition fail.
+        pass
+
+
 def main() -> None:
     configure_production_policy()
     api_key = os.environ.get("SERPAPI_KEY", "").strip()
     provider_cap = configure_provider_budget(api_key)
     if provider_cap == 0:
-        print("SerpApi provider usage guard has no safe request headroom; preserving last known-good feed.")
+        print(
+            "SerpApi provider usage guard has no safe request headroom; "
+            "preserving last known-good feed."
+        )
         return
     acquisition.main()
+    stamp_policy_metadata()
 
 
 if __name__ == "__main__":

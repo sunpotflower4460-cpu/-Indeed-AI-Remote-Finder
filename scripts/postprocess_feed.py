@@ -3,7 +3,7 @@
 
 - Drop rows that explicitly contradict full-remote work.
 - Collapse duplicate postings with the same normalized company/title.
-- Keep recently seen but missing jobs for up to 14 days as REVIEW only.
+- Keep recently seen, autonomy-screened missing jobs for up to 14 days as REVIEW.
 - Rank live/new rows ahead of carried reserve rows so the app changes day to day.
 - Keep at most 100 ranked candidates in the server-side pool.
 """
@@ -146,6 +146,11 @@ def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> 
         if not jid or jid in current_ids or fingerprint(old) in current_fp:
             continue
         if old.get("tier") not in {"high", "review"}:
+            continue
+        # Do not retain legacy rows that have never passed the current
+        # synchronous-attention/autonomy gate. They may re-enter only if a fresh
+        # scan evaluates them under the new policy.
+        if old.get("autonomy_attention_risk") != "low":
             continue
         if has_remote_contradiction(old):
             continue
