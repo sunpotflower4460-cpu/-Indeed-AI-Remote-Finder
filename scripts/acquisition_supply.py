@@ -7,13 +7,18 @@ look and how many first-page searches we spend as the rolling stock grows.
 
 Discovery intentionally uses a broader remote vocabulary (在宅勤務 / 在宅ワーク /
 リモートワーク / remote) so good jobs are not lost before scoring. Publication
-remains strict: acquisition_quality requires explicit full-remote evidence in the
-listing itself and rejects partial/hybrid or human-attention-heavy work.
+remains strict: acquisition_quality requires unconditional explicit full-remote
+evidence in the listing itself and rejects partial/hybrid or human-attention-heavy work.
+
+The default deep cadence is seven searches/day. With the 220-request monthly
+safety cap this can run throughout a 31-day month (217 requests) instead of
+burning the allowance early. Seventy-two task themes therefore rotate in about
+11 days, while quality-gated candidates can remain in the 30-day reserve pool.
 
 Request cadence:
-- 0..19 candidates: 15 searches/run
-- 20..49 candidates: 10 searches/run
-- 50..99 candidates: 6 searches/run
+- 0..19 candidates: 7 searches/run
+- 20..49 candidates: 6 searches/run
+- 50..99 candidates: 4 searches/run
 - 100 candidates: 2 searches/run
 """
 from __future__ import annotations
@@ -25,9 +30,9 @@ import acquisition
 import acquisition_quality
 import acquisition_remote
 
-DEEP_REQUESTS = 15
-MID_REQUESTS = 10
-TOPUP_REQUESTS = 6
+DEEP_REQUESTS = 7
+MID_REQUESTS = 6
+TOPUP_REQUESTS = 4
 STEADY_REQUESTS = 2
 
 DISCOVERY_REMOTE_QUERY = (
@@ -135,10 +140,11 @@ def stamp_supply_metadata() -> None:
         payload = acquisition.load_payload()
         if not payload:
             return
-        payload["candidate_search_strategy"] = "rotating-broad-discovery-strict-full-remote"
+        payload["candidate_search_strategy"] = "rotating-broad-discovery-strict-full-remote-v2"
         payload["candidate_search_profile_count"] = len(PRODUCTION_QUERY_PROFILES)
         payload["candidate_search_daily_deep_limit"] = DEEP_REQUESTS
         payload["candidate_search_pagination_expected"] = False
+        payload["candidate_search_budget_monthly_safe_at_31_days"] = DEEP_REQUESTS * 31 <= 220
         acquisition.OUT.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
