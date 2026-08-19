@@ -42,12 +42,13 @@ jobs:
         run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
       - name: Optional LLM second-opinion audit
         continue-on-error: true
+        timeout-minutes: 3
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: gpt-5.6-luna
         run: |
           set +e
-          python scripts/llm_review.py --previous /tmp/previous-jobs.json --max-new-reviews 8 2>/tmp/llm-review.err
+          python scripts/llm_review.py --previous /tmp/previous-jobs.json --max-new-reviews 8 --max-paid-attempts-per-month 700 2>/tmp/llm-review.err
           status=$?
           set -e
           if [ "$status" -ne 0 ]; then
