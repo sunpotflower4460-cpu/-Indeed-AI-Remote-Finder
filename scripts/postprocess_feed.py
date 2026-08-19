@@ -3,7 +3,7 @@
 
 - Drop rows that explicitly contradict full-remote work.
 - Collapse duplicate postings with the same normalized company/title.
-- Keep recently seen, autonomy-screened missing jobs for up to 14 days as REVIEW.
+- Keep recently seen, quality-screened missing jobs for up to 14 days as REVIEW.
 - Rank live/new rows ahead of carried reserve rows so the app changes day to day.
 - Keep at most 100 ranked candidates in the server-side pool.
 """
@@ -23,6 +23,9 @@ CARRYOVER_MAX = timedelta(days=14)
 PUBLISHED_MAX = timedelta(days=30)
 DISPLAY_TARGET = 30
 POOL_LIMIT = 100
+QUALITY_GATE = "async-ai-remote"
+REVIEW_AUTOMATION_MIN = 55
+REVIEW_HUMAN_RISK_MAX = 25
 REMOTE_CONTRADICTIONS = (
     "フルリモート不可",
     "完全在宅不可",
@@ -137,6 +140,21 @@ def dedupe_rows(rows: list[dict]) -> tuple[list[dict], int]:
     return merged, removed
 
 
+def reserve_row_is_quality_gated(row: dict) -> bool:
+    if row.get("autonomy_attention_risk") != "low":
+        return False
+    if row.get("quality_gate") != QUALITY_GATE:
+        return False
+    if row.get("remote_search_only") is True:
+        return False
+    if row.get("tier") == "review":
+        if int(row.get("automation_confidence") or 0) < REVIEW_AUTOMATION_MIN:
+            return False
+        if int(row.get("human_dependency_risk") or 0) > REVIEW_HUMAN_RISK_MAX:
+            return False
+    return True
+
+
 def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> list[dict]:
     current_ids = {str(row.get("id") or "") for row in current}
     current_fp = {fingerprint(row) for row in current}
@@ -147,10 +165,9 @@ def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> 
             continue
         if old.get("tier") not in {"high", "review"}:
             continue
-        # Do not retain legacy rows that have never passed the current
-        # synchronous-attention/autonomy gate. They may re-enter only if a fresh
-        # scan evaluates them under the new policy.
-        if old.get("autonomy_attention_risk") != "low":
+        # Reserve rows must have passed the same current quality gate. Older
+        # policy rows may re-enter only when a fresh scan evaluates them again.
+        if not reserve_row_is_quality_gated(old):
             continue
         if has_remote_contradiction(old):
             continue
@@ -169,7 +186,7 @@ def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> 
         row["tier"] = "review"
         row["carryover"] = True
         row["pool_reserve"] = True
-        row["carryover_reason"] = "最新スキャンでは未再検出。直近14日以内の予備候補として保持"
+        row["carryover_reason"] = "最新スキャンでは未再検出。直近14日以内の品質確認済み予備候補として保持"
         row["freshness_confidence"] = min(
             int(row.get("freshness_confidence") or 0),
             max(34, 58 - days_missing * 2),
