@@ -45,7 +45,7 @@ class PoolFetchTests(unittest.TestCase):
             "title": "完全在宅 リサーチ事務",
             "company_name": "Example",
             "location": "日本",
-            "description": "フルリモートで情報収集、Excel集計、記事作成を行います。",
+            "description": "フルリモートでデータ収集、情報収集、Excel集計、記事作成を行います。",
             "detected_extensions": {"posted_at": "1日前"},
             "apply_options": [{"title": "Indeed", "link": "https://jp.indeed.com/viewjob?jk=review123"}],
         }
