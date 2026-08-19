@@ -23,7 +23,9 @@ Production recommendations are not a generic remote-job list. A published candid
 
 ## Quantity and API budget policy
 
-The server target remains 100 candidates, but quantity never overrides the quality gates above. Discovery breadth is increased through 72 rotating task-specific searches and rolling retention of already quality-gated candidates rather than by weakening the publication threshold.
+The user-facing goal is to keep at least 100 unapplied recommendations available. The server-side rolling pool may retain up to 150 quality-gated candidates so applications and declines do not immediately push the user's remaining stock below 100. The 150 limit is surplus inventory, never a permission to weaken the quality gates above.
+
+Discovery uses broad task-focused anchor searches interleaved with many narrower rotating task profiles. This improves the chance of finding Indeed-backed candidates every day without turning the feed into a generic remote-job list. Only rows that pass the same v2 publication gates enter the rolling pool.
 
 The deep-search cadence is seven SerpApi requests per daily run. Seven requests × 31 days = 217, which fits inside the repository's 220-request monthly safety cap and avoids exhausting search budget early in the month. Quality-gated candidates may remain as reserve candidates for up to 30 days, while fresh/live candidates rank ahead of reserves.
 
