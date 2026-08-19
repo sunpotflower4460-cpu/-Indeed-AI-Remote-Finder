@@ -13,6 +13,13 @@ AI-automatable work signal detected from the actual job text, stay within the
 freshness window, and avoid high human/physical risk. If the returned job text
 does not itself prove full remote, the row is marked `remote_search_only` and
 the PWA tells the user to verify complete remote eligibility.
+
+For pagination, prefer SerpApi's own `serpapi_pagination.next` URL. Google Jobs
+pagination can change which filter parameters are accepted between page 1 and
+page 2, especially around deprecated filters. Reusing SerpApi's generated next
+URL preserves the server-selected pagination/filter state instead of rebuilding
+it locally. The URL is host/path validated and the API key is replaced in memory
+before the request; it is never written to the feed or logs.
 """
 from __future__ import annotations
 
@@ -90,11 +97,60 @@ def configure_production_policy() -> None:
 
     acquisition.build_row = build_row_with_remote_evidence
 
+    pagination_next_urls: dict[str, str] = {}
+
+    def read_serpapi_url(url: str, api_key: str) -> dict:
+        parsed = urllib.parse.urlparse(url)
+        host = (parsed.hostname or "").lower()
+        if parsed.scheme != "https" or host not in {"serpapi.com", "www.serpapi.com"}:
+            raise RuntimeError("invalid SerpApi pagination URL host")
+        if parsed.path not in {"/search", "/search.json"}:
+            raise RuntimeError("invalid SerpApi pagination URL path")
+
+        pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+        pairs = [(key, value) for key, value in pairs if key not in {"api_key", "output"}]
+        pairs.extend([("api_key", api_key), ("output", "json")])
+        safe_url = urllib.parse.urlunparse(
+            (
+                "https",
+                host,
+                parsed.path,
+                "",
+                urllib.parse.urlencode(pairs),
+                "",
+            )
+        )
+        request = urllib.request.Request(
+            safe_url,
+            headers={"User-Agent": "AI-Remote-Finder/6.5", "Accept": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        if not isinstance(payload, dict):
+            raise RuntimeError("SerpApi response is not an object")
+        return payload
+
+    def remember_next_url(payload: dict) -> None:
+        pagination = payload.get("serpapi_pagination") or {}
+        if not isinstance(pagination, dict):
+            return
+        token = str(pagination.get("next_page_token") or "").strip()
+        next_url = str(pagination.get("next") or "").strip()
+        if token and next_url:
+            pagination_next_urls[token] = next_url
+
     def serpapi_fetch_work_from_home(
         query: str,
         api_key: str,
         next_page_token: str | None = None,
     ) -> dict:
+        if next_page_token:
+            server_next = pagination_next_urls.pop(next_page_token, "")
+            if server_next:
+                payload = read_serpapi_url(server_next, api_key)
+                remember_next_url(payload)
+                return payload
+
         params = {
             "engine": "google_jobs",
             "q": query,
@@ -106,16 +162,19 @@ def configure_production_policy() -> None:
             "output": "json",
         }
         if next_page_token:
+            # Safe fallback if an older/partial response provided a token but no
+            # generated next URL. The generated URL path above is preferred.
             params["next_page_token"] = next_page_token
         url = "https://serpapi.com/search.json?" + urllib.parse.urlencode(params)
         request = urllib.request.Request(
             url,
-            headers={"User-Agent": "AI-Remote-Finder/6.4", "Accept": "application/json"},
+            headers={"User-Agent": "AI-Remote-Finder/6.5", "Accept": "application/json"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
         if not isinstance(payload, dict):
             raise RuntimeError("SerpApi response is not an object")
+        remember_next_url(payload)
         return payload
 
     acquisition.serpapi_fetch = serpapi_fetch_work_from_home
