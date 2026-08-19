@@ -76,10 +76,21 @@ class AcquisitionQualityTests(unittest.TestCase):
         self.assertFalse(mod.review_row_meets_quality({**good, "automation_reasons": ["データ入力"]}))
 
     def test_rich_excerpt_keeps_more_context_for_llm(self):
-        raw = job("完全在宅。" + ("データ入力と転記。" * 400))
+        raw = job("完全在宅。" + ("データ入力と転記。" * 800))
         excerpt = mod.rich_listing_excerpt(raw)
-        self.assertGreater(len(excerpt), 640)
+        self.assertEqual(mod.RICH_SNIPPET_MAX, 6000)
+        self.assertGreater(len(excerpt), 2400)
         self.assertLessEqual(len(excerpt), mod.RICH_SNIPPET_MAX)
+
+    def test_presence_requirement_after_old_excerpt_boundary_is_still_blocked(self):
+        prefix = "完全在宅。データ入力と転記を行います。" + ("定型処理。" * 600)
+        raw = job(prefix + "勤務中はカメラ常時ONで本人の在席確認を行います。")
+        self.assertGreater(len(mod.normalized_job_text(raw)), 2400)
+        self.assertIsNotNone(mod.human_presence_blocker(raw))
+
+    def test_automatable_always_on_system_is_not_presence_blocked(self):
+        raw = job("完全在宅。自動監視システムを常時ログイン状態で稼働し、異常を自動記録します。")
+        self.assertIsNone(mod.human_presence_blocker(raw))
 
     def test_provider_no_results_becomes_empty_success(self):
         with patch.object(mod, "GENERIC_SERPAPI_FETCH", return_value={"error": "Google hasn't returned any results for this query."}):
