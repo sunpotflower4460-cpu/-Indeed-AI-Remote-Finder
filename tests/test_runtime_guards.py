@@ -42,6 +42,22 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertNotIn('echo "$SERPAPI_KEY"', workflow)
         self.assertNotIn("printenv SERPAPI_KEY", workflow)
 
+    def test_candidate_pool_refresh_runs_twice_daily_and_uses_adaptive_fetcher(self):
+        workflow = (ROOT / ".github" / "workflows" / "update-jobs.yml").read_text(encoding="utf-8")
+        self.assertIn("cron: '17 0,12 * * *'", workflow)
+        self.assertIn("python scripts/fetch_pool.py", workflow)
+        self.assertIn("SERPAPI_MONTHLY_SEARCH_CAP: '225'", workflow)
+
+    def test_app_defaults_to_all_candidates_and_excludes_applied_from_normal_modes(self):
+        app = (ROOT / "app.js").read_text(encoding="utf-8")
+        html = (ROOT / "index.html").read_text(encoding="utf-8")
+        self.assertIn("mode:'all'", app)
+        self.assertIn("if(isHidden||isApplied||tier==='expired')return false", app)
+        self.assertIn("todayApplied", app)
+        self.assertIn("todayApplied", html)
+        self.assertIn('class="chip active" data-mode="all"', html)
+        self.assertIn("30件未満", html)
+
     def test_actions_use_node24_setup_python(self):
         for relative in (
             Path(".github/workflows/check.yml"),
@@ -53,7 +69,7 @@ class RuntimeGuardTests(unittest.TestCase):
 
     def test_service_worker_awaits_cache_writes(self):
         sw = (ROOT / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("ai-remote-finder-v7", sw)
+        self.assertIn("ai-remote-finder-v8", sw)
         self.assertIn("await cache.put(key,response)", sw)
         self.assertIn("cacheKey:DATA_URL", sw)
         self.assertIn("cacheKey:INDEX_URL", sw)
