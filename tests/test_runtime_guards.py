@@ -42,6 +42,11 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertNotIn('echo "$SERPAPI_KEY"', workflow)
         self.assertNotIn("printenv SERPAPI_KEY", workflow)
 
+    def test_production_uses_adaptive_acquisition(self):
+        workflow = (ROOT / ".github" / "workflows" / "update-jobs.yml").read_text(encoding="utf-8")
+        self.assertIn("python scripts/acquisition.py", workflow)
+        self.assertNotIn("run: python scripts/fetch_jobs.py", workflow)
+
     def test_actions_use_node24_setup_python(self):
         for relative in (
             Path(".github/workflows/check.yml"),
@@ -53,7 +58,7 @@ class RuntimeGuardTests(unittest.TestCase):
 
     def test_service_worker_awaits_cache_writes(self):
         sw = (ROOT / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("ai-remote-finder-v7", sw)
+        self.assertIn("ai-remote-finder-v8", sw)
         self.assertIn("await cache.put(key,response)", sw)
         self.assertIn("cacheKey:DATA_URL", sw)
         self.assertIn("cacheKey:INDEX_URL", sw)
