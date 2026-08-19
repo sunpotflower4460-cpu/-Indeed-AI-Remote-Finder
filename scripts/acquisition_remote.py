@@ -14,19 +14,16 @@ freshness window, and avoid high human/physical risk. If the returned job text
 does not itself prove full remote, the row is marked `remote_search_only` and
 the PWA tells the user to verify complete remote eligibility.
 
-For pagination, prefer SerpApi's own `serpapi_pagination.next` URL. Google Jobs
-pagination can change which filter parameters are accepted between page 1 and
-page 2, especially around deprecated filters. Reusing SerpApi's generated next
-URL preserves the server-selected pagination/filter state instead of rebuilding
-it locally. The URL is host/path validated and the API key is replaced in memory
-before the request; it is never written to the feed or logs.
+For pagination, prefer SerpApi's own `serpapi_pagination.next` URL. The deprecated
+`ltype` parameter is deliberately removed from page 2 while the server-generated
+`uds` / pagination state is retained. This avoids combining a deprecated filter
+with Google Jobs' next-page token. The URL is host/path validated and the API key
+is replaced in memory before the request; it is never written to the feed/logs.
 
-Before paid/search-counted Google Jobs requests, production also queries
-SerpApi's free Account API. The provider-reported hourly and monthly usage is
-used as a hard upper bound, so repeated workflow triggers cannot burn through an
-hourly allowance or make our local counter drift upward after failed searches.
-If Account API is temporarily unavailable, the existing local monthly guard
-remains in force and the feed continues to use the last known-good policy.
+Before counted Google Jobs requests, production also queries SerpApi's free
+Account API. Provider-reported hourly/monthly usage becomes a hard upper bound,
+so repeated workflow triggers cannot burn through an hourly allowance. Raw
+Account API data is never logged or persisted.
 """
 from __future__ import annotations
 
@@ -40,6 +37,26 @@ import acquisition
 
 ACCOUNT_API_URL = "https://serpapi.com/account.json"
 ACCOUNT_HOURLY_RESERVE = 2
+
+
+class SerpApiNoResultsError(RuntimeError):
+    pass
+
+
+class SerpApiRateLimitError(RuntimeError):
+    pass
+
+
+class SerpApiPaginationError(RuntimeError):
+    pass
+
+
+class SerpApiInvalidRequestError(RuntimeError):
+    pass
+
+
+class SerpApiProviderError(RuntimeError):
+    pass
 
 
 def _nonnegative_int(value) -> int | None:
@@ -82,13 +99,30 @@ def fetch_serpapi_account(api_key: str) -> dict:
     params = urllib.parse.urlencode({"api_key": api_key})
     request = urllib.request.Request(
         f"{ACCOUNT_API_URL}?{params}",
-        headers={"User-Agent": "AI-Remote-Finder/6.6", "Accept": "application/json"},
+        headers={"User-Agent": "AI-Remote-Finder/6.7", "Accept": "application/json"},
     )
     with urllib.request.urlopen(request, timeout=15) as response:
         payload = json.loads(response.read().decode("utf-8"))
     if not isinstance(payload, dict):
         raise RuntimeError("SerpApi account response is not an object")
     return payload
+
+
+def raise_classified_provider_error(payload: dict) -> None:
+    """Raise only a safe error class; never expose the provider's raw message."""
+    message = str(payload.get("error") or "").strip()
+    if not message:
+        return
+    lower = message.lower()
+    if any(term in lower for term in ("no result", "no jobs", "hasn't returned", "has not returned", "empty result")):
+        raise SerpApiNoResultsError("provider returned no further results")
+    if any(term in lower for term in ("rate limit", "throughput", "too many request", "quota")):
+        raise SerpApiRateLimitError("provider rate limit")
+    if any(term in lower for term in ("next_page_token", "page token", "pagination")):
+        raise SerpApiPaginationError("provider pagination error")
+    if any(term in lower for term in ("invalid parameter", "incorrect parameter", "not supported", "unsupported", "missing parameter")):
+        raise SerpApiInvalidRequestError("provider request rejected")
+    raise SerpApiProviderError("provider error")
 
 
 def production_review_fallback(scores, published) -> bool:
@@ -108,10 +142,7 @@ def configure_production_policy() -> None:
     if getattr(acquisition, "_production_remote_policy_configured", False):
         return
     acquisition._production_remote_policy_configured = True
-    acquisition.MAX_REQUESTS_PER_RUN = max(
-        acquisition.MAX_REQUESTS_PER_RUN,
-        len(acquisition.QUERY_PROFILES),
-    )
+    acquisition.MAX_REQUESTS_PER_RUN = max(acquisition.MAX_REQUESTS_PER_RUN, len(acquisition.QUERY_PROFILES))
     acquisition.review_fallback = production_review_fallback
 
     base_score_job = acquisition.legacy.score_job
@@ -120,7 +151,6 @@ def configure_production_policy() -> None:
         return base_score_job(text, published, previous, remote_api_filter=True)
 
     acquisition.legacy.score_job = score_with_remote_filter
-
     base_build_row = acquisition.build_row
 
     def build_row_with_remote_evidence(job, category, previous):
@@ -133,15 +163,9 @@ def configure_production_policy() -> None:
         description = acquisition.legacy.clean(str(job.get("description") or ""))
         highlights = acquisition.legacy.flatten_highlights(job)
         raw_extensions = job.get("extensions") or []
-        extensions = (
-            " ".join(acquisition.legacy.clean(str(x)) for x in raw_extensions)
-            if isinstance(raw_extensions, list)
-            else ""
-        )
+        extensions = " ".join(acquisition.legacy.clean(str(x)) for x in raw_extensions) if isinstance(raw_extensions, list) else ""
         text = " ".join([title, location, description, highlights, extensions]).lower()
-        explicit_full_remote = any(
-            phrase.lower() in text for phrase in acquisition.legacy.REMOTE_EXPLICIT_FULL
-        )
+        explicit_full_remote = any(phrase.lower() in text for phrase in acquisition.legacy.REMOTE_EXPLICIT_FULL)
         row["remote_search_only"] = not explicit_full_remote
         if row["remote_search_only"]:
             reasons = list(row.get("remote_reasons") or [])
@@ -156,7 +180,6 @@ def configure_production_policy() -> None:
         return row
 
     acquisition.build_row = build_row_with_remote_evidence
-
     pagination_next_urls: dict[str, str] = {}
 
     def read_serpapi_url(url: str, api_key: str) -> dict:
@@ -168,26 +191,20 @@ def configure_production_policy() -> None:
             raise RuntimeError("invalid SerpApi pagination URL path")
 
         pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
-        pairs = [(key, value) for key, value in pairs if key not in {"api_key", "output"}]
+        # ltype is deprecated by Google. For page 2 retain SerpApi/Google's
+        # generated uds + token state but do not resend the deprecated alias.
+        pairs = [(key, value) for key, value in pairs if key not in {"api_key", "output", "ltype"}]
         pairs.extend([("api_key", api_key), ("output", "json")])
-        safe_url = urllib.parse.urlunparse(
-            (
-                "https",
-                host,
-                parsed.path,
-                "",
-                urllib.parse.urlencode(pairs),
-                "",
-            )
-        )
+        safe_url = urllib.parse.urlunparse(("https", host, parsed.path, "", urllib.parse.urlencode(pairs), ""))
         request = urllib.request.Request(
             safe_url,
-            headers={"User-Agent": "AI-Remote-Finder/6.6", "Accept": "application/json"},
+            headers={"User-Agent": "AI-Remote-Finder/6.7", "Accept": "application/json"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
         if not isinstance(payload, dict):
             raise RuntimeError("SerpApi response is not an object")
+        raise_classified_provider_error(payload)
         return payload
 
     def remember_next_url(payload: dict) -> None:
@@ -199,11 +216,7 @@ def configure_production_policy() -> None:
         if token and next_url:
             pagination_next_urls[token] = next_url
 
-    def serpapi_fetch_work_from_home(
-        query: str,
-        api_key: str,
-        next_page_token: str | None = None,
-    ) -> dict:
+    def serpapi_fetch_work_from_home(query: str, api_key: str, next_page_token: str | None = None) -> dict:
         if next_page_token:
             server_next = pagination_next_urls.pop(next_page_token, "")
             if server_next:
@@ -217,23 +230,24 @@ def configure_production_policy() -> None:
             "location": "Japan",
             "hl": "ja",
             "gl": "jp",
-            "ltype": "1",
             "api_key": api_key,
             "output": "json",
         }
         if next_page_token:
-            # Safe fallback if an older/partial response provided a token but no
-            # generated next URL. The generated URL path above is preferred.
+            # Fallback path: page 2 deliberately omits deprecated ltype.
             params["next_page_token"] = next_page_token
+        else:
+            params["ltype"] = "1"
         url = "https://serpapi.com/search.json?" + urllib.parse.urlencode(params)
         request = urllib.request.Request(
             url,
-            headers={"User-Agent": "AI-Remote-Finder/6.6", "Accept": "application/json"},
+            headers={"User-Agent": "AI-Remote-Finder/6.7", "Accept": "application/json"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
         if not isinstance(payload, dict):
             raise RuntimeError("SerpApi response is not an object")
+        raise_classified_provider_error(payload)
         remember_next_url(payload)
         return payload
 
@@ -241,11 +255,7 @@ def configure_production_policy() -> None:
 
 
 def configure_provider_budget(api_key: str) -> int | None:
-    """Apply provider-reported usage as stricter runtime guards.
-
-    Returns the provider-side request budget for this run, or None if Account API
-    could not be read. No raw account payload is logged or persisted.
-    """
+    """Apply provider-reported usage as stricter runtime guards."""
     if not api_key:
         return None
     try:
