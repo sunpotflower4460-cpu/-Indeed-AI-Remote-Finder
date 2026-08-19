@@ -5,17 +5,16 @@ The strict publication policy lives in acquisition_remote.py plus the final
 quality layer in acquisition_quality.py. This module changes only *where* we
 look and how many first-page searches we spend as the rolling stock grows.
 
-Instead of repeating a small query set or padding with weak jobs, production
-rotates many narrowly focused async/AI-friendly queries:
+Discovery intentionally uses a broader remote vocabulary (在宅勤務 / 在宅ワーク /
+リモートワーク / remote) so good jobs are not lost before scoring. Publication
+remains strict: acquisition_quality requires explicit full-remote evidence in the
+listing itself and rejects partial/hybrid or human-attention-heavy work.
 
+Request cadence:
 - 0..19 candidates: 15 searches/run
 - 20..49 candidates: 10 searches/run
 - 50..99 candidates: 6 searches/run
 - 100 candidates: 2 searches/run
-
-All queries now ask for explicit full-remote wording. The quality layer also
-requires the listing text itself to prove full remote, so deprecated provider
-Work-From-Home filtering cannot promote hybrid jobs.
 """
 from __future__ import annotations
 
@@ -31,14 +30,13 @@ MID_REQUESTS = 10
 TOPUP_REQUESTS = 6
 STEADY_REQUESTS = 2
 
-R = (
+DISCOVERY_REMOTE_QUERY = (
     '("完全在宅" OR "フルリモート" OR "完全リモート" OR "100%リモート" '
-    'OR "100％リモート" OR "fully remote" OR "100% remote")'
+    'OR "100％リモート" OR "在宅勤務" OR "在宅ワーク" OR "リモートワーク" '
+    'OR "fully remote" OR "work from home" OR remote)'
 )
+R = DISCOVERY_REMOTE_QUERY
 
-# Deliberately task-oriented rather than role-title-oriented. These searches aim
-# at work that can often be completed asynchronously by an automated pipeline.
-# Synchronous/contact-heavy rows and partial remote roles are rejected later.
 PRODUCTION_QUERY_PROFILES: list[tuple[str, str]] = [
     ("data_entry_basic", f'{R} ("データ入力" OR "入力業務" OR 転記)'),
     ("data_entry_excel", f'{R} (Excel OR スプレッドシート) ("データ入力" OR 転記 OR 集計)'),
@@ -126,11 +124,7 @@ def supply_request_limit(pool_size: int) -> int:
 
 
 def configure_supply_rotation() -> None:
-    # Install autonomy, explicit-full-remote and review-quality gates first.
     acquisition_quality.configure_quality_policy()
-
-    # Then replace only discovery surface and request cadence. Quality remains
-    # authoritative because acquisition.build_row was wrapped above.
     acquisition.QUERY_PROFILES = list(PRODUCTION_QUERY_PROFILES)
     acquisition.MAX_REQUESTS_PER_RUN = DEEP_REQUESTS
     acquisition.request_limit_for_pool = supply_request_limit
@@ -141,7 +135,7 @@ def stamp_supply_metadata() -> None:
         payload = acquisition.load_payload()
         if not payload:
             return
-        payload["candidate_search_strategy"] = "rotating-explicit-full-remote-first-pages"
+        payload["candidate_search_strategy"] = "rotating-broad-discovery-strict-full-remote"
         payload["candidate_search_profile_count"] = len(PRODUCTION_QUERY_PROFILES)
         payload["candidate_search_daily_deep_limit"] = DEEP_REQUESTS
         payload["candidate_search_pagination_expected"] = False
@@ -158,15 +152,10 @@ def main() -> None:
     if not api_key:
         print("SERPAPI_KEY is not configured; preserving the last known-good feed.")
         return
-
     provider_cap = acquisition_remote.configure_provider_budget(api_key)
     if provider_cap == 0:
-        print(
-            "SerpApi provider usage guard has no safe request headroom; "
-            "preserving last known-good feed."
-        )
+        print("SerpApi provider usage guard has no safe request headroom; preserving last known-good feed.")
         return
-
     acquisition.main()
     acquisition_remote.stamp_policy_metadata()
     acquisition_quality.stamp_quality_metadata()
