@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail if a published candidate contains contradictory remote evidence."""
+"""Fail if a published candidate contains contradictory or misleading remote evidence."""
 from __future__ import annotations
 
 import argparse
@@ -44,10 +44,22 @@ def validate(payload: dict) -> list[str]:
         warnings = [value for value in normalized if value.startswith("注意:")]
         if warnings:
             errors.append(f"{prefix} contains contradictory remote signal: {sorted(warnings)[0]}")
+
         if row.get("tier") == "high" and not any(
             phrase.lower() in normalized for phrase in EXPLICIT_FULL_REMOTE
         ):
             errors.append(f"{prefix} high tier lacks explicit full-remote evidence")
+
+        remote_search_only = row.get("remote_search_only")
+        if remote_search_only not in {None, True, False}:
+            errors.append(f"{prefix}.remote_search_only must be boolean")
+        if remote_search_only is True:
+            if row.get("tier") != "review":
+                errors.append(f"{prefix} remote-search-only row must be review tier")
+            tags = row.get("tags") or []
+            if not isinstance(tags, list) or "在宅要確認" not in tags:
+                errors.append(f"{prefix} remote-search-only row must show 在宅要確認 tag")
+
     return errors
 
 
