@@ -4,11 +4,9 @@
 The primary llm_review.py remains responsible for deterministic HIGH rows. This
 second pass never increases the configured eight-attempt run budget: it computes
 how many attempts the primary pass already spent compared with the previous
-feed and uses only the remainder.
-
-Existing/reusable reviews are already reattached by llm_review.enrich before its
-HIGH-only new-call guard, so this script only needs to create new reviews for
-eligible REVIEW rows that still lack one.
+feed and uses only the remainder. If the primary pass reported any provider
+failure or uncertain attempt accounting, the spare pass is skipped entirely so
+we do not keep calling a degraded provider.
 """
 from __future__ import annotations
 
@@ -79,10 +77,13 @@ def enrich_review_tier(
     failures = int(payload.get("llm_review_failures") or 0)
     errors = list(payload.get("llm_errors") or [])
     fatal_error = payload.get("llm_fatal_error")
+    primary_degraded = bool(
+        failures > 0 or fatal_error or payload.get("llm_attempts_uncertain") is True
+    )
     new_review_tier = 0
     attempts = 0
 
-    if api_key and allowed > 0 and not fatal_error:
+    if api_key and allowed > 0 and not primary_degraded:
         candidates = sorted(
             [row for row in jobs if eligible(row)], key=sort_key, reverse=True
         )
@@ -121,6 +122,7 @@ def enrich_review_tier(
     payload["llm_new_reviews"] = int(payload.get("llm_new_reviews") or 0) + new_review_tier
     payload["llm_review_tier_new_reviews"] = new_review_tier
     payload["llm_review_tier_attempts"] = attempts
+    payload["llm_review_tier_skipped_after_primary_failure"] = primary_degraded
     payload["llm_run_attempt_cap"] = int(run_attempt_cap)
     payload["llm_review_failures"] = failures
     payload["llm_errors"] = errors[:8]
@@ -166,7 +168,8 @@ def main() -> None:
         f"new={result.get('llm_review_tier_new_reviews', 0)} "
         f"attempts={result.get('llm_review_tier_attempts', 0)} "
         f"total_month={result.get('llm_paid_attempts_month', 0)}/"
-        f"{result.get('llm_max_paid_attempts_per_month', 0)}"
+        f"{result.get('llm_max_paid_attempts_per_month', 0)} "
+        f"skip-after-primary-failure={result.get('llm_review_tier_skipped_after_primary_failure', False)}"
     )
     if result.get("llm_fatal_error"):
         raise SystemExit(3)
