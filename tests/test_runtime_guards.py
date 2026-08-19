@@ -36,6 +36,12 @@ class RuntimeGuardTests(unittest.TestCase):
             workflow.index("- name: Commit refreshed feed"),
         )
 
+    def test_serpapi_secret_is_referenced_without_logging_value(self):
+        workflow = (ROOT / ".github" / "workflows" / "update-jobs.yml").read_text(encoding="utf-8")
+        self.assertIn("SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}", workflow)
+        self.assertNotIn('echo "$SERPAPI_KEY"', workflow)
+        self.assertNotIn("printenv SERPAPI_KEY", workflow)
+
     def test_actions_use_node24_setup_python(self):
         for relative in (
             Path(".github/workflows/check.yml"),
