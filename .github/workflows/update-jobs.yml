@@ -1,0 +1,28 @@
+name: Update job candidates
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run scoring guard tests
+        run: python -m unittest discover -s tests -q
+      - name: Refresh public search-index candidates
+        run: python scripts/fetch_jobs.py
+      - name: Commit refreshed feed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/jobs.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: refresh high-confidence job candidates"
+          git push
