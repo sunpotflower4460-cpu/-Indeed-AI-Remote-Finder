@@ -42,9 +42,13 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertNotIn('echo "$SERPAPI_KEY"', workflow)
         self.assertNotIn("printenv SERPAPI_KEY", workflow)
 
-    def test_production_uses_adaptive_acquisition(self):
+    def test_production_uses_work_from_home_acquisition_adapter(self):
         workflow = (ROOT / ".github" / "workflows" / "update-jobs.yml").read_text(encoding="utf-8")
-        self.assertIn("python scripts/acquisition.py", workflow)
+        adapter = (ROOT / "scripts" / "acquisition_remote.py").read_text(encoding="utf-8")
+        self.assertIn("python scripts/acquisition_remote.py", workflow)
+        self.assertIn('"ltype": "1"', adapter)
+        self.assertIn("remote_api_filter=True", adapter)
+        self.assertIn("MAX_REQUESTS_PER_RUN = len(acquisition.QUERY_PROFILES)", adapter)
         self.assertNotIn("run: python scripts/fetch_jobs.py", workflow)
 
     def test_recommendation_queue_defaults_to_all_and_hides_applied(self):
