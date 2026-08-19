@@ -23,6 +23,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Report optional provider configuration
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "$SERPAPI_KEY" ]; then echo "SerpApi: configured"; else echo "SerpApi: not configured"; fi
+          if [ -n "$OPENAI_API_KEY" ]; then echo "OpenAI: configured"; else echo "OpenAI: not configured"; fi
       - name: Run quality tests
         run: python -m unittest discover -s tests -q
       - name: Preserve previous feed for carryover and LLM cache
