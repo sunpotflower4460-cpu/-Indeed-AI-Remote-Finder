@@ -1,4 +1,4 @@
-const state={jobs:[],mode:'high',q:'',sort:'best',saved:new Set(JSON.parse(localStorage.getItem('savedJobs')||'[]')),meta:{}};
+const state={jobs:[],mode:'high',q:'',sort:'best',saved:new Set(JSON.parse(localStorage.getItem('savedJobs')||'[]')),hidden:new Set(JSON.parse(localStorage.getItem('hiddenJobs')||'[]')),meta:{}};
 const $=s=>document.querySelector(s);
 function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function fmtDate(s){if(!s)return'不明';const d=new Date(s);if(Number.isNaN(+d))return'不明';return new Intl.DateTimeFormat('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)}
@@ -6,7 +6,7 @@ function ageLabel(s){if(!s)return'日付不明';const d=new Date(s);if(Number.is
 function meterClass(v){return v>=82?'good':v>=64?'warn':'bad'}
 function currentRows(){
   const q=state.q.trim().toLowerCase();
-  let rows=state.jobs.filter(j=>state.mode==='saved'?state.saved.has(j.id):state.mode==='all'?true:j.tier===state.mode);
+  let rows=state.jobs.filter(j=>state.mode==='hidden'?state.hidden.has(j.id):state.mode==='saved'?state.saved.has(j.id)&&!state.hidden.has(j.id):state.mode==='all'?!state.hidden.has(j.id):j.tier===state.mode&&!state.hidden.has(j.id));
   if(q)rows=rows.filter(j=>`${j.title} ${j.snippet} ${(j.tags||[]).join(' ')} ${(j.automation_reasons||[]).join(' ')}`.toLowerCase().includes(q));
   rows=[...rows];
   if(state.sort==='fresh')rows.sort((a,b)=>(b.freshness_confidence||0)-(a.freshness_confidence||0)||(b.score||0)-(a.score||0));
@@ -18,11 +18,11 @@ function reasonText(j){const r=(j.automation_reasons||[]).slice(0,4);return r.le
 function render(){
   const rows=currentRows();
   $('#resultCount').textContent=`${rows.length}件`;
-  const names={high:'高確度だけ',review:'要確認候補',all:'全候補',saved:'保存済み'};
+  const names={high:'高確度だけ',review:'要確認候補',all:'全候補',saved:'保存済み',hidden:'非表示'};
   $('#listTitle').textContent=names[state.mode]||'求人候補';
   if(!rows.length){$('#jobs').innerHTML=`<div class="empty"><b>この条件では候補がありません。</b><br>品質を落として無理に表示していません。<br><span>「要確認候補」か「Indeedで今すぐ検索」を使えます。</span></div>`;return;}
   $('#jobs').innerHTML=rows.map(j=>{
-    const saved=state.saved.has(j.id), high=j.tier==='high';
+    const saved=state.saved.has(j.id), hidden=state.hidden.has(j.id), high=j.tier==='high';
     const published=j.search_published_at||j.last_seen;
     return `<article class="card ${high?'high':''}">
       <div class="cardHead"><div class="verdict ${high?'ok':'review'}">${high?'高確度':'要確認'}</div><div class="fresh">${esc(ageLabel(published))}</div></div>
@@ -36,11 +36,12 @@ function render(){
       <div class="why">${esc(reasonText(j))}</div>
       <div class="tags">${(j.tags||[]).slice(0,5).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${j.seen_count>1?`<span class="tag repeat">再検出 ${j.seen_count}回</span>`:''}</div>
       ${j.risk_reasons?.length?`<div class="risk">要注意: ${esc(j.risk_reasons.join('・'))}</div>`:''}
-      <div class="actions"><button class="btn ghost save" data-id="${esc(j.id)}">${saved?'★ 保存済み':'☆ 保存'}</button><a class="btn primary" href="${esc(j.url)}" target="_blank" rel="noopener noreferrer">求人を確認・応募 →</a></div>
+      <div class="actions"><button class="btn ghost save" data-id="${esc(j.id)}">${saved?'★ 保存済み':'☆ 保存'}</button><button class="btn ghost hide" data-id="${esc(j.id)}">${hidden?'↩ 戻す':'× 非表示'}</button><a class="btn primary" href="${esc(j.url)}" target="_blank" rel="noopener noreferrer">求人を確認・応募 →</a></div>
       <div class="meta">検索上の日時: ${esc(fmtDate(j.search_published_at))} / 最終検出: ${esc(fmtDate(j.last_seen))}</div>
     </article>`;
   }).join('');
   document.querySelectorAll('.save').forEach(b=>b.onclick=()=>{const id=b.dataset.id;if(state.saved.has(id))state.saved.delete(id);else state.saved.add(id);localStorage.setItem('savedJobs',JSON.stringify([...state.saved]));render();});
+  document.querySelectorAll('.hide').forEach(b=>b.onclick=()=>{const id=b.dataset.id;if(state.hidden.has(id))state.hidden.delete(id);else state.hidden.add(id);localStorage.setItem('hiddenJobs',JSON.stringify([...state.hidden]));render();});
 }
 async function boot(){
   try{
