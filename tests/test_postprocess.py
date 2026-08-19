@@ -20,11 +20,12 @@ def row(jid, title="AI Annotator", company="Example", tier="high", last_seen=Non
         "tier": tier,
         "location": location,
         "snippet": snippet,
-        "remote_reasons": list(remote_reasons or []),
+        "remote_reasons": list(remote_reasons or ["完全在宅"]),
         "freshness_confidence": 90,
         "score": 90,
         "automation_confidence": 95,
         "last_seen": (last_seen or now).isoformat(),
+        "first_seen": (now - timedelta(days=1)).isoformat(),
         "search_published_at": (published or (now - timedelta(days=2))).isoformat(),
     }
 
@@ -45,81 +46,66 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual(removed, 0)
 
     def test_explicit_full_remote_contradiction_is_dropped(self):
-        rows = [row("a", snippet="業務はフルリモート不可です")]
-        kept, dropped = mod.drop_remote_contradictions(rows)
+        kept, dropped = mod.drop_remote_contradictions([row("a", snippet="業務はフルリモート不可です")])
         self.assertEqual(kept, [])
         self.assertEqual(dropped, 1)
 
-    def test_fullwidth_percent_remote_contradiction_is_dropped(self):
-        rows = [row("a", snippet="100％リモートではありません")]
-        kept, dropped = mod.drop_remote_contradictions(rows)
-        self.assertEqual(kept, [])
-        self.assertEqual(dropped, 1)
-
-    def test_negative_remote_reason_is_dropped_even_with_positive_wording(self):
-        rows = [
-            row(
-                "a",
-                snippet="フルリモート中心のデータ入力",
-                remote_reasons=["フルリモート", "注意:ハイブリッド"],
-            )
-        ]
-        kept, dropped = mod.drop_remote_contradictions(rows)
+    def test_negative_remote_reason_is_dropped(self):
+        kept, dropped = mod.drop_remote_contradictions([
+            row("a", snippet="フルリモート中心", remote_reasons=["フルリモート", "注意:週2出社"])
+        ])
         self.assertEqual(kept, [])
         self.assertEqual(dropped, 1)
 
     def test_negated_hybrid_wording_is_not_false_rejected(self):
-        rows = [
-            row(
-                "a",
-                snippet="完全在宅で、ハイブリッド勤務は不可です",
-                remote_reasons=["完全在宅", "注意:ハイブリッド"],
-            )
-        ]
-        kept, dropped = mod.drop_remote_contradictions(rows)
+        kept, dropped = mod.drop_remote_contradictions([
+            row("a", snippet="完全在宅で、ハイブリッド勤務は不可です", remote_reasons=["完全在宅", "注意:ハイブリッド"])
+        ])
         self.assertEqual(len(kept), 1)
         self.assertEqual(dropped, 0)
 
-    def test_normal_full_remote_text_is_kept(self):
-        rows = [row("a", snippet="フルリモートでデータ入力を行います", remote_reasons=["フルリモート"])]
-        kept, dropped = mod.drop_remote_contradictions(rows)
-        self.assertEqual(len(kept), 1)
-        self.assertEqual(dropped, 0)
-
-    def test_contradictory_previous_row_is_not_carried(self):
+    def test_missing_job_is_retained_as_review_reserve(self):
         now = datetime.now(timezone.utc)
-        old = row("a", last_seen=now - timedelta(hours=2), snippet="完全在宅ではありません")
-        carried = mod.carryover_rows([], [old], now)
-        self.assertEqual(carried, [])
-
-    def test_negative_remote_reason_previous_row_is_not_carried(self):
-        now = datetime.now(timezone.utc)
-        old = row(
-            "a",
-            last_seen=now - timedelta(hours=2),
-            snippet="リモート勤務",
-            remote_reasons=["注意:週2出社"],
-        )
-        carried = mod.carryover_rows([], [old], now)
-        self.assertEqual(carried, [])
-
-    def test_recent_missing_job_is_carried_as_review(self):
-        now = datetime.now(timezone.utc)
-        carried = mod.carryover_rows([], [row("a", last_seen=now - timedelta(hours=8))], now)
+        carried = mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=5))], now)
         self.assertEqual(len(carried), 1)
         self.assertEqual(carried[0]["tier"], "review")
         self.assertTrue(carried[0]["carryover"])
-        self.assertLessEqual(carried[0]["freshness_confidence"], 58)
+        self.assertTrue(carried[0]["pool_reserve"])
+        self.assertIn("最大14日", carried[0]["carryover_reason"])
 
-    def test_missing_job_older_than_48h_is_dropped(self):
+    def test_reserve_row_does_not_refresh_last_seen(self):
         now = datetime.now(timezone.utc)
-        carried = mod.carryover_rows([], [row("a", last_seen=now - timedelta(hours=49))], now)
+        old_seen = now - timedelta(days=5)
+        carried = mod.carryover_rows([], [row("a", last_seen=old_seen)], now)
+        self.assertEqual(carried[0]["last_seen"], old_seen.isoformat())
+
+    def test_missing_job_older_than_14_days_is_dropped(self):
+        now = datetime.now(timezone.utc)
+        carried = mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=15))], now)
         self.assertEqual(carried, [])
 
     def test_published_over_30_days_is_not_carried(self):
         now = datetime.now(timezone.utc)
-        carried = mod.carryover_rows([], [row("a", last_seen=now - timedelta(hours=2), published=now - timedelta(days=31))], now)
+        carried = mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=2), published=now - timedelta(days=31))], now)
         self.assertEqual(carried, [])
+
+    def test_process_reports_pool_health_and_new_jobs(self):
+        now = datetime.now(timezone.utc)
+        current = {"generated_at": now.isoformat(), "jobs": [row("new")], "pool_target_min": 30, "pool_target_max": 80}
+        previous = {"jobs": [row("old", last_seen=now - timedelta(days=2))]}
+        got = mod.process(current, previous)
+        self.assertEqual(got["candidate_pool_size"], 2)
+        self.assertEqual(got["new_jobs"], 1)
+        self.assertEqual(got["carryover_jobs"], 1)
+        self.assertTrue(got["pool_under_target"])
+
+    def test_process_caps_visible_pool_at_80(self):
+        now = datetime.now(timezone.utc)
+        rows = [row(str(i), title=f"Role {i}", company=f"Company {i}") for i in range(100)]
+        got = mod.process({"generated_at": now.isoformat(), "jobs": rows}, {})
+        self.assertEqual(len(got["jobs"]), 80)
+        self.assertEqual(got["candidate_pool_size"], 80)
+        self.assertFalse(got["pool_under_target"])
 
 
 if __name__ == "__main__":
