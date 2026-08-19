@@ -45,7 +45,69 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: gpt-5.6-luna
-        run: python scripts/llm_review.py --previous /tmp/previous-jobs.json --max-new-reviews 8
+        run: |
+          set +e
+          python scripts/llm_review.py --previous /tmp/previous-jobs.json --max-new-reviews 8 2>/tmp/llm-review.err
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            echo "LLM audit returned non-zero status $status; detailed provider error is intentionally hidden."
+          fi
+          exit "$status"
+      - name: Redact public LLM diagnostics
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          path = Path("data/jobs.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+
+          def classify(value):
+              text = str(value or "")
+              match = re.search(r"OpenAI HTTP (\d{3})", text)
+              status = int(match.group(1)) if match else None
+              error_type = None
+              error_code = None
+              if match:
+                  tail = text[match.end():].lstrip(": ")
+                  try:
+                      payload = json.loads(tail)
+                      err = payload.get("error") or {}
+                      error_type = str(err.get("type") or "") or None
+                      error_code = str(err.get("code") or "") or None
+                  except Exception:
+                      pass
+              return status, error_type, error_code
+
+          fatal = data.get("llm_fatal_error")
+          status, error_type, error_code = classify(fatal)
+          if fatal:
+              data["llm_fatal_error"] = f"OpenAI HTTP {status}" if status else "LLM audit error"
+          data["llm_error_type"] = error_type
+          data["llm_error_code"] = error_code
+
+          safe_errors = []
+          for item in data.get("llm_errors") or []:
+              item_status, _, _ = classify(item)
+              job_match = re.match(r"^([^:]+):", str(item))
+              job_id = job_match.group(1) if job_match else "job"
+              safe_errors.append(
+                  f"{job_id}: OpenAI HTTP {item_status}" if item_status else f"{job_id}: LLM audit error"
+              )
+          data["llm_errors"] = safe_errors[:8]
+
+          path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+          if data.get("llm_review_failures"):
+              print(
+                  "LLM diagnostics redacted: "
+                  f"failures={data.get('llm_review_failures')} "
+                  f"status={data.get('llm_fatal_error')} "
+                  f"type={data.get('llm_error_type')} code={data.get('llm_error_code')}"
+              )
+          PY
       - name: Validate generated feed
         run: python scripts/validate_feed.py
       - name: Commit refreshed feed
