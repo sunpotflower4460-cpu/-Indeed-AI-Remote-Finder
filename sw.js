@@ -1,4 +1,4 @@
-const CACHE='ai-remote-finder-v11';
+const CACHE='ai-remote-finder-v12';
 const ASSETS=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg'];
 const INDEX_URL=new URL('./index.html',self.registration.scope).toString();
 const DATA_URL=new URL('./data/jobs.json',self.registration.scope).toString();
