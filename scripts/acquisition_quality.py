@@ -7,13 +7,16 @@ still prove full remote in the listing text itself and pass the autonomous-work
 quality gates below.
 
 Rules:
-1. Explicit partial/hybrid arrangements are rejected.
+1. Explicit, conditional, partial, or hybrid arrangements are rejected.
 2. Jobs that imply ongoing human coordination/attention are rejected.
-3. REVIEW rows must clear a meaningful automation floor and human-risk ceiling.
+3. REVIEW rows must clear an automation floor, a human-risk ceiling, and at
+   least two concrete automation signals.
 4. Equivalent async tasks (OCR verification, extraction, metadata tagging,
    AI-response rating, etc.) are mapped to scorer vocabulary to avoid false
    negatives without padding the pool with weak work.
 5. Google's deprecated Work From Home filter never contributes to scoring.
+6. A richer listing excerpt is retained for LLM review while the UI still
+   visually clamps the card text.
 """
 from __future__ import annotations
 
@@ -23,10 +26,12 @@ import re
 import acquisition
 import acquisition_remote
 
-QUALITY_POLICY_VERSION = 1
-QUALITY_GATE = "async-ai-remote"
-REVIEW_AUTOMATION_MIN = 55
-REVIEW_HUMAN_RISK_MAX = 25
+QUALITY_POLICY_VERSION = 2
+QUALITY_GATE = "async-ai-remote-v2"
+REVIEW_AUTOMATION_MIN = 64
+REVIEW_HUMAN_RISK_MAX = 18
+REVIEW_AUTOMATION_SIGNAL_MIN = 2
+RICH_SNIPPET_MAX = 2400
 
 # Capture generic primitives before acquisition_remote installs provider-filter
 # wrappers. We keep its autonomy and budget protections, but scoring/publication
@@ -80,34 +85,47 @@ AUTOMATION_EQUIVALENTS: tuple[tuple[str, str], ...] = (
     ("動作確認", "品質チェック データチェック"),
 )
 
+# These phrases mean the role is not guaranteed to be zero-office. This is
+# intentionally conservative: a role can re-enter if a fresh listing clearly
+# states an unconditional full-remote arrangement.
 PARTIAL_REMOTE_PHRASES = (
     "一部在宅", "一部リモート", "ハイブリッド勤務", "ハイブリッドワーク",
     "在宅あり", "リモートあり", "出社あり", "出社併用", "在宅併用",
     "リモート併用", "テレワーク併用", "慣れたら在宅", "慣れたらリモート",
-    "慣れてから在宅", "慣れてからリモート",
+    "慣れてから在宅", "慣れてからリモート", "原則在宅", "基本在宅",
+    "原則リモート", "基本リモート", "原則フルリモート", "基本フルリモート",
+    "ほぼフルリモート", "フルリモート応相談", "完全在宅応相談",
+    "フルリモート相談可", "完全在宅相談可", "必要に応じて出社",
+    "必要に応じ出社", "場合により出社", "場合によって出社",
+    "研修期間は出社", "研修中は出社", "初日のみ出社", "初日は出社",
+    "将来的にフルリモート", "将来的に完全在宅",
 )
 
 REMOTE_NEGATIONS = (
     "ハイブリッド勤務は不可", "ハイブリッド勤務不可", "ハイブリッド不可",
     "一部在宅ではありません", "一部リモートではありません",
-    "出社併用なし", "出社併用不要",
+    "出社併用なし", "出社併用不要", "出社の可能性なし",
 )
 
-REMOTE_WEEKLY_PATTERNS = (
+REMOTE_PARTIAL_PATTERNS = (
     re.compile(r"(?:在宅(?:勤務|ワーク)?|リモート(?:勤務|ワーク)?|テレワーク)\s*週\s*[1-6１-６一二三四五六]\s*(?:[～〜~\-－ー]\s*[1-6１-６一二三四五六])?\s*日", re.I),
     re.compile(r"週\s*[1-6１-６一二三四五六]\s*(?:[～〜~\-－ー]\s*[1-6１-６一二三四五六])?\s*日\s*(?:程度\s*)?(?:の)?\s*(?:在宅|リモート|テレワーク)", re.I),
     re.compile(r"(?:在宅|リモート|テレワーク)\s*(?:勤務)?\s*月\s*[1-9１-９]\s*回", re.I),
     re.compile(r"月\s*[1-9１-９]\s*回\s*(?:程度\s*)?(?:の)?\s*(?:在宅|リモート|テレワーク)", re.I),
+    re.compile(r"(?:週|月)\s*[1-9１-９]\s*回(?:程度)?\s*(?:の)?\s*出社", re.I),
+    re.compile(r"出社\s*(?:は)?\s*(?:週|月)\s*[1-9１-９]\s*回", re.I),
+    re.compile(r"(?:研修|オンボーディング)[^。\n]{0,30}出社", re.I),
 )
 
 QUALITY_ATTENTION_BLOCKERS = (
     "調整業務", "連絡調整", "関係者との調整", "社内外関係者との調整",
     "関係部門との調整", "進捗管理", "進捗確認", "顧客とのやり取り",
-    "クライアントとのやり取り", "関係者とのやり取り",
+    "クライアントとのやり取り", "関係者とのやり取り", "顧客窓口",
+    "問い合わせ窓口", "エスカレーション対応", "ファシリテーション",
 )
 QUALITY_ATTENTION_NEGATIONS = (
     "調整業務なし", "調整業務不要", "連絡調整なし", "連絡調整不要",
-    "進捗管理なし", "進捗管理不要",
+    "進捗管理なし", "進捗管理不要", "顧客対応なし", "顧客対応不要",
 )
 
 
@@ -122,18 +140,23 @@ def partial_remote_blockers(job: dict) -> list[str]:
     for phrase in REMOTE_NEGATIONS:
         text = text.replace(phrase.lower(), " ")
     found = [phrase for phrase in PARTIAL_REMOTE_PHRASES if phrase.lower() in text]
-    for pattern in REMOTE_WEEKLY_PATTERNS:
+    for pattern in REMOTE_PARTIAL_PATTERNS:
         match = pattern.search(text)
         if match:
             found.append(match.group(0))
-    return found[:6]
+    return list(dict.fromkeys(found))[:8]
 
 
 def quality_attention_blockers(job: dict) -> list[str]:
     text = normalized_job_text(job)
     for phrase in QUALITY_ATTENTION_NEGATIONS:
         text = text.replace(phrase.lower(), " ")
-    return [phrase for phrase in QUALITY_ATTENTION_BLOCKERS if phrase.lower() in text][:6]
+    return [phrase for phrase in QUALITY_ATTENTION_BLOCKERS if phrase.lower() in text][:8]
+
+
+def explicit_full_remote_evidence(job: dict) -> bool:
+    text = normalized_job_text(job)
+    return any(phrase.lower() in text for phrase in acquisition.legacy.REMOTE_EXPLICIT_FULL)
 
 
 def augment_automation_text(text: str) -> str:
@@ -145,10 +168,25 @@ def augment_automation_text(text: str) -> str:
     return f"{text} {' '.join(additions)}" if additions else text
 
 
+def rich_listing_excerpt(job: dict) -> str:
+    if not isinstance(job, dict):
+        return ""
+    description = acquisition.legacy.clean(str(job.get("description") or ""))
+    highlights = acquisition.legacy.flatten_highlights(job)
+    parts = [part for part in (description, highlights) if part]
+    text = " ".join(parts).strip()
+    if len(text) > RICH_SNIPPET_MAX:
+        text = text[: RICH_SNIPPET_MAX - 3].rstrip() + "..."
+    return text
+
+
 def review_row_meets_quality(row: dict) -> bool:
+    reasons = [str(value or "").strip() for value in row.get("automation_reasons") or []]
+    unique_reasons = {value.lower() for value in reasons if value}
     return bool(
         int(row.get("automation_confidence") or 0) >= REVIEW_AUTOMATION_MIN
         and int(row.get("human_dependency_risk") or 0) <= REVIEW_HUMAN_RISK_MAX
+        and len(unique_reasons) >= REVIEW_AUTOMATION_SIGNAL_MIN
     )
 
 
@@ -160,7 +198,7 @@ def quality_serpapi_fetch(query: str, api_key: str, next_page_token: str | None 
     try:
         acquisition_remote.raise_classified_provider_error(payload)
     except acquisition_remote.SerpApiNoResultsError:
-        return {"jobs_results": []}
+        return {"jobs_results": [], "serpapi_pagination": {}}
     return payload
 
 
@@ -185,15 +223,23 @@ def configure_quality_policy() -> None:
     def quality_build_row(job, category, previous):
         if partial_remote_blockers(job) or quality_attention_blockers(job):
             return None
+        if not explicit_full_remote_evidence(job):
+            return None
+
         row = base_build_row(job, category, previous)
         if not row:
             return None
-        # The actual listing must prove full remote; discovery wording alone is
-        # never enough to enter the recommendation queue.
+        # Redundant with explicit_full_remote_evidence, but retain the legacy
+        # marker as a defense against future build_row changes.
         if row.get("remote_search_only") is True:
             return None
         if row.get("tier") == "review" and not review_row_meets_quality(row):
             return None
+
+        richer = rich_listing_excerpt(job)
+        if richer:
+            row["snippet"] = richer
+            row["quality_listing_chars"] = len(richer)
         row["quality_policy_version"] = QUALITY_POLICY_VERSION
         row["quality_gate"] = QUALITY_GATE
         return row
@@ -210,9 +256,11 @@ def stamp_quality_metadata() -> None:
         payload["candidate_quality_gate"] = QUALITY_GATE
         payload["candidate_review_automation_min"] = REVIEW_AUTOMATION_MIN
         payload["candidate_review_human_risk_max"] = REVIEW_HUMAN_RISK_MAX
+        payload["candidate_review_automation_signal_min"] = REVIEW_AUTOMATION_SIGNAL_MIN
         payload["candidate_requires_explicit_full_remote"] = True
         payload["candidate_provider_wfh_filter_used"] = False
         payload["candidate_discovery_can_use_broad_remote_terms"] = True
+        payload["candidate_rich_listing_excerpt_max"] = RICH_SNIPPET_MAX
         acquisition.OUT.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
