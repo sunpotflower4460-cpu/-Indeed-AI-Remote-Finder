@@ -14,7 +14,6 @@ existing feed. This lets the app remain usable with the last known-good data.
 """
 from __future__ import annotations
 
-import hashlib
 import html
 import json
 import os
@@ -30,8 +29,8 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "jobs.json"
 NOW = datetime.now(timezone.utc)
 
-# Two broad searches every 8 hours = <= 186 searches in a 31-day month,
-# leaving headroom under SerpApi's current 250-search free tier.
+# Two broad searches every 8 hours. Keep the acquisition surface small and let
+# the strict local scorer decide which rows are worth showing.
 QUERIES = [
     (
         "structured",
@@ -45,9 +44,17 @@ QUERIES = [
 
 REMOTE_STRONG = {
     "完全在宅": 74, "フルリモート": 74, "完全リモート": 74,
-    "100%リモート": 74, "fully remote": 74, "100% remote": 74,
+    "100%リモート": 74, "100％リモート": 74,
+    "fully remote": 74, "100% remote": 74,
     "全国どこからでも": 68, "勤務地自由": 60,
 }
+# High-confidence rows require wording that explicitly means full remote.
+# Ambiguous convenience wording such as 「勤務地自由」 can contribute to a
+# review score, but can never by itself satisfy this gate.
+REMOTE_EXPLICIT_FULL = (
+    "完全在宅", "フルリモート", "完全リモート",
+    "100%リモート", "100％リモート", "fully remote", "100% remote",
+)
 REMOTE_MEDIUM = {
     "在宅勤務": 28, "在宅ワーク": 28, "リモートワーク": 28,
     "在宅": 22, "remote": 22, "work from home": 28, "anywhere": 24,
@@ -59,9 +66,13 @@ REMOTE_NEG = {
 }
 NEGATED_RISK_PHRASES = [
     "出社不要", "出社なし", "出社はありません", "出社一切なし", "出社の必要なし",
-    "通勤不要", "出勤不要", "常駐なし", "常駐不要",
-    "電話なし", "電話対応なし", "電話対応不要", "架電なし", "テレアポなし",
-    "対面なし", "対面不要", "訪問なし", "訪問不要", "接客なし", "接客不要",
+    "出社の必要はありません", "出社する必要なし", "出社する必要はありません",
+    "通勤不要", "通勤なし", "出勤不要", "出勤なし", "出勤はありません",
+    "常駐なし", "常駐不要", "常駐はありません",
+    "電話なし", "電話対応なし", "電話対応不要", "電話対応はありません",
+    "架電なし", "架電不要", "テレアポなし", "テレアポ不要",
+    "対面なし", "対面不要", "対面対応なし", "対面対応不要", "対面対応はありません",
+    "訪問なし", "訪問不要", "訪問はありません", "接客なし", "接客不要",
 ]
 
 AUTO_STRONG = {
@@ -101,7 +112,7 @@ SOFT_RISK = {
 }
 
 TAG_RULES = [
-    ("完全リモート", list(REMOTE_STRONG)),
+    ("完全リモート", list(REMOTE_EXPLICIT_FULL)),
     ("データ", ["データ入力", "data entry", "データ整理", "データ収集", "転記", "集計", "csv"]),
     ("AI評価", ["アノテーション", "annotation", "aiトレーナー", "ai trainer", "ai評価", "データ評価", "rater", "分類", "タグ付け", "labeling"]),
     ("文章", ["文字起こし", "transcription", "翻訳", "translation", "校正", "proofreading", "要約", "ライティング"]),
@@ -186,13 +197,20 @@ def parse_relative_posted_at(value: str | None, now: datetime | None = None) -> 
 def freshness_score(published: datetime | None, previous: dict | None) -> int:
     if published:
         age = max(0.0, (NOW - published).total_seconds() / 86400)
-        if age <= 1: score = 98
-        elif age <= 3: score = 92
-        elif age <= 7: score = 84
-        elif age <= 14: score = 70
-        elif age <= 30: score = 52
-        elif age <= 60: score = 34
-        else: score = 18
+        if age <= 1:
+            score = 98
+        elif age <= 3:
+            score = 92
+        elif age <= 7:
+            score = 84
+        elif age <= 14:
+            score = 70
+        elif age <= 30:
+            score = 52
+        elif age <= 60:
+            score = 34
+        else:
+            score = 18
     else:
         score = 40
 
@@ -268,7 +286,7 @@ def score_job(
     if hard:
         overall = min(overall, 54)
 
-    explicit_full_remote = any(key.lower() in t for key in REMOTE_STRONG)
+    explicit_full_remote = any(key.lower() in t for key in REMOTE_EXPLICIT_FULL)
     high_fresh = published is not None and NOW - published <= timedelta(days=14)
     review_fresh = published is None or NOW - published <= timedelta(days=30)
 
@@ -309,7 +327,12 @@ def tags_for(text: str) -> list[str]:
 def previous_jobs() -> dict[str, dict]:
     try:
         data = json.loads(OUT.read_text(encoding="utf-8"))
-        return {row["id"]: row for row in data.get("jobs", []) if row.get("id")}
+        rows = data.get("jobs", []) if isinstance(data, dict) else []
+        return {
+            str(row["id"]): row
+            for row in rows
+            if isinstance(row, dict) and row.get("id")
+        }
     except Exception:
         return {}
 
@@ -324,16 +347,24 @@ def canonical_indeed_url(link: str) -> tuple[str, str] | None:
         params = urllib.parse.parse_qs(parsed.query)
         if "/viewjob" not in parsed.path.lower():
             return None
-        job_id = (params.get("jk") or [None])[0]
-        if not job_id:
+        job_id = str((params.get("jk") or [""])[0]).strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{6,128}", job_id):
             return None
-        return f"https://jp.indeed.com/viewjob?jk={urllib.parse.quote(job_id)}", job_id
+        encoded = urllib.parse.quote(job_id, safe="")
+        return f"https://jp.indeed.com/viewjob?jk={encoded}", job_id
     except Exception:
         return None
 
 
 def find_indeed_apply(job: dict) -> tuple[str, str] | None:
-    for option in job.get("apply_options") or []:
+    if not isinstance(job, dict):
+        return None
+    options = job.get("apply_options") or []
+    if not isinstance(options, list):
+        return None
+    for option in options:
+        if not isinstance(option, dict):
+            continue
         title = clean(str(option.get("title") or ""))
         link = clean(str(option.get("link") or ""))
         if "indeed" not in title.lower() and "indeed." not in link.lower():
@@ -345,10 +376,20 @@ def find_indeed_apply(job: dict) -> tuple[str, str] | None:
 
 
 def flatten_highlights(job: dict) -> str:
+    if not isinstance(job, dict):
+        return ""
+    sections = job.get("job_highlights") or []
+    if not isinstance(sections, list):
+        return ""
     parts: list[str] = []
-    for section in job.get("job_highlights") or []:
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
         parts.append(clean(str(section.get("title") or "")))
-        for item in section.get("items") or []:
+        items = section.get("items") or []
+        if not isinstance(items, list):
+            continue
+        for item in items:
             parts.append(clean(str(item)))
     return " ".join(p for p in parts if p)
 
@@ -370,10 +411,15 @@ def serpapi_fetch(query: str, api_key: str) -> dict:
         headers={"User-Agent": "AI-Remote-Finder/3.0", "Accept": "application/json"},
     )
     with urllib.request.urlopen(request, timeout=30) as response:
-        return json.loads(response.read().decode("utf-8"))
+        payload = json.loads(response.read().decode("utf-8"))
+    if not isinstance(payload, dict):
+        raise RuntimeError("SerpApi response is not an object")
+    return payload
 
 
 def build_row(job: dict, category: str, previous: dict[str, dict]) -> dict | None:
+    if not isinstance(job, dict):
+        return None
     indeed = find_indeed_apply(job)
     if not indeed:
         return None
@@ -384,12 +430,16 @@ def build_row(job: dict, category: str, previous: dict[str, dict]) -> dict | Non
     location = clean(str(job.get("location") or ""))
     description = clean(str(job.get("description") or ""))
     highlights = flatten_highlights(job)
-    extensions = " ".join(clean(str(x)) for x in (job.get("extensions") or []))
+    raw_extensions = job.get("extensions") or []
+    extensions = " ".join(clean(str(x)) for x in raw_extensions) if isinstance(raw_extensions, list) else ""
     via = clean(str(job.get("via") or ""))
     if not title:
         return None
 
-    posted_text = clean(str((job.get("detected_extensions") or {}).get("posted_at") or ""))
+    detected = job.get("detected_extensions") or {}
+    if not isinstance(detected, dict):
+        detected = {}
+    posted_text = clean(str(detected.get("posted_at") or ""))
     published = parse_relative_posted_at(posted_text)
     old = previous.get(jid)
 
@@ -442,19 +492,39 @@ def main() -> None:
     query_success = 0
     raw_jobs = 0
     indeed_apply_jobs = 0
+    malformed_jobs = 0
 
     for category, query in QUERIES:
         try:
             payload = serpapi_fetch(query, api_key)
             if payload.get("error"):
                 raise RuntimeError(str(payload["error"]))
+            raw_result = payload.get("jobs_results")
+            if raw_result is None:
+                jobs: list[object] = []
+            elif isinstance(raw_result, list):
+                jobs = raw_result
+            else:
+                raise RuntimeError("jobs_results is not a list")
             query_success += 1
-            jobs = payload.get("jobs_results") or []
             raw_jobs += len(jobs)
-            for job in jobs:
-                if find_indeed_apply(job):
-                    indeed_apply_jobs += 1
-                row = build_row(job, category, previous)
+
+            for index, job in enumerate(jobs):
+                if not isinstance(job, dict):
+                    malformed_jobs += 1
+                    print(f"WARN malformed job skipped [{category}#{index}]", file=sys.stderr)
+                    continue
+                try:
+                    if find_indeed_apply(job):
+                        indeed_apply_jobs += 1
+                    row = build_row(job, category, previous)
+                except Exception as exc:
+                    malformed_jobs += 1
+                    print(
+                        f"WARN job skipped [{category}#{index}]: {type(exc).__name__}",
+                        file=sys.stderr,
+                    )
+                    continue
                 if not row:
                     continue
                 current = found.get(row["id"])
@@ -486,6 +556,7 @@ def main() -> None:
         "query_total": len(QUERIES),
         "raw_jobs": raw_jobs,
         "indeed_apply_jobs": indeed_apply_jobs,
+        "malformed_jobs": malformed_jobs,
         "errors": errors[:8],
         "method": "serpapi-google-jobs-indeed-apply-only",
         "provider_configured": True,
@@ -497,7 +568,8 @@ def main() -> None:
     review = sum(1 for row in jobs if row["tier"] == "review")
     print(
         f"wrote {len(jobs)} candidates ({high} high / {review} review); "
-        f"queries {query_success}/{len(QUERIES)}, raw {raw_jobs}, Indeed apply {indeed_apply_jobs}"
+        f"queries {query_success}/{len(QUERIES)}, raw {raw_jobs}, "
+        f"Indeed apply {indeed_apply_jobs}, malformed {malformed_jobs}"
     )
 
 
