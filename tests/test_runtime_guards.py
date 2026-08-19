@@ -102,11 +102,27 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn('payload["candidate_full_listing_presence_screened"] = True', quality)
         self.assertIn("remote_api_filter=False", quality)
 
-    def test_ai_substitution_policy_excludes_synchronous_attention_work(self):
+    def test_early_attention_filter_is_context_aware(self):
         adapter = (ROOT / "scripts/acquisition_remote.py").read_text(encoding="utf-8")
-        quality = (ROOT / "scripts/acquisition_quality.py").read_text(encoding="utf-8")
-        for needle in ('"問い合わせ対応"', '"常時監視"', '"会議参加"', '"顧客折衝"'):
+        for needle in ('"問い合わせ対応"', '"会議参加"', '"顧客折衝"', '"オンコール"'):
             self.assertIn(needle, adapter)
+        for needle in ('"有人監視"', '"監視オペレーター"', "AUTONOMY_HUMAN_CONTEXT_PATTERNS"):
+            self.assertIn(needle, adapter)
+        # Generic real-time machine work must not be a bare hard blocker.
+        self.assertNotIn('    "常時監視",', adapter)
+        self.assertNotIn('    "リアルタイム監視",', adapter)
+        self.assertNotIn('    "即時対応",', adapter)
+
+    def test_server_reserve_exceeds_user_display_target(self):
+        adapter = (ROOT / "scripts/acquisition_remote.py").read_text(encoding="utf-8")
+        self.assertIn("USER_DISPLAY_TARGET = 100", adapter)
+        self.assertIn("SERVER_POOL_TARGET = 150", adapter)
+        self.assertIn("acquisition.DISPLAY_TARGET = USER_DISPLAY_TARGET", adapter)
+        self.assertIn("acquisition.POOL_TARGET = SERVER_POOL_TARGET", adapter)
+        self.assertIn("acquisition.POOL_LIMIT = SERVER_POOL_TARGET", adapter)
+
+    def test_ai_substitution_policy_excludes_synchronous_attention_work(self):
+        quality = (ROOT / "scripts/acquisition_quality.py").read_text(encoding="utf-8")
         for needle in ('"調整業務"', '"進捗管理"', '"顧客窓口"', '"エスカレーション対応"'):
             self.assertIn(needle, quality)
 

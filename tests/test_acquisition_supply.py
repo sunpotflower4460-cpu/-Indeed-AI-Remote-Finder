@@ -56,14 +56,18 @@ class AcquisitionSupplyTests(unittest.TestCase):
         self.assertEqual(mod.DEEP_REQUESTS, 7)
         self.assertLessEqual(mod.DEEP_REQUESTS * 31, 220)
 
-    def test_request_budget_tapers_as_pool_grows(self):
+    def test_request_budget_tapers_only_after_150_reserve(self):
+        self.assertEqual(mod.acquisition_remote.USER_DISPLAY_TARGET, 100)
+        self.assertEqual(mod.acquisition_remote.SERVER_POOL_TARGET, 150)
         self.assertEqual(mod.supply_request_limit(0), 7)
         self.assertEqual(mod.supply_request_limit(19), 7)
         self.assertEqual(mod.supply_request_limit(20), 6)
         self.assertEqual(mod.supply_request_limit(49), 6)
         self.assertEqual(mod.supply_request_limit(50), 4)
         self.assertEqual(mod.supply_request_limit(99), 4)
-        self.assertEqual(mod.supply_request_limit(100), 2)
+        self.assertEqual(mod.supply_request_limit(100), 4)
+        self.assertEqual(mod.supply_request_limit(149), 4)
+        self.assertEqual(mod.supply_request_limit(150), 2)
 
     def test_supply_configuration_prefers_breadth_over_page_two(self):
         mod.configure_supply_rotation()
@@ -71,6 +75,8 @@ class AcquisitionSupplyTests(unittest.TestCase):
         self.assertEqual(mod.acquisition.QUERY_PROFILES, mod.PRODUCTION_QUERY_PROFILES)
         self.assertGreater(len(mod.acquisition.QUERY_PROFILES), mod.acquisition.MAX_REQUESTS_PER_RUN)
         self.assertEqual(mod.acquisition.request_limit_for_pool(4), 7)
+        self.assertEqual(mod.acquisition.request_limit_for_pool(120), 4)
+        self.assertEqual(mod.acquisition.request_limit_for_pool(150), 2)
 
 
 if __name__ == "__main__":
