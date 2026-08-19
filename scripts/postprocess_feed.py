@@ -3,9 +3,10 @@
 
 - Drop rows that explicitly contradict full-remote work.
 - Collapse duplicate postings with the same normalized company/title.
-- Keep a recently seen but missing job for up to 48 hours as REVIEW only.
-  This prevents one flaky provider refresh from making the app look empty,
-  without pretending the job was rediscovered in the latest scan.
+- Keep recently seen but missing jobs for up to 14 days as REVIEW only.
+  The longer rolling window supplies a deep next-best queue while still
+  expiring postings older than 30 days by known publication date.
+- Keep at most 100 ranked candidates in the server-side pool.
 """
 from __future__ import annotations
 
@@ -19,8 +20,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
-CARRYOVER_MAX = timedelta(hours=48)
+CARRYOVER_MAX = timedelta(days=14)
 PUBLISHED_MAX = timedelta(days=30)
+POOL_LIMIT = 100
 REMOTE_CONTRADICTIONS = (
     "フルリモート不可",
     "完全在宅不可",
@@ -67,8 +69,6 @@ def fingerprint(row: dict) -> str:
     company = normalize_identity(row.get("company"))
     title = normalize_identity(row.get("title"))
     jid = str(row.get("id") or "")
-    # Do not collapse rows solely because they share a generic title. Company is
-    # part of the identity; if either side is missing, keep the provider job id.
     if not company or not title:
         return f"id:{jid}"
     return f"{company}|{title}"
@@ -93,9 +93,6 @@ def has_remote_contradiction(row: dict) -> bool:
         if not value.startswith("注意:"):
             continue
         signal = value.removeprefix("注意:").strip().lower()
-        # The scorer sees the substring "ハイブリッド" even in a sentence such
-        # as "ハイブリッド勤務は不可". Do not turn that positive full-remote
-        # evidence into a false rejection.
         if signal in {"ハイブリッド", "hybrid"} and hybrid_is_negated:
             continue
         return True
@@ -163,7 +160,7 @@ def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> 
         row = copy.deepcopy(old)
         row["tier"] = "review"
         row["carryover"] = True
-        row["carryover_reason"] = "最新スキャンでは未再検出。最大48時間だけ要確認として保持"
+        row["carryover_reason"] = "最新スキャンでは未再検出。直近14日以内の候補として保持"
         row["freshness_confidence"] = min(int(row.get("freshness_confidence") or 0), 58)
         row["score"] = min(int(row.get("score") or 0), 72)
         carried.append(row)
@@ -189,10 +186,11 @@ def process(current_payload: dict, previous_payload: dict | None = None) -> dict
             -int(row.get("automation_confidence") or 0),
         )
     )
-    current_payload["jobs"] = combined[:80]
+    current_payload["jobs"] = combined[:POOL_LIMIT]
+    current_payload["candidate_pool_size"] = len(current_payload["jobs"])
     current_payload["deduplicated_jobs"] = removed
     current_payload["remote_contradiction_dropped"] = contradiction_dropped
-    current_payload["carryover_jobs"] = sum(1 for row in combined if row.get("carryover"))
+    current_payload["carryover_jobs"] = sum(1 for row in combined[:POOL_LIMIT] if row.get("carryover"))
     current_payload["postprocessed"] = True
     return current_payload
 

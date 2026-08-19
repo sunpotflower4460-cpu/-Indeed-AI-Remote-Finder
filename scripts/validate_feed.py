@@ -12,6 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
+MAX_JOBS = 100
 MAX_LLM_REVIEWS_PER_RUN = 8
 MAX_LLM_PAID_ATTEMPTS_PER_MONTH = 700
 BUDGET_MODEL = "gpt-5.6-luna"
@@ -142,7 +143,7 @@ def validate(payload: dict) -> list[str]:
     jobs = payload.get("jobs")
     if not isinstance(jobs, list):
         return errors + ["jobs must be a list"]
-    if len(jobs) > 80:
+    if len(jobs) > MAX_JOBS:
         errors.append(f"jobs exceeds limit: {len(jobs)}")
 
     ids: set[str] = set()

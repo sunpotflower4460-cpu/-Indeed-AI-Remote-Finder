@@ -57,25 +57,13 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual(dropped, 1)
 
     def test_negative_remote_reason_is_dropped_even_with_positive_wording(self):
-        rows = [
-            row(
-                "a",
-                snippet="フルリモート中心のデータ入力",
-                remote_reasons=["フルリモート", "注意:ハイブリッド"],
-            )
-        ]
+        rows = [row("a", snippet="フルリモート中心のデータ入力", remote_reasons=["フルリモート", "注意:ハイブリッド"])]
         kept, dropped = mod.drop_remote_contradictions(rows)
         self.assertEqual(kept, [])
         self.assertEqual(dropped, 1)
 
     def test_negated_hybrid_wording_is_not_false_rejected(self):
-        rows = [
-            row(
-                "a",
-                snippet="完全在宅で、ハイブリッド勤務は不可です",
-                remote_reasons=["完全在宅", "注意:ハイブリッド"],
-            )
-        ]
+        rows = [row("a", snippet="完全在宅で、ハイブリッド勤務は不可です", remote_reasons=["完全在宅", "注意:ハイブリッド"])]
         kept, dropped = mod.drop_remote_contradictions(rows)
         self.assertEqual(len(kept), 1)
         self.assertEqual(dropped, 0)
@@ -89,37 +77,38 @@ class PostprocessTests(unittest.TestCase):
     def test_contradictory_previous_row_is_not_carried(self):
         now = datetime.now(timezone.utc)
         old = row("a", last_seen=now - timedelta(hours=2), snippet="完全在宅ではありません")
-        carried = mod.carryover_rows([], [old], now)
-        self.assertEqual(carried, [])
+        self.assertEqual(mod.carryover_rows([], [old], now), [])
 
     def test_negative_remote_reason_previous_row_is_not_carried(self):
         now = datetime.now(timezone.utc)
-        old = row(
-            "a",
-            last_seen=now - timedelta(hours=2),
-            snippet="リモート勤務",
-            remote_reasons=["注意:週2出社"],
-        )
-        carried = mod.carryover_rows([], [old], now)
-        self.assertEqual(carried, [])
+        old = row("a", last_seen=now - timedelta(hours=2), snippet="リモート勤務", remote_reasons=["注意:週2出社"])
+        self.assertEqual(mod.carryover_rows([], [old], now), [])
 
     def test_recent_missing_job_is_carried_as_review(self):
         now = datetime.now(timezone.utc)
-        carried = mod.carryover_rows([], [row("a", last_seen=now - timedelta(hours=8))], now)
+        carried = mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=10))], now)
         self.assertEqual(len(carried), 1)
         self.assertEqual(carried[0]["tier"], "review")
         self.assertTrue(carried[0]["carryover"])
         self.assertLessEqual(carried[0]["freshness_confidence"], 58)
 
-    def test_missing_job_older_than_48h_is_dropped(self):
+    def test_missing_job_older_than_14_days_is_dropped(self):
         now = datetime.now(timezone.utc)
-        carried = mod.carryover_rows([], [row("a", last_seen=now - timedelta(hours=49))], now)
+        carried = mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=15))], now)
         self.assertEqual(carried, [])
 
     def test_published_over_30_days_is_not_carried(self):
         now = datetime.now(timezone.utc)
         carried = mod.carryover_rows([], [row("a", last_seen=now - timedelta(hours=2), published=now - timedelta(days=31))], now)
         self.assertEqual(carried, [])
+
+    def test_pool_is_capped_at_one_hundred(self):
+        now = datetime.now(timezone.utc)
+        rows = [row(str(i), company=f"Company {i}", last_seen=now) for i in range(130)]
+        payload = {"generated_at": now.isoformat(), "jobs": rows}
+        got = mod.process(payload, None)
+        self.assertEqual(len(got["jobs"]), 100)
+        self.assertEqual(got["candidate_pool_size"], 100)
 
 
 if __name__ == "__main__":
