@@ -11,10 +11,7 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn('data["llm_fatal_error"] = None', workflow)
         self.assertIn('data["llm_error_status"] = status', workflow)
         self.assertIn("2>/tmp/llm-review.err", workflow)
-        self.assertLess(
-            workflow.index('data["llm_fatal_error"] = None'),
-            workflow.index("- name: Validate generated feed"),
-        )
+        self.assertLess(workflow.index('data["llm_fatal_error"] = None'), workflow.index("- name: Validate generated feed"))
 
     def test_interrupted_llm_audit_cannot_silently_drop_cache(self):
         workflow = (ROOT / ".github" / "workflows" / "update-jobs.yml").read_text(encoding="utf-8")
@@ -31,10 +28,7 @@ class RuntimeGuardTests(unittest.TestCase):
         check = (ROOT / ".github" / "workflows" / "check.yml").read_text(encoding="utf-8")
         self.assertIn("python scripts/validate_remote_feed.py", workflow)
         self.assertIn("python scripts/validate_remote_feed.py", check)
-        self.assertLess(
-            workflow.index("python scripts/validate_remote_feed.py"),
-            workflow.index("- name: Commit refreshed feed"),
-        )
+        self.assertLess(workflow.index("python scripts/validate_remote_feed.py"), workflow.index("- name: Commit refreshed feed"))
 
     def test_serpapi_secret_is_referenced_without_logging_value(self):
         workflow = (ROOT / ".github" / "workflows" / "update-jobs.yml").read_text(encoding="utf-8")
@@ -53,24 +47,23 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertNotIn('print(account', adapter)
         self.assertNotIn('json.dumps(account', adapter)
 
-    def test_production_uses_rotating_explicit_full_remote_supply(self):
+    def test_production_broadens_discovery_but_keeps_strict_publication(self):
         workflow = (ROOT / ".github" / "workflows" / "update-jobs.yml").read_text(encoding="utf-8")
         supply = (ROOT / "scripts" / "acquisition_supply.py").read_text(encoding="utf-8")
         quality = (ROOT / "scripts" / "acquisition_quality.py").read_text(encoding="utf-8")
         self.assertIn("python scripts/acquisition_supply.py", workflow)
-        self.assertNotIn("run: python scripts/acquisition_remote.py", workflow)
         self.assertIn("PRODUCTION_QUERY_PROFILES", supply)
         self.assertIn("DEEP_REQUESTS = 15", supply)
-        self.assertIn("MID_REQUESTS = 10", supply)
-        self.assertIn("TOPUP_REQUESTS = 6", supply)
-        self.assertIn('"rotating-explicit-full-remote-first-pages"', supply)
-        self.assertIn("acquisition.QUERY_PROFILES = list(PRODUCTION_QUERY_PROFILES)", supply)
+        self.assertIn('"rotating-broad-discovery-strict-full-remote"', supply)
+        self.assertIn("DISCOVERY_REMOTE_QUERY", supply)
+        self.assertIn('"在宅ワーク"', supply)
+        self.assertIn('"リモートワーク"', supply)
         self.assertIn("acquisition_quality.configure_quality_policy()", supply)
-        self.assertNotIn("R = acquisition.REMOTE_QUERY", supply)
-        self.assertIn('"完全在宅"', supply)
-        self.assertIn("acquisition.serpapi_fetch = GENERIC_SERPAPI_FETCH", quality)
+        self.assertIn("acquisition.serpapi_fetch = quality_serpapi_fetch", quality)
+        self.assertIn("GENERIC_SERPAPI_FETCH", quality)
         self.assertIn("remote_api_filter=False", quality)
         self.assertIn('row.get("remote_search_only") is True', quality)
+        self.assertIn("SerpApiNoResultsError", quality)
 
     def test_ai_substitution_policy_excludes_synchronous_attention_work(self):
         adapter = (ROOT / "scripts" / "acquisition_remote.py").read_text(encoding="utf-8")
@@ -87,6 +80,7 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn("REVIEW_HUMAN_RISK_MAX = 25", quality)
         self.assertIn('row["quality_gate"] = QUALITY_GATE', quality)
         self.assertIn('row.get("quality_gate") != QUALITY_GATE', postprocess)
+        self.assertIn("CARRYOVER_MAX = timedelta(days=30)", postprocess)
         self.assertIn('"ai-substitutable-async-remote"', adapter)
 
     def test_daily_schedule_preserves_search_budget(self):
@@ -109,7 +103,6 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn("rows.slice(0,state.displayLimit)", app)
         self.assertIn("state.displayLimit+=DEFAULT_VISIBLE", app)
         self.assertIn("appliedAt", app)
-        self.assertIn("remote_search_only", app)
         self.assertIn('class="chip active" data-mode="all"', index)
         self.assertIn('data-mode="favorite"', index)
         self.assertIn('data-mode="declined"', index)
@@ -118,10 +111,7 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn('id="refreshFeed"', index)
 
     def test_actions_use_node24_setup_python(self):
-        for relative in (
-            Path(".github/workflows/check.yml"),
-            Path(".github/workflows/update-jobs.yml"),
-        ):
+        for relative in (Path(".github/workflows/check.yml"), Path(".github/workflows/update-jobs.yml")):
             text = (ROOT / relative).read_text(encoding="utf-8")
             self.assertIn("actions/setup-python@v6", text, str(relative))
             self.assertNotIn("actions/setup-python@v5", text, str(relative))
