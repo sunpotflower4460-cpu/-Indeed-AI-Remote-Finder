@@ -49,36 +49,35 @@
       "via": "Indeed",
       "duplicate_count": 1,
       "llm_review": {
-        "verdict": "strong",
-        "automatable_fraction": 95,
-        "confidence": 91,
-        "human_dependency": "low",
+        "verdict": "uncertain",
+        "automatable_fraction": 85,
+        "confidence": 76,
+        "human_dependency": "medium",
         "physical_presence_required": false,
         "synchronous_human_interaction": "none",
         "data_sensitivity_risk": "unknown",
-        "automation_summary": "The supplied text describes fully remote, flexible work reviewing map-based search queries for accuracy, user intent, and data quality. This is predominantly digital, repeatable evaluation work that appears highly delegable to AI/RPA, with Japanese-language judgment as the main residual human component.",
+        "automation_summary": "The role is fully remote and involves reviewing map-based search queries for accuracy, user intent, and data quality. Much of this is structured digital evaluation, but language expertise and judgment about intent and quality may require human review, especially for ambiguous Japanese queries.",
         "automation_plan": [
           "Ingest and normalize map-based search queries and associated results.",
-          "Use Japanese-language models and rules to score accuracy, intent alignment, and data quality.",
-          "Flag ambiguous, culturally nuanced, or low-confidence cases for human review.",
-          "Record evaluation labels, rationale, and quality metrics in the project system.",
-          "Sample completed evaluations for consistency and drift monitoring."
+          "Use Japanese-language models to classify intent, detect errors, and score data quality against a defined rubric.",
+          "Apply deterministic validation rules for consistency, formatting, and duplicate or factual issues.",
+          "Route ambiguous or low-confidence cases for expert review.",
+          "Export labeled evaluations and quality metrics."
         ],
         "blockers": [
-          "Japanese-language and user-intent judgments may require nuanced contextual interpretation.",
-          "The text does not specify the data formats, evaluation rubric, or system interfaces needed for reliable end-to-end automation."
+          "Evaluating user intent and data quality can require nuanced Japanese-language judgment that is not guaranteed to be reliably automated end to end."
         ],
         "questions_to_confirm": [
-          "Is external AI or RPA use permitted for this AI-training project?",
-          "What confidentiality and personal-data handling restrictions apply to map queries and evaluation data?",
-          "Are human reviewers required for ambiguous cases or final quality approval?",
-          "What tools, data formats, and evaluation rubric are provided?"
+          "What tools, data interfaces, and evaluation rubric are used?",
+          "Does the work require checking live maps or external sources, and are those accessible programmatically?",
+          "What accuracy threshold and human approval requirements apply to AI-generated evaluations?",
+          "Is use of external AI permitted, and what confidentiality or personal-data handling rules apply?"
         ],
         "strict_pass": false
       },
-      "llm_input_hash": "7684d8fd78f2baaad7017cc326657bb395049f23b011248fa40cc60558f5c1af",
+      "llm_input_hash": "c7a5923efc29ec4f83fcf2911ea64ff182391be288230653d8f596040ffe1716",
       "llm_model": "gpt-5.6-luna",
-      "llm_reviewed_at": "2026-08-19T09:57:49.130311+00:00",
+      "llm_reviewed_at": "2026-08-19T10:01:03.913667+00:00",
       "llm_strict_pass": false
     },
     {
@@ -121,32 +120,32 @@
       "llm_review": {
         "verdict": "uncertain",
         "automatable_fraction": 85,
-        "confidence": 78,
+        "confidence": 76,
         "human_dependency": "medium",
         "physical_presence_required": false,
         "synchronous_human_interaction": "none",
         "data_sensitivity_risk": "unknown",
-        "automation_summary": "地図アプリの検索クエリに対するユーザー意図とデータ正確性の評価はデジタルで反復的ですが、評価基準に基づく人間の判断や曖昧なクエリの処理が含まれる可能性があります。",
+        "automation_summary": "地図アプリの検索クエリについて、ユーザー意図とデータ正確性を評価するデジタルなアノテーション業務で、反復的な判定やラベル付けは技術的に高度に自動化しやすい。ただし、評価基準に基づく人間の判断や曖昧なクエリの確認が必要な範囲は明示されていない。",
         "automation_plan": [
           "検索クエリと関連データを取得する",
-          "定義済み基準で意図分類と正確性チェックを実行する",
-          "曖昧・低信頼ケースをフラグ付けする",
-          "判定結果を所定形式で記録し、品質サンプルを確認する"
+          "AIでユーザー意図を分類し、正確性を検証する",
+          "定義済みラベルと信頼度を付与する",
+          "低信頼・曖昧なケースを人間のレビュー対象に振り分ける",
+          "結果を監査し、アノテーション形式で提出する"
         ],
-        "blockers": [
-          "ユーザー意図やデータ正確性の最終判断に、文脈依存の人間判断が必要となる可能性がある",
-          "評価基準、入力データ形式、例外処理の詳細が提示されていない"
-        ],
+        "blockers": [],
         "questions_to_confirm": [
-          "AI・RPAによる判定補助または自動化が許可されているか",
-          "アノテーション対象に個人データや機密情報が含まれるか",
-          "判断基準と曖昧な検索クエリのエスカレーション手順は定義されているか"
+          "アノテーションの評価基準、ラベル体系、例外処理は明確に定義されているか",
+          "作業対象データへのアクセス方法と利用するツール・インターフェースは何か",
+          "曖昧な判定や低信頼ケースについて、人間の承認・レビューは必須か",
+          "検索クエリに個人情報や機密情報が含まれるか、外部AIへの入力が許可されているか",
+          "AI利用に関する雇用主の方針と、納品物の品質保証要件は何か"
         ],
         "strict_pass": false
       },
-      "llm_input_hash": "b112bc4efdd8192f2c2b8741228b13e990611611d86abdd3bbe19e3c1b91dee4",
+      "llm_input_hash": "96ad25121f68d2f1134cb07bf804fd0cecc08d66fc1521388ae618dd7cd0551d",
       "llm_model": "gpt-5.6-luna",
-      "llm_reviewed_at": "2026-08-19T09:57:52.696094+00:00",
+      "llm_reviewed_at": "2026-08-19T10:01:11.490618+00:00",
       "llm_strict_pass": false
     },
     {
@@ -188,35 +187,36 @@
       "via": "Indeed",
       "duplicate_count": 1,
       "llm_review": {
-        "verdict": "strong",
-        "automatable_fraction": 95,
-        "confidence": 88,
-        "human_dependency": "low",
+        "verdict": "uncertain",
+        "automatable_fraction": 80,
+        "confidence": 76,
+        "human_dependency": "medium",
         "physical_presence_required": false,
         "synchronous_human_interaction": "none",
         "data_sensitivity_risk": "unknown",
-        "automation_summary": "地図アプリの検索クエリ品質、検索意図、データ正確性を評価する完全在宅業務で、記述上はデジタルかつ反復的な評価作業が中心です。",
+        "automation_summary": "完全在宅で、検索クエリの品質確認、検索意図評価、データ正確性評価はデジタルかつ反復的に処理できる可能性が高い。ただし、評価基準への判断、曖昧な日本語・英語クエリの解釈、品質保証やエスカレーションの要否は supplied text だけでは完全自動化できると断定できない。",
         "automation_plan": [
-          "評価基準を整理し、クエリ・検索結果・地図データを入力として判定する",
-          "日本語・英語の検索意図とデータ正確性を分類する",
-          "不一致や低品質例をルールベースおよびAIでフラグ付けする",
-          "サンプルを人手で再確認し、評価結果を所定形式で提出する"
+          "検索クエリと関連データを取得する",
+          "日本語・英語の検索意図、関連性、正確性をモデルで評価する",
+          "ルールベース検査と重複・不整合チェックを実行する",
+          "低信頼または曖昧な判定を人手レビューに回す",
+          "評価結果と監査ログを所定形式で提出する"
         ],
         "blockers": [
-          "実際の評価基準、ツール、例外処理、品質保証手順は求人文だけでは確認できない",
-          "検索結果や地図データへのアクセス方式が不明"
+          "検索意図やデータ正確性の最終評価には、文脈依存の言語判断が含まれ得る。"
         ],
         "questions_to_confirm": [
-          "AIやRPAによる評価補助・外部AI利用が雇用主から許可されているか",
-          "検索クエリ、位置情報、利用者データを外部AIに入力できるか",
-          "最終判定や品質監査に人手承認が必要か",
-          "リアルタイムの会議・顧客対応・チーム連携が業務に含まれるか"
+          "評価基準、判定ラベル、例外処理、低信頼案件の人手確認要件は何か。",
+          "作業対象のデータ形式、使用ツール、アクセス方法、APIやRPA利用可否は何か。",
+          "日本語・英語の曖昧なクエリや地域固有の知識について、人間の最終承認が必要か。",
+          "業務データに個人情報や機密情報が含まれるか、外部AIへの入力が許可されているか。",
+          "雇用主がAI・自動化ツールの利用を許可しているか。"
         ],
         "strict_pass": false
       },
-      "llm_input_hash": "d9cc8e23d325ed4fbe16e3fb47d80a1a19e9611b9fe3018b5ca4bb5e7eea78aa",
+      "llm_input_hash": "8ea6e4be0f40c21d27c444f467d1762ca3b60d537d62a3109a842254b6a4e85e",
       "llm_model": "gpt-5.6-luna",
-      "llm_reviewed_at": "2026-08-19T09:57:56.718329+00:00",
+      "llm_reviewed_at": "2026-08-19T10:01:15.908005+00:00",
       "llm_strict_pass": false
     }
   ],
@@ -236,7 +236,7 @@
   "remote_contradiction_dropped": 0,
   "llm_reasoning_effort": "none",
   "llm_budget_month": "2026-08",
-  "llm_paid_attempts_month": 3,
+  "llm_paid_attempts_month": 6,
   "llm_max_paid_attempts_per_month": 700,
   "llm_monthly_budget_exhausted": false,
   "llm_fatal_error": null,
