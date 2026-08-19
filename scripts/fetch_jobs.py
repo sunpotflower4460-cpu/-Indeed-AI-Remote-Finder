@@ -55,7 +55,15 @@ REMOTE_NEG = {
     "ハイブリッド": -40, "hybrid": -40, "対面": -55, "訪問": -65,
 }
 
+NEGATED_RISK_PHRASES = [
+    "出社不要", "出社なし", "出社はありません", "出社一切なし", "出社の必要なし",
+    "通勤不要", "出勤不要", "常駐なし", "常駐不要",
+    "電話なし", "電話対応なし", "電話対応不要", "架電なし", "テレアポなし",
+    "対面なし", "対面不要", "訪問なし", "訪問不要", "接客なし", "接客不要",
+]
+
 AUTO_STRONG = {
+    "data entry": 30, "proofreading": 27,
     "アノテーション": 34, "annotation": 34, "labeling": 32, "タグ付け": 30,
     "データ入力": 30, "文字起こし": 32, "transcription": 32,
     "aiトレーナー": 28, "ai trainer": 28, "ai評価": 30, "データ評価": 28,
@@ -65,6 +73,7 @@ AUTO_STRONG = {
     "定型": 22, "転記": 30, "入力業務": 28,
 }
 AUTO_MEDIUM = {
+    "spreadsheet": 14, "content review": 14,
     "リサーチ": 18, "research": 18, "翻訳": 18, "translation": 18,
     "ライティング": 15, "記事作成": 14, "メール": 12, "チャット": 10,
     "事務": 10, "excel": 14, "スプレッドシート": 14, "集計": 16,
@@ -159,6 +168,13 @@ def clamp(value: float) -> int:
     return max(0, min(100, round(value)))
 
 
+def risk_text(text: str) -> str:
+    t = text.lower()
+    for phrase in NEGATED_RISK_PHRASES:
+        t = t.replace(phrase.lower(), " ")
+    return t
+
+
 def freshness_score(published: datetime | None, previous: dict | None) -> int:
     if published:
         age = max(0.0, (NOW - published).total_seconds() / 86400)
@@ -177,7 +193,7 @@ def freshness_score(published: datetime | None, previous: dict | None) -> int:
         else:
             score = 18
     else:
-        score = 48
+        score = 55
 
     if previous:
         seen_count = int(previous.get("seen_count") or 1)
@@ -194,19 +210,20 @@ def freshness_score(published: datetime | None, previous: dict | None) -> int:
 
 def score_job(text: str, published: datetime | None, previous: dict | None) -> Scores:
     t = text.lower()
+    rt = risk_text(text)
 
     remote = 10
     remote_reasons: list[str] = []
     for key, points in REMOTE_STRONG.items():
-        if key.lower() in t:
+        if key.lower() in rt:
             remote += points
             remote_reasons.append(key)
     for key, points in REMOTE_MEDIUM.items():
-        if key.lower() in t:
+        if key.lower() in rt:
             remote += points
             remote_reasons.append(key)
     for key, points in REMOTE_NEG.items():
-        if key.lower() in t:
+        if key.lower() in rt:
             remote += points
             remote_reasons.append(f"注意:{key}")
     if not remote_reasons:
@@ -231,8 +248,8 @@ def score_job(text: str, published: datetime | None, previous: dict | None) -> S
         automation -= 18
     automation = clamp(automation)
 
-    risk_reasons = [key for key in HARD_RISK if key.lower() in t]
-    soft_hits = [(key, penalty) for key, penalty in SOFT_RISK.items() if key.lower() in t]
+    risk_reasons = [key for key in HARD_RISK if key.lower() in rt]
+    soft_hits = [(key, penalty) for key, penalty in SOFT_RISK.items() if key.lower() in rt]
     risk = sum(p for _, p in soft_hits) + (70 if risk_reasons else 0)
     risk_reasons.extend([key for key, _ in soft_hits])
     risk = clamp(risk)
@@ -241,20 +258,22 @@ def score_job(text: str, published: datetime | None, previous: dict | None) -> S
     base = 0.40 * automation + 0.32 * remote + 0.18 * fresh + 10
     overall = clamp(base - 0.42 * risk)
 
-    hard = any(key.lower() in t for key in HARD_RISK)
+    hard = any(key.lower() in rt for key in HARD_RISK)
     if hard:
         overall = min(overall, 54)
 
+    high_fresh = fresh >= 60 and (published is None or NOW - published <= timedelta(days=14))
+    review_fresh = published is None or NOW - published <= timedelta(days=30)
     if (
         automation >= 82
         and remote >= 82
-        and fresh >= 45
-        and risk <= 20
+        and high_fresh
+        and risk <= 8
         and not hard
         and strong_hits >= 1
     ):
         tier = "high"
-    elif automation >= 64 and remote >= 62 and risk <= 45 and not hard:
+    elif automation >= 64 and remote >= 62 and risk <= 45 and not hard and review_fresh:
         tier = "review"
     else:
         tier = "hidden"
