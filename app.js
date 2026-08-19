@@ -6,7 +6,7 @@ function loadMap(key){try{const v=JSON.parse(localStorage.getItem(key)||'{}');re
 function persistSet(key,value){try{localStorage.setItem(key,JSON.stringify([...value]))}catch{}}
 function persistMap(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}}
 const state={jobs:[],mode:'all',q:'',sort:'best',displayLimit:DEFAULT_VISIBLE,saved:loadSet('savedJobs'),hidden:loadSet('hiddenJobs'),applied:loadSet('appliedJobs'),appliedAt:loadMap('appliedAt'),meta:{}};
-function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]));}
+function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function parseDate(s){if(!s)return null;const d=new Date(s);return Number.isNaN(+d)?null:d;}
 function fmtDate(s){const d=parseDate(s);if(!d)return'不明';return new Intl.DateTimeFormat('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)}
 function ageDays(s){const d=parseDate(s);if(!d)return null;return Math.max(0,(Date.now()-d.getTime())/864e5);}
@@ -18,7 +18,7 @@ function hasDualPass(j){return effectiveTier(j)==='high'&&j.llm_strict_pass===tr
 function recommendationMode(){return['all','high','review','dual'].includes(state.mode)}
 function resetWindow(){state.displayLimit=DEFAULT_VISIBLE;}
 function localDateKey(d=new Date()){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
-function todayAppliedCount(){const today=localDateKey();return Object.values(state.appliedAt).filter(v=>String(v).startsWith(today)).length;}
+function todayAppliedCount(){const today=localDateKey();return[...state.applied].filter(id=>String(state.appliedAt[id]||'').startsWith(today)).length;}
 function isNewCandidate(j){return(ageDays(j.first_seen)??99)<1.5&&!j.carryover;}
 function isAvailable(j){return effectiveTier(j)!=='expired'&&!state.hidden.has(String(j.id))&&!state.applied.has(String(j.id));}
 function updateStats(){
@@ -82,6 +82,7 @@ function updateHealth(d){
   if(Number.isInteger(d.live_jobs))text+=`・今回検出 ${d.live_jobs}件`;
   if(Number.isInteger(d.carryover_jobs)&&d.carryover_jobs>0)text+=`・予備 ${d.carryover_jobs}件`;
   if(Number.isInteger(d.remote_search_only_jobs)&&d.remote_search_only_jobs>0)text+=`・在宅要確認 ${d.remote_search_only_jobs}件`;
+  if(Number.isInteger(d.serpapi_paginated_requests_run)&&d.serpapi_paginated_requests_run>0)text+=`・追加ページ ${d.serpapi_paginated_requests_run}回`;
   if(Number.isInteger(d.serpapi_requests_month)&&Number.isInteger(d.serpapi_monthly_request_cap))text+=` / 検索API ${d.serpapi_requests_month}/${d.serpapi_monthly_request_cap}`;
   if(d.remote_contradiction_dropped>0)text+=` / リモート矛盾 ${d.remote_contradiction_dropped}件除外`;
   if(d.llm_provider_configured===false)text+=' / LLM二次審査はOPENAI_API_KEY未設定';
