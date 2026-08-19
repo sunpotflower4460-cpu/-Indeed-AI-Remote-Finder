@@ -26,12 +26,20 @@ REMOTE_CONTRADICTIONS = (
     "完全在宅不可",
     "完全リモート不可",
     "100%リモート不可",
+    "100％リモート不可",
     "フルリモートではありません",
     "完全在宅ではありません",
     "完全リモートではありません",
+    "100%リモートではありません",
+    "100％リモートではありません",
     "フルリモートではない",
     "完全在宅ではない",
     "完全リモートではない",
+    "100%リモートではない",
+    "100％リモートではない",
+    "フルリモートではなく",
+    "完全在宅ではなく",
+    "完全リモートではなく",
     "not fully remote",
     "not 100% remote",
 )
@@ -66,11 +74,32 @@ def fingerprint(row: dict) -> str:
     return f"{company}|{title}"
 
 
+def hybrid_wording_is_negated(text: str) -> bool:
+    if re.search(r"ハイブリッド(?:\s*勤務)?\s*(?:は|が)?\s*(?:不可|なし|ではありません|ではない)", text):
+        return True
+    return any(phrase in text for phrase in ("not hybrid", "hybrid not allowed"))
+
+
 def has_remote_contradiction(row: dict) -> bool:
     text = " ".join(
         str(row.get(key) or "") for key in ("title", "location", "snippet")
     ).lower()
-    return any(phrase.lower() in text for phrase in REMOTE_CONTRADICTIONS)
+    if any(phrase.lower() in text for phrase in REMOTE_CONTRADICTIONS):
+        return True
+
+    hybrid_is_negated = hybrid_wording_is_negated(text)
+    for reason in row.get("remote_reasons") or []:
+        value = str(reason or "").strip()
+        if not value.startswith("注意:"):
+            continue
+        signal = value.removeprefix("注意:").strip().lower()
+        # The scorer sees the substring "ハイブリッド" even in a sentence such
+        # as "ハイブリッド勤務は不可". Do not turn that positive full-remote
+        # evidence into a false rejection.
+        if signal in {"ハイブリッド", "hybrid"} and hybrid_is_negated:
+            continue
+        return True
+    return False
 
 
 def drop_remote_contradictions(rows: list[dict]) -> tuple[list[dict], int]:

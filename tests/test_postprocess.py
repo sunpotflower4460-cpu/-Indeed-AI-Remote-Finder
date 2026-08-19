@@ -11,7 +11,7 @@ sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
 
 
-def row(jid, title="AI Annotator", company="Example", tier="high", last_seen=None, published=None, location="Tokyo", snippet=""):
+def row(jid, title="AI Annotator", company="Example", tier="high", last_seen=None, published=None, location="Tokyo", snippet="", remote_reasons=None):
     now = datetime.now(timezone.utc)
     return {
         "id": jid,
@@ -20,6 +20,7 @@ def row(jid, title="AI Annotator", company="Example", tier="high", last_seen=Non
         "tier": tier,
         "location": location,
         "snippet": snippet,
+        "remote_reasons": list(remote_reasons or []),
         "freshness_confidence": 90,
         "score": 90,
         "automation_confidence": 95,
@@ -49,8 +50,38 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual(kept, [])
         self.assertEqual(dropped, 1)
 
+    def test_fullwidth_percent_remote_contradiction_is_dropped(self):
+        rows = [row("a", snippet="100％リモートではありません")]
+        kept, dropped = mod.drop_remote_contradictions(rows)
+        self.assertEqual(kept, [])
+        self.assertEqual(dropped, 1)
+
+    def test_negative_remote_reason_is_dropped_even_with_positive_wording(self):
+        rows = [
+            row(
+                "a",
+                snippet="フルリモート中心のデータ入力",
+                remote_reasons=["フルリモート", "注意:ハイブリッド"],
+            )
+        ]
+        kept, dropped = mod.drop_remote_contradictions(rows)
+        self.assertEqual(kept, [])
+        self.assertEqual(dropped, 1)
+
+    def test_negated_hybrid_wording_is_not_false_rejected(self):
+        rows = [
+            row(
+                "a",
+                snippet="完全在宅で、ハイブリッド勤務は不可です",
+                remote_reasons=["完全在宅", "注意:ハイブリッド"],
+            )
+        ]
+        kept, dropped = mod.drop_remote_contradictions(rows)
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(dropped, 0)
+
     def test_normal_full_remote_text_is_kept(self):
-        rows = [row("a", snippet="フルリモートでデータ入力を行います")]
+        rows = [row("a", snippet="フルリモートでデータ入力を行います", remote_reasons=["フルリモート"])]
         kept, dropped = mod.drop_remote_contradictions(rows)
         self.assertEqual(len(kept), 1)
         self.assertEqual(dropped, 0)
@@ -58,6 +89,17 @@ class PostprocessTests(unittest.TestCase):
     def test_contradictory_previous_row_is_not_carried(self):
         now = datetime.now(timezone.utc)
         old = row("a", last_seen=now - timedelta(hours=2), snippet="完全在宅ではありません")
+        carried = mod.carryover_rows([], [old], now)
+        self.assertEqual(carried, [])
+
+    def test_negative_remote_reason_previous_row_is_not_carried(self):
+        now = datetime.now(timezone.utc)
+        old = row(
+            "a",
+            last_seen=now - timedelta(hours=2),
+            snippet="リモート勤務",
+            remote_reasons=["注意:週2出社"],
+        )
         carried = mod.carryover_rows([], [old], now)
         self.assertEqual(carried, [])
 

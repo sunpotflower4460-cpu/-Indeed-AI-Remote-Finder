@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Report optional provider configuration
@@ -83,15 +83,25 @@ jobs:
                       pass
               return status, error_type, error_code
 
-          fatal = data.get("llm_fatal_error")
-          status, error_type, error_code = classify(fatal)
-          if fatal:
-              data["llm_fatal_error"] = f"OpenAI HTTP {status}" if status else "LLM audit error"
+          raw_errors = list(data.get("llm_errors") or [])
+          status, error_type, error_code = classify(data.get("llm_fatal_error"))
+          if status is None:
+              for item in raw_errors:
+                  item_status, item_type, item_code = classify(item)
+                  if item_status is not None:
+                      status, error_type, error_code = item_status, item_type, item_code
+                      break
+
+          # Provider failures are optional enrichment failures, not feed-fatal
+          # errors. Preserve only safe diagnostics and clear the fatal marker so
+          # the validated deterministic feed can still be committed.
+          data["llm_error_status"] = status
           data["llm_error_type"] = error_type
           data["llm_error_code"] = error_code
+          data["llm_fatal_error"] = None
 
           safe_errors = []
-          for item in data.get("llm_errors") or []:
+          for item in raw_errors:
               item_status, _, _ = classify(item)
               job_match = re.match(r"^([^:]+):", str(item))
               job_id = job_match.group(1) if job_match else "job"
@@ -105,7 +115,7 @@ jobs:
               print(
                   "LLM diagnostics redacted: "
                   f"failures={data.get('llm_review_failures')} "
-                  f"status={data.get('llm_fatal_error')} "
+                  f"status={data.get('llm_error_status')} "
                   f"type={data.get('llm_error_type')} code={data.get('llm_error_code')}"
               )
           PY
