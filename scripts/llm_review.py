@@ -126,7 +126,9 @@ def job_input(row: dict) -> dict:
             "tier": row.get("tier"),
             "automation_confidence": row.get("automation_confidence"),
             "remote_confidence": row.get("remote_confidence"),
-            "freshness_confidence": row.get("freshness_confidence"),
+            # Freshness is intentionally excluded. It changes as a listing ages
+            # or is re-seen, but does not change technical task automability.
+            # Including it would invalidate the paid LLM cache for unchanged jobs.
             "human_dependency_risk": row.get("human_dependency_risk"),
         },
     }
