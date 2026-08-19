@@ -20,12 +20,16 @@ def row(jid, title="AI Annotator", company="Example", tier="high", last_seen=Non
         "tier": tier,
         "location": location,
         "snippet": snippet,
-        "remote_reasons": list(remote_reasons or []),
+        "remote_reasons": list(remote_reasons or ["完全在宅"]),
         "freshness_confidence": 90,
         "score": score,
         "automation_confidence": 95,
+        "human_dependency_risk": 0,
         "autonomy_attention_risk": "low",
         "autonomy_policy_version": 1,
+        "quality_policy_version": 1,
+        "quality_gate": "async-ai-remote",
+        "remote_search_only": False,
         "last_seen": (last_seen or now).isoformat(),
         "first_seen": (first_seen or now).isoformat(),
         "search_published_at": (published or (now - timedelta(days=2))).isoformat(),
@@ -87,6 +91,25 @@ class PostprocessTests(unittest.TestCase):
         old = row("legacy", last_seen=now - timedelta(days=2))
         old.pop("autonomy_attention_risk")
         old.pop("autonomy_policy_version")
+        self.assertEqual(mod.carryover_rows([], [old], now), [])
+
+    def test_pre_quality_missing_job_is_not_carried(self):
+        now = datetime.now(timezone.utc)
+        old = row("legacy-quality", last_seen=now - timedelta(days=2))
+        old.pop("quality_gate")
+        old.pop("quality_policy_version")
+        self.assertEqual(mod.carryover_rows([], [old], now), [])
+
+    def test_weak_review_missing_job_is_not_carried(self):
+        now = datetime.now(timezone.utc)
+        old = row("weak", tier="review", last_seen=now - timedelta(days=2))
+        old["automation_confidence"] = 54
+        self.assertEqual(mod.carryover_rows([], [old], now), [])
+
+    def test_remote_search_only_missing_job_is_not_carried(self):
+        now = datetime.now(timezone.utc)
+        old = row("weak-remote", tier="review", last_seen=now - timedelta(days=2))
+        old["remote_search_only"] = True
         self.assertEqual(mod.carryover_rows([], [old], now), [])
 
     def test_missing_job_older_than_14_days_is_dropped(self):
