@@ -1,4 +1,5 @@
 import importlib.util
+import inspect
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -18,14 +19,25 @@ spec.loader.exec_module(mod)
 
 
 class AcquisitionTests(unittest.TestCase):
-    def test_shallow_pool_gets_aggressive_replenishment(self):
-        self.assertEqual(mod.request_limit_for_pool(0), 10)
-        self.assertEqual(mod.request_limit_for_pool(29), 10)
+    def test_supply_targets_support_daily_ten_applications(self):
+        self.assertEqual(mod.DAILY_APPLICATION_TARGET, 10)
+        self.assertEqual(mod.DISPLAY_TARGET, 30)
+        self.assertEqual(mod.POOL_TARGET, 80)
+        self.assertEqual(mod.POOL_LIMIT, 100)
+
+    def test_shallow_pool_gets_aggressive_replenishment_and_page2_headroom(self):
+        self.assertEqual(mod.request_limit_for_pool(0), 30)
+        self.assertEqual(mod.request_limit_for_pool(29), 30)
+        self.assertGreater(mod.MAX_REQUESTS_PER_RUN, len(mod.QUERY_PROFILES))
         self.assertEqual(mod.request_limit_for_pool(30), 6)
         self.assertEqual(mod.request_limit_for_pool(49), 6)
         self.assertEqual(mod.request_limit_for_pool(50), 4)
         self.assertEqual(mod.request_limit_for_pool(79), 4)
         self.assertEqual(mod.request_limit_for_pool(80), 2)
+
+    def test_serpapi_fetch_supports_next_page_token(self):
+        params = inspect.signature(mod.serpapi_fetch).parameters
+        self.assertIn("next_page_token", params)
 
     def test_query_rotation_changes_starting_theme(self):
         first = mod.rotated_profiles(0)
@@ -61,7 +73,7 @@ class AcquisitionTests(unittest.TestCase):
         )
         self.assertFalse(mod.review_fallback(scores, datetime.now(timezone.utc)))
 
-    def test_build_row_does_not_trust_deprecated_remote_api_filter(self):
+    def test_build_row_does_not_trust_remote_api_filter_in_base_module(self):
         job = {
             "title": "完全在宅 データ入力",
             "company_name": "Example",
@@ -95,7 +107,8 @@ class AcquisitionTests(unittest.TestCase):
         }
         self.assertEqual(mod.eligible_previous_count(payload, now), 1)
 
-    def test_small_monthly_request_cap_is_honored(self):
+    def test_monthly_request_guard_leaves_headroom(self):
+        self.assertLessEqual(mod.DEFAULT_MONTHLY_REQUEST_CAP, 220)
         with patch.dict(mod.os.environ, {"SERPAPI_MONTHLY_REQUEST_CAP": "25"}):
             self.assertEqual(mod.configured_monthly_cap(), 25)
 

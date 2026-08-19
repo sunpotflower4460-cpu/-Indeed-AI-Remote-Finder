@@ -5,8 +5,8 @@ This module deliberately reuses the deterministic scoring and Indeed URL
 validation from fetch_jobs.py. The difference is acquisition strategy:
 
 - many rotating search themes while the pool is shallow;
+- second-page pagination while the visible pool is below target;
 - a small steady-state request budget once the pool is healthy;
-- no deprecated Google Jobs ltype filter;
 - a conservative monthly request cap;
 - review-tier fallback for plausible next-best digital/remote work, while the
   existing high tier remains unchanged and strict.
@@ -32,13 +32,14 @@ OUT = ROOT / "data" / "jobs.json"
 NOW = datetime.now(timezone.utc)
 
 DISPLAY_TARGET = 30
+DAILY_APPLICATION_TARGET = 10
 POOL_TARGET = 80
 POOL_LIMIT = 100
 ROLLING_DAYS = 14
 STEADY_REQUESTS = 2
-MAX_REQUESTS_PER_RUN = 10
-# Keep headroom below a small account allowance. This is a safety rail rather
-# than a promise about a specific SerpApi plan; it can be raised deliberately.
+# Below 30 candidates, query all 18 themes and use the remaining request budget
+# for page 2 of productive themes. The monthly cap remains the final guard.
+MAX_REQUESTS_PER_RUN = 30
 DEFAULT_MONTHLY_REQUEST_CAP = 220
 
 REMOTE_QUERY = (
@@ -149,7 +150,7 @@ def rotated_profiles(cursor: int) -> list[tuple[str, str]]:
     return QUERY_PROFILES[cursor:] + QUERY_PROFILES[:cursor]
 
 
-def serpapi_fetch(query: str, api_key: str) -> dict:
+def serpapi_fetch(query: str, api_key: str, next_page_token: str | None = None) -> dict:
     params = {
         "engine": "google_jobs",
         "q": query,
@@ -159,10 +160,12 @@ def serpapi_fetch(query: str, api_key: str) -> dict:
         "api_key": api_key,
         "output": "json",
     }
+    if next_page_token:
+        params["next_page_token"] = next_page_token
     url = "https://serpapi.com/search.json?" + urllib.parse.urlencode(params)
     request = urllib.request.Request(
         url,
-        headers={"User-Agent": "AI-Remote-Finder/6.0", "Accept": "application/json"},
+        headers={"User-Agent": "AI-Remote-Finder/6.3", "Accept": "application/json"},
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -277,7 +280,8 @@ def main() -> None:
         cursor = 0
     profiles = rotated_profiles(cursor)
     desired_requests = request_limit_for_pool(pool_size)
-    request_limit = min(desired_requests, remaining, len(profiles))
+    request_limit = min(desired_requests, remaining)
+    first_page_limit = min(len(profiles), request_limit)
 
     found: dict[str, dict] = {}
     errors: list[str] = []
@@ -286,45 +290,74 @@ def main() -> None:
     indeed_apply_jobs = 0
     malformed_jobs = 0
     requests_run = 0
+    paginated_requests = 0
+    pagination_queue: list[tuple[str, str, str]] = []
 
-    for category, query in profiles[:request_limit]:
+    def process_payload(category: str, query: str, payload: dict, *, allow_pagination: bool) -> None:
+        nonlocal query_success, raw_jobs, indeed_apply_jobs, malformed_jobs
+        if payload.get("error"):
+            raise RuntimeError(str(payload["error"]))
+        raw_result = payload.get("jobs_results")
+        if raw_result is None:
+            jobs: list[object] = []
+        elif isinstance(raw_result, list):
+            jobs = raw_result
+        else:
+            raise RuntimeError("jobs_results is not a list")
+        query_success += 1
+        raw_jobs += len(jobs)
+
+        for job in jobs:
+            if not isinstance(job, dict):
+                malformed_jobs += 1
+                continue
+            try:
+                if legacy.find_indeed_apply(job):
+                    indeed_apply_jobs += 1
+                row = build_row(job, category, previous)
+            except Exception:
+                malformed_jobs += 1
+                continue
+            if not row:
+                continue
+            current = found.get(row["id"])
+            if not current or (row["tier"] == "high", row["score"]) > (
+                current["tier"] == "high", current["score"]
+            ):
+                found[row["id"]] = row
+
+        if allow_pagination:
+            pagination = payload.get("serpapi_pagination") or {}
+            token = str(pagination.get("next_page_token") or "").strip() if isinstance(pagination, dict) else ""
+            if token:
+                pagination_queue.append((category, query, token))
+
+    for category, query in profiles[:first_page_limit]:
         requests_run += 1
         requests_month += 1
         try:
-            payload = serpapi_fetch(query, api_key)
-            if payload.get("error"):
-                raise RuntimeError(str(payload["error"]))
-            raw_result = payload.get("jobs_results")
-            if raw_result is None:
-                jobs: list[object] = []
-            elif isinstance(raw_result, list):
-                jobs = raw_result
-            else:
-                raise RuntimeError("jobs_results is not a list")
-            query_success += 1
-            raw_jobs += len(jobs)
-
-            for job in jobs:
-                if not isinstance(job, dict):
-                    malformed_jobs += 1
-                    continue
-                try:
-                    if legacy.find_indeed_apply(job):
-                        indeed_apply_jobs += 1
-                    row = build_row(job, category, previous)
-                except Exception:
-                    malformed_jobs += 1
-                    continue
-                if not row:
-                    continue
-                current = found.get(row["id"])
-                if not current or (row["tier"] == "high", row["score"]) > (
-                    current["tier"] == "high", current["score"]
-                ):
-                    found[row["id"]] = row
+            process_payload(category, query, serpapi_fetch(query, api_key), allow_pagination=True)
         except Exception as exc:
             errors.append(f"{category}: {type(exc).__name__}")
             print(f"WARN query failed [{category}]: {type(exc).__name__}", file=sys.stderr)
+
+    # Only page while the visible pool was shallow. Each profile contributes at
+    # most one extra page per run, which favors breadth before depth.
+    while pool_size < DISPLAY_TARGET and pagination_queue and requests_run < request_limit:
+        category, query, token = pagination_queue.pop(0)
+        requests_run += 1
+        requests_month += 1
+        paginated_requests += 1
+        try:
+            process_payload(
+                category,
+                query,
+                serpapi_fetch(query, api_key, next_page_token=token),
+                allow_pagination=False,
+            )
+        except Exception as exc:
+            errors.append(f"{category}:page2:{type(exc).__name__}")
+            print(f"WARN page 2 failed [{category}]: {type(exc).__name__}", file=sys.stderr)
 
     if query_success == 0:
         print("ERROR: SerpApi unavailable; preserving previous feed", file=sys.stderr)
@@ -351,15 +384,17 @@ def main() -> None:
         "method": "serpapi-google-jobs-adaptive-indeed-apply-only",
         "provider_configured": True,
         "candidate_display_target": DISPLAY_TARGET,
+        "candidate_daily_application_target": DAILY_APPLICATION_TARGET,
         "candidate_pool_target": POOL_TARGET,
         "candidate_pool_limit": POOL_LIMIT,
         "acquisition_mode": "replenish" if pool_size < POOL_TARGET else "steady",
         "pool_before_refresh": pool_size,
         "serpapi_budget_month": month,
         "serpapi_requests_run": requests_run,
+        "serpapi_paginated_requests_run": paginated_requests,
         "serpapi_requests_month": requests_month,
         "serpapi_monthly_request_cap": monthly_cap,
-        "serpapi_rotation_cursor": (cursor + requests_run) % len(QUERY_PROFILES),
+        "serpapi_rotation_cursor": (cursor + first_page_limit) % len(QUERY_PROFILES),
         "jobs": jobs,
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -368,8 +403,9 @@ def main() -> None:
     review = sum(1 for row in jobs if row["tier"] == "review")
     print(
         f"wrote {len(jobs)} fresh candidates ({high} high / {review} review); "
-        f"queries {query_success}/{requests_run}, raw {raw_jobs}, Indeed apply {indeed_apply_jobs}; "
-        f"rolling pool before refresh {pool_size}, SerpApi month {requests_month}/{monthly_cap}"
+        f"requests {query_success}/{requests_run} including {paginated_requests} page2, "
+        f"raw {raw_jobs}, Indeed apply {indeed_apply_jobs}; rolling pool before refresh "
+        f"{pool_size}, SerpApi month {requests_month}/{monthly_cap}"
     )
 
 
