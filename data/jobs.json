@@ -227,8 +227,8 @@
   "llm_model": "gpt-5.6-luna",
   "llm_reviewed_jobs": 3,
   "llm_strict_jobs": 0,
-  "llm_new_reviews": 3,
-  "llm_reused_reviews": 0,
+  "llm_new_reviews": 0,
+  "llm_reused_reviews": 3,
   "llm_review_failures": 0,
   "llm_errors": [],
   "llm_skipped_non_high": 0,
@@ -241,5 +241,6 @@
   "llm_monthly_budget_exhausted": false,
   "llm_fatal_error": null,
   "llm_error_type": null,
-  "llm_error_code": null
+  "llm_error_code": null,
+  "llm_error_status": null
 }
