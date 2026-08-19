@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Post-process the refreshed feed for stability and usability.
 
+- Drop rows that explicitly contradict full-remote work.
 - Collapse duplicate postings with the same normalized company/title.
 - Keep a recently seen but missing job for up to 48 hours as REVIEW only.
   This prevents one flaky provider refresh from making the app look empty,
@@ -20,6 +21,20 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
 CARRYOVER_MAX = timedelta(hours=48)
 PUBLISHED_MAX = timedelta(days=30)
+REMOTE_CONTRADICTIONS = (
+    "フルリモート不可",
+    "完全在宅不可",
+    "完全リモート不可",
+    "100%リモート不可",
+    "フルリモートではありません",
+    "完全在宅ではありません",
+    "完全リモートではありません",
+    "フルリモートではない",
+    "完全在宅ではない",
+    "完全リモートではない",
+    "not fully remote",
+    "not 100% remote",
+)
 
 
 def parse_iso(value: str | None) -> datetime | None:
@@ -43,9 +58,24 @@ def normalize_identity(value: str | None) -> str:
 def fingerprint(row: dict) -> str:
     company = normalize_identity(row.get("company"))
     title = normalize_identity(row.get("title"))
-    if not title:
-        return f"id:{row.get('id', '')}"
+    jid = str(row.get("id") or "")
+    # Do not collapse rows solely because they share a generic title. Company is
+    # part of the identity; if either side is missing, keep the provider job id.
+    if not company or not title:
+        return f"id:{jid}"
     return f"{company}|{title}"
+
+
+def has_remote_contradiction(row: dict) -> bool:
+    text = " ".join(
+        str(row.get(key) or "") for key in ("title", "location", "snippet")
+    ).lower()
+    return any(phrase.lower() in text for phrase in REMOTE_CONTRADICTIONS)
+
+
+def drop_remote_contradictions(rows: list[dict]) -> tuple[list[dict], int]:
+    kept = [row for row in rows if not has_remote_contradiction(row)]
+    return kept, len(rows) - len(kept)
 
 
 def row_rank(row: dict) -> tuple[int, int, int, int]:
@@ -92,6 +122,8 @@ def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> 
             continue
         if old.get("tier") not in {"high", "review"}:
             continue
+        if has_remote_contradiction(old):
+            continue
         last_seen = parse_iso(old.get("last_seen"))
         if not last_seen or now - last_seen > CARRYOVER_MAX:
             continue
@@ -114,6 +146,7 @@ def process(current_payload: dict, previous_payload: dict | None = None) -> dict
     current = [row for row in current_payload.get("jobs", []) if isinstance(row, dict)]
     previous = [row for row in (previous_payload or {}).get("jobs", []) if isinstance(row, dict)]
 
+    current, contradiction_dropped = drop_remote_contradictions(current)
     current, removed = dedupe_rows(current)
     carried = carryover_rows(current, previous, generated)
     combined, removed_after_carry = dedupe_rows(current + carried)
@@ -129,6 +162,7 @@ def process(current_payload: dict, previous_payload: dict | None = None) -> dict
     )
     current_payload["jobs"] = combined[:80]
     current_payload["deduplicated_jobs"] = removed
+    current_payload["remote_contradiction_dropped"] = contradiction_dropped
     current_payload["carryover_jobs"] = sum(1 for row in combined if row.get("carryover"))
     current_payload["postprocessed"] = True
     return current_payload
@@ -155,7 +189,9 @@ def main() -> None:
     args.feed.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(
         f"postprocessed {len(result.get('jobs', []))} jobs; "
-        f"deduped {result.get('deduplicated_jobs', 0)}, carryover {result.get('carryover_jobs', 0)}"
+        f"deduped {result.get('deduplicated_jobs', 0)}, "
+        f"remote contradictions {result.get('remote_contradiction_dropped', 0)}, "
+        f"carryover {result.get('carryover_jobs', 0)}"
     )
 
 

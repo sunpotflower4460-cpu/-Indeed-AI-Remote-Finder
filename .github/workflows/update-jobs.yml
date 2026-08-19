@@ -11,6 +11,9 @@ on:
       - '.github/workflows/update-jobs.yml'
 permissions:
   contents: write
+concurrency:
+  group: update-job-candidates
+  cancel-in-progress: false
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -44,4 +47,5 @@ jobs:
           git add data/jobs.json
           git diff --cached --quiet && exit 0
           git commit -m "chore: refresh validated job candidates"
+          git pull --rebase origin main
           git push
