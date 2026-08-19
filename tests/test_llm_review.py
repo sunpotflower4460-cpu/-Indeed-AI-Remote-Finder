@@ -3,6 +3,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 path = Path(__file__).resolve().parents[1] / "scripts" / "llm_review.py"
 spec = importlib.util.spec_from_file_location("llm_review", path)
@@ -30,6 +31,9 @@ def job(snippet="データ入力と転記を行う完全在宅業務"):
 
 
 class LlmReviewTests(unittest.TestCase):
+    def test_default_paid_review_cap_is_eight(self):
+        self.assertEqual(mod.DEFAULT_MAX_NEW_REVIEWS, 8)
+
     def test_input_hash_changes_with_material_text(self):
         a = mod.input_hash(job("データ入力と転記"))
         b = mod.input_hash(job("電話営業と顧客対応"))
@@ -112,6 +116,15 @@ class LlmReviewTests(unittest.TestCase):
         self.assertEqual(got["llm_reviewed_jobs"], 1)
         self.assertEqual(got["llm_reused_reviews"], 1)
         self.assertTrue(got["jobs"][0]["llm_strict_pass"])
+
+    def test_review_tier_never_spends_on_new_llm_call(self):
+        row = job()
+        row["tier"] = "review"
+        with patch.object(mod, "call_openai", side_effect=AssertionError("should not call OpenAI")):
+            got = mod.enrich({"jobs": [row]}, {}, api_key="fake-key", model="test-model")
+        self.assertEqual(got["llm_new_reviews"], 0)
+        self.assertEqual(got["llm_skipped_non_high"], 1)
+        self.assertNotIn("llm_review", got["jobs"][0])
 
 
 if __name__ == "__main__":
