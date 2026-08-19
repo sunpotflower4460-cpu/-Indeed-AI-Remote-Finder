@@ -1,14 +1,60 @@
 {
-  "generated_at": "2026-08-19T08:13:02.872392+00:00",
-  "query_success": 0,
+  "generated_at": "2026-08-19T11:01:18.963450+00:00",
+  "query_success": 2,
   "query_total": 2,
-  "raw_jobs": 0,
-  "indeed_apply_jobs": 3,
+  "raw_jobs": 16,
+  "indeed_apply_jobs": 4,
+  "malformed_jobs": 0,
   "errors": [],
-  "method": "seed-live-verified-2026-08-19",
-  "provider_configured": false,
-  "seed_note": "Initial candidates were individually verified in current Indeed search results on 2026-08-19. Configure SERPAPI_KEY for automatic refresh.",
+  "method": "serpapi-google-jobs-indeed-apply-only",
+  "provider_configured": true,
   "jobs": [
+    {
+      "id": "d362c3ac99164dcf",
+      "title": "PCデータ入力スタッフ/完全在宅ワーク",
+      "company": "Lea Lea株式会社",
+      "location": "岐阜県神戸町",
+      "snippet": "職種補足 【PCデータ入力スタッフ／完全在宅ワーク】オープニングスタッフ増員募集／データ入力／全国から大募集 仕事内容 岐阜県安八郡神戸町に 今年の3月に新しい事業所がオープンしました！ 完全在宅ワークのメンバーを全国から募集します。 パソコンを使った簡単な作業が中心なので、 未経験の方やPCが苦手な方も安心して始められます。 通勤不要のため、 全国どこからでもリモート勤務が可能です。 /////////////おすすめポイント///////////// 〇完全在宅ワーク（フルリモート） 〇通勤不要・全国どこからでも勤務OK 〇週1日～勤務OK 〇短時間勤務OK 〇未経験OK・PC初心者OK 〇体調優先で無理なく働ける 〇年齢不問（中高年・シニア歓迎） 〇オープンしたばかりの新規事業所 ////////////////////////////////////////////////// ＜お仕事内容＞ ご自宅でパソコンを使用した業務です。 ・文章作成(ライティング) ・検索によるデータ収集 ・デザイン など 未経験の方でもご安心ください。 難しい作業はなく、体調や集中力に合わせて ご自身のペースで進められます。 ＜募集対象＞ ・障がいをお持ちの方 ・難病・特定疾患をお持ちの方 ・現在通院中の方 年齢や学歴は問いません。 20代〜60代以上まで 幅広い年代の方が活躍できます。 ＜こんな方におすすめ＞ ・在宅で働きたい ・体調に合わせて働きたい ・短時間の仕...",
+      "url": "https://jp.indeed.com/viewjob?jk=d362c3ac99164dcf",
+      "tier": "review",
+      "score": 95,
+      "automation_confidence": 100,
+      "remote_confidence": 100,
+      "freshness_confidence": 98,
+      "human_dependency_risk": 10,
+      "automation_reasons": [
+        "データ入力",
+        "データ収集",
+        "ライティング",
+        "メール"
+      ],
+      "remote_reasons": [
+        "Google Jobs:在宅勤務フィルタ",
+        "完全在宅",
+        "フルリモート",
+        "全国どこからでも",
+        "在宅ワーク",
+        "在宅"
+      ],
+      "risk_reasons": [
+        "電話"
+      ],
+      "tags": [
+        "完全リモート",
+        "データ",
+        "文章",
+        "事務"
+      ],
+      "category": "structured",
+      "posted_label": "1 日前",
+      "search_published_at": "2026-08-18T11:01:18.963450+00:00",
+      "first_seen": "2026-08-19T11:01:18.963450+00:00",
+      "last_seen": "2026-08-19T11:01:18.963450+00:00",
+      "seen_count": 1,
+      "source": "Google Jobs via SerpApi; Indeed apply option verified",
+      "via": "Indeed.com",
+      "duplicate_count": 1
+    },
     {
       "id": "7cb96d9519b9ded0",
       "title": "Japanese Language Expert – AI Trainer",
@@ -16,11 +62,11 @@
       "location": "東京都 港区 六本木 / フルリモート",
       "snippet": "地図ベースの検索クエリをレビューし、正確性・ユーザー意図・データ品質を評価するAIプロジェクト。100％リモートワーク、勤務時間は調整可能。",
       "url": "https://jp.indeed.com/viewjob?jk=7cb96d9519b9ded0",
-      "tier": "high",
-      "score": 97,
+      "tier": "review",
+      "score": 72,
       "automation_confidence": 100,
       "remote_confidence": 100,
-      "freshness_confidence": 84,
+      "freshness_confidence": 58,
       "human_dependency_risk": 0,
       "automation_reasons": [
         "aiトレーナー",
@@ -48,35 +94,8 @@
       "source": "Initial seed verified on Indeed via web search on 2026-08-19",
       "via": "Indeed",
       "duplicate_count": 1,
-      "llm_review": {
-        "verdict": "uncertain",
-        "automatable_fraction": 85,
-        "confidence": 78,
-        "human_dependency": "medium",
-        "physical_presence_required": false,
-        "synchronous_human_interaction": "none",
-        "data_sensitivity_risk": "unknown",
-        "automation_summary": "The role is fully remote and involves reviewing map-based search queries for accuracy, user intent, and data quality. Much of this evaluation is digital and potentially automatable, but the supplied text does not establish the review rubric, source data access, edge-case handling, or whether expert linguistic judgment is required.",
-        "automation_plan": [
-          "Ingest map-based queries and associated results.",
-          "Apply Japanese-language checks for accuracy, intent alignment, and data-quality criteria.",
-          "Flag ambiguous, inconsistent, or low-confidence cases for human review.",
-          "Record evaluations and generate structured quality reports."
-        ],
-        "blockers": [],
-        "questions_to_confirm": [
-          "What tools, interfaces, data formats, and access methods are used for query review?",
-          "Are explicit evaluation rubrics and labeled examples available, including Japanese-language edge cases?",
-          "Does the work require human expert judgment for ambiguous intent or culturally specific queries?",
-          "Are external AI tools permitted, and what confidentiality or personal-data handling rules apply?",
-          "Is human approval required before evaluations are submitted or used for model training?"
-        ],
-        "strict_pass": false
-      },
-      "llm_input_hash": "a0c7e3eae070dd704df950450eb143f15077282e5c0b432c04a5b735ca0e7179",
-      "llm_model": "gpt-5.6-luna",
-      "llm_reviewed_at": "2026-08-19T10:40:21.173369+00:00",
-      "llm_strict_pass": false
+      "carryover": true,
+      "carryover_reason": "最新スキャンでは未再検出。最大48時間だけ要確認として保持"
     },
     {
       "id": "3574515a4d5f505a",
@@ -85,11 +104,11 @@
       "location": "福岡県 福岡市 / フルリモート",
       "snippet": "地図アプリの検索クエリについて、ユーザー意図からデータ正確性までを評価するアノテーション業務。日本国内からリモート、柔軟なスケジュール。",
       "url": "https://jp.indeed.com/viewjob?jk=3574515a4d5f505a",
-      "tier": "high",
-      "score": 95,
+      "tier": "review",
+      "score": 72,
       "automation_confidence": 100,
       "remote_confidence": 100,
-      "freshness_confidence": 70,
+      "freshness_confidence": 58,
       "human_dependency_risk": 0,
       "automation_reasons": [
         "アノテーション",
@@ -115,35 +134,8 @@
       "source": "Initial seed verified on Indeed via web search on 2026-08-19",
       "via": "Indeed",
       "duplicate_count": 1,
-      "llm_review": {
-        "verdict": "uncertain",
-        "automatable_fraction": 85,
-        "confidence": 78,
-        "human_dependency": "medium",
-        "physical_presence_required": false,
-        "synchronous_human_interaction": "none",
-        "data_sensitivity_risk": "unknown",
-        "automation_summary": "The work is remote and primarily digital, involving evaluation and annotation of map-search queries. Much of the labeling may be delegated to AI or RPA, but assessing user intent and data accuracy can require contextual judgment and quality review.",
-        "automation_plan": [
-          "Ingest search queries and relevant map-result data through the designated annotation interface.",
-          "Use an AI classifier to infer intent and propose accuracy labels with explanations.",
-          "Apply deterministic validation checks for required fields, label consistency, and formatting.",
-          "Route ambiguous or low-confidence cases for human review.",
-          "Export completed annotations and quality metrics."
-        ],
-        "blockers": [],
-        "questions_to_confirm": [
-          "What exact annotation rubric, data fields, and quality thresholds must be followed?",
-          "Does the work require access to proprietary map data, location data, or other confidential/personal information?",
-          "Are external AI tools or automated scripts permitted for handling the queries and map data?",
-          "What proportion of cases requires nuanced Japanese-language or local-context judgment and mandatory human approval?"
-        ],
-        "strict_pass": false
-      },
-      "llm_input_hash": "2ab081b97141e547215c86471f8c8b0628572cf47afaaaefa238c22a14385882",
-      "llm_model": "gpt-5.6-luna",
-      "llm_reviewed_at": "2026-08-19T10:40:24.548528+00:00",
-      "llm_strict_pass": false
+      "carryover": true,
+      "carryover_reason": "最新スキャンでは未再検出。最大48時間だけ要確認として保持"
     },
     {
       "id": "a505dcbfe122cdd4",
@@ -152,11 +144,11 @@
       "location": "東京都 千代田区 霞が関 / フルリモート",
       "snippet": "地図アプリ利用者の検索クエリ品質を確認し、検索意図やデータ正確性を評価するAI Trainer業務。完全在宅、日本国内向け。",
       "url": "https://jp.indeed.com/viewjob?jk=a505dcbfe122cdd4",
-      "tier": "high",
-      "score": 95,
+      "tier": "review",
+      "score": 72,
       "automation_confidence": 100,
       "remote_confidence": 100,
-      "freshness_confidence": 70,
+      "freshness_confidence": 58,
       "human_dependency_risk": 0,
       "automation_reasons": [
         "ai trainer",
@@ -183,61 +175,31 @@
       "source": "Initial seed verified on Indeed via web search on 2026-08-19",
       "via": "Indeed",
       "duplicate_count": 1,
-      "llm_review": {
-        "verdict": "uncertain",
-        "automatable_fraction": 80,
-        "confidence": 72,
-        "human_dependency": "medium",
-        "physical_presence_required": false,
-        "synchronous_human_interaction": "none",
-        "data_sensitivity_risk": "unknown",
-        "automation_summary": "The supplied text describes fully remote, digital evaluation of Japanese/English map-search queries, search intent, and data accuracy. Much of the review may be repeatable and technically delegable, but the bilingual judgment and AI-training evaluation criteria could require human linguistic and contextual assessment.",
-        "automation_plan": [
-          "Ingest search queries and associated map data through the available review interface.",
-          "Use language models to classify search intent and compare expected versus observed results.",
-          "Apply consistency and data-accuracy checks against supplied reference information.",
-          "Route ambiguous Japanese/English cases or low-confidence evaluations for human review.",
-          "Record decisions and quality metrics in the designated system."
-        ],
-        "blockers": [
-          "Assessing search intent and data accuracy in bilingual Japanese-English cases may require contextual linguistic judgment that is not guaranteed to be fully automatable."
-        ],
-        "questions_to_confirm": [
-          "What review interface, data sources, and output format are used?",
-          "Are evaluation rubrics and labeled examples available for search intent and data accuracy?",
-          "Does the role require human approval, escalation, or quality calibration with reviewers?",
-          "Is external AI use permitted, and what confidentiality or personal-data handling rules apply?",
-          "How much of the workload consists of ambiguous or culturally contextual Japanese-English queries?"
-        ],
-        "strict_pass": false
-      },
-      "llm_input_hash": "deb3a724eeb79c4b5e934f4e3411009376c2c26caec34b1da88d8e474273094d",
-      "llm_model": "gpt-5.6-luna",
-      "llm_reviewed_at": "2026-08-19T10:40:28.439699+00:00",
-      "llm_strict_pass": false
+      "carryover": true,
+      "carryover_reason": "最新スキャンでは未再検出。最大48時間だけ要確認として保持"
     }
   ],
   "deduplicated_jobs": 0,
-  "carryover_jobs": 0,
+  "remote_contradiction_dropped": 0,
+  "carryover_jobs": 3,
   "postprocessed": true,
   "llm_provider_configured": true,
   "llm_model": "gpt-5.6-luna",
-  "llm_reviewed_jobs": 3,
+  "llm_reasoning_effort": "none",
+  "llm_reviewed_jobs": 0,
   "llm_strict_jobs": 0,
-  "llm_new_reviews": 3,
+  "llm_new_reviews": 0,
   "llm_reused_reviews": 0,
   "llm_review_failures": 0,
-  "llm_errors": [],
-  "llm_skipped_non_high": 0,
+  "llm_skipped_non_high": 4,
   "llm_max_new_reviews_per_run": 8,
-  "remote_contradiction_dropped": 0,
-  "llm_reasoning_effort": "none",
   "llm_budget_month": "2026-08",
   "llm_paid_attempts_month": 9,
   "llm_max_paid_attempts_per_month": 700,
   "llm_monthly_budget_exhausted": false,
   "llm_fatal_error": null,
+  "llm_errors": [],
+  "llm_error_status": null,
   "llm_error_type": null,
-  "llm_error_code": null,
-  "llm_error_status": null
+  "llm_error_code": null
 }
