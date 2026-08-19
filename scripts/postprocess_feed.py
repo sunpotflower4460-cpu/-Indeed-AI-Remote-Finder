@@ -26,12 +26,20 @@ REMOTE_CONTRADICTIONS = (
     "完全在宅不可",
     "完全リモート不可",
     "100%リモート不可",
+    "100％リモート不可",
     "フルリモートではありません",
     "完全在宅ではありません",
     "完全リモートではありません",
+    "100%リモートではありません",
+    "100％リモートではありません",
     "フルリモートではない",
     "完全在宅ではない",
     "完全リモートではない",
+    "100%リモートではない",
+    "100％リモートではない",
+    "フルリモートではなく",
+    "完全在宅ではなく",
+    "完全リモートではなく",
     "not fully remote",
     "not 100% remote",
 )
@@ -70,7 +78,16 @@ def has_remote_contradiction(row: dict) -> bool:
     text = " ".join(
         str(row.get(key) or "") for key in ("title", "location", "snippet")
     ).lower()
-    return any(phrase.lower() in text for phrase in REMOTE_CONTRADICTIONS)
+    if any(phrase.lower() in text for phrase in REMOTE_CONTRADICTIONS):
+        return True
+    # The scorer records explicit negative remote signals (hybrid, required
+    # office attendance, on-site, etc.) as 注意:... reasons. Because this app is
+    # specifically for fully remote work, any such signal is disqualifying even
+    # if positive remote wording would otherwise saturate the numeric score.
+    return any(
+        str(reason or "").strip().startswith("注意:")
+        for reason in (row.get("remote_reasons") or [])
+    )
 
 
 def drop_remote_contradictions(rows: list[dict]) -> tuple[list[dict], int]:
