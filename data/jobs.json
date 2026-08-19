@@ -51,33 +51,31 @@
       "llm_review": {
         "verdict": "uncertain",
         "automatable_fraction": 85,
-        "confidence": 76,
+        "confidence": 78,
         "human_dependency": "medium",
         "physical_presence_required": false,
         "synchronous_human_interaction": "none",
         "data_sensitivity_risk": "unknown",
-        "automation_summary": "The role is fully remote and involves reviewing map-based search queries for accuracy, user intent, and data quality. Much of this is structured digital evaluation, but language expertise and judgment about intent and quality may require human review, especially for ambiguous Japanese queries.",
+        "automation_summary": "The role is fully remote and involves reviewing map-based search queries for accuracy, user intent, and data quality. Much of this evaluation is digital and potentially automatable, but the supplied text does not establish the review rubric, source data access, edge-case handling, or whether expert linguistic judgment is required.",
         "automation_plan": [
-          "Ingest and normalize map-based search queries and associated results.",
-          "Use Japanese-language models to classify intent, detect errors, and score data quality against a defined rubric.",
-          "Apply deterministic validation rules for consistency, formatting, and duplicate or factual issues.",
-          "Route ambiguous or low-confidence cases for expert review.",
-          "Export labeled evaluations and quality metrics."
+          "Ingest map-based queries and associated results.",
+          "Apply Japanese-language checks for accuracy, intent alignment, and data-quality criteria.",
+          "Flag ambiguous, inconsistent, or low-confidence cases for human review.",
+          "Record evaluations and generate structured quality reports."
         ],
-        "blockers": [
-          "Evaluating user intent and data quality can require nuanced Japanese-language judgment that is not guaranteed to be reliably automated end to end."
-        ],
+        "blockers": [],
         "questions_to_confirm": [
-          "What tools, data interfaces, and evaluation rubric are used?",
-          "Does the work require checking live maps or external sources, and are those accessible programmatically?",
-          "What accuracy threshold and human approval requirements apply to AI-generated evaluations?",
-          "Is use of external AI permitted, and what confidentiality or personal-data handling rules apply?"
+          "What tools, interfaces, data formats, and access methods are used for query review?",
+          "Are explicit evaluation rubrics and labeled examples available, including Japanese-language edge cases?",
+          "Does the work require human expert judgment for ambiguous intent or culturally specific queries?",
+          "Are external AI tools permitted, and what confidentiality or personal-data handling rules apply?",
+          "Is human approval required before evaluations are submitted or used for model training?"
         ],
         "strict_pass": false
       },
-      "llm_input_hash": "c7a5923efc29ec4f83fcf2911ea64ff182391be288230653d8f596040ffe1716",
+      "llm_input_hash": "a0c7e3eae070dd704df950450eb143f15077282e5c0b432c04a5b735ca0e7179",
       "llm_model": "gpt-5.6-luna",
-      "llm_reviewed_at": "2026-08-19T10:01:03.913667+00:00",
+      "llm_reviewed_at": "2026-08-19T10:40:21.173369+00:00",
       "llm_strict_pass": false
     },
     {
@@ -120,32 +118,31 @@
       "llm_review": {
         "verdict": "uncertain",
         "automatable_fraction": 85,
-        "confidence": 76,
+        "confidence": 78,
         "human_dependency": "medium",
         "physical_presence_required": false,
         "synchronous_human_interaction": "none",
         "data_sensitivity_risk": "unknown",
-        "automation_summary": "地図アプリの検索クエリについて、ユーザー意図とデータ正確性を評価するデジタルなアノテーション業務で、反復的な判定やラベル付けは技術的に高度に自動化しやすい。ただし、評価基準に基づく人間の判断や曖昧なクエリの確認が必要な範囲は明示されていない。",
+        "automation_summary": "The work is remote and primarily digital, involving evaluation and annotation of map-search queries. Much of the labeling may be delegated to AI or RPA, but assessing user intent and data accuracy can require contextual judgment and quality review.",
         "automation_plan": [
-          "検索クエリと関連データを取得する",
-          "AIでユーザー意図を分類し、正確性を検証する",
-          "定義済みラベルと信頼度を付与する",
-          "低信頼・曖昧なケースを人間のレビュー対象に振り分ける",
-          "結果を監査し、アノテーション形式で提出する"
+          "Ingest search queries and relevant map-result data through the designated annotation interface.",
+          "Use an AI classifier to infer intent and propose accuracy labels with explanations.",
+          "Apply deterministic validation checks for required fields, label consistency, and formatting.",
+          "Route ambiguous or low-confidence cases for human review.",
+          "Export completed annotations and quality metrics."
         ],
         "blockers": [],
         "questions_to_confirm": [
-          "アノテーションの評価基準、ラベル体系、例外処理は明確に定義されているか",
-          "作業対象データへのアクセス方法と利用するツール・インターフェースは何か",
-          "曖昧な判定や低信頼ケースについて、人間の承認・レビューは必須か",
-          "検索クエリに個人情報や機密情報が含まれるか、外部AIへの入力が許可されているか",
-          "AI利用に関する雇用主の方針と、納品物の品質保証要件は何か"
+          "What exact annotation rubric, data fields, and quality thresholds must be followed?",
+          "Does the work require access to proprietary map data, location data, or other confidential/personal information?",
+          "Are external AI tools or automated scripts permitted for handling the queries and map data?",
+          "What proportion of cases requires nuanced Japanese-language or local-context judgment and mandatory human approval?"
         ],
         "strict_pass": false
       },
-      "llm_input_hash": "96ad25121f68d2f1134cb07bf804fd0cecc08d66fc1521388ae618dd7cd0551d",
+      "llm_input_hash": "2ab081b97141e547215c86471f8c8b0628572cf47afaaaefa238c22a14385882",
       "llm_model": "gpt-5.6-luna",
-      "llm_reviewed_at": "2026-08-19T10:01:11.490618+00:00",
+      "llm_reviewed_at": "2026-08-19T10:40:24.548528+00:00",
       "llm_strict_pass": false
     },
     {
@@ -189,34 +186,34 @@
       "llm_review": {
         "verdict": "uncertain",
         "automatable_fraction": 80,
-        "confidence": 76,
+        "confidence": 72,
         "human_dependency": "medium",
         "physical_presence_required": false,
         "synchronous_human_interaction": "none",
         "data_sensitivity_risk": "unknown",
-        "automation_summary": "完全在宅で、検索クエリの品質確認、検索意図評価、データ正確性評価はデジタルかつ反復的に処理できる可能性が高い。ただし、評価基準への判断、曖昧な日本語・英語クエリの解釈、品質保証やエスカレーションの要否は supplied text だけでは完全自動化できると断定できない。",
+        "automation_summary": "The supplied text describes fully remote, digital evaluation of Japanese/English map-search queries, search intent, and data accuracy. Much of the review may be repeatable and technically delegable, but the bilingual judgment and AI-training evaluation criteria could require human linguistic and contextual assessment.",
         "automation_plan": [
-          "検索クエリと関連データを取得する",
-          "日本語・英語の検索意図、関連性、正確性をモデルで評価する",
-          "ルールベース検査と重複・不整合チェックを実行する",
-          "低信頼または曖昧な判定を人手レビューに回す",
-          "評価結果と監査ログを所定形式で提出する"
+          "Ingest search queries and associated map data through the available review interface.",
+          "Use language models to classify search intent and compare expected versus observed results.",
+          "Apply consistency and data-accuracy checks against supplied reference information.",
+          "Route ambiguous Japanese/English cases or low-confidence evaluations for human review.",
+          "Record decisions and quality metrics in the designated system."
         ],
         "blockers": [
-          "検索意図やデータ正確性の最終評価には、文脈依存の言語判断が含まれ得る。"
+          "Assessing search intent and data accuracy in bilingual Japanese-English cases may require contextual linguistic judgment that is not guaranteed to be fully automatable."
         ],
         "questions_to_confirm": [
-          "評価基準、判定ラベル、例外処理、低信頼案件の人手確認要件は何か。",
-          "作業対象のデータ形式、使用ツール、アクセス方法、APIやRPA利用可否は何か。",
-          "日本語・英語の曖昧なクエリや地域固有の知識について、人間の最終承認が必要か。",
-          "業務データに個人情報や機密情報が含まれるか、外部AIへの入力が許可されているか。",
-          "雇用主がAI・自動化ツールの利用を許可しているか。"
+          "What review interface, data sources, and output format are used?",
+          "Are evaluation rubrics and labeled examples available for search intent and data accuracy?",
+          "Does the role require human approval, escalation, or quality calibration with reviewers?",
+          "Is external AI use permitted, and what confidentiality or personal-data handling rules apply?",
+          "How much of the workload consists of ambiguous or culturally contextual Japanese-English queries?"
         ],
         "strict_pass": false
       },
-      "llm_input_hash": "8ea6e4be0f40c21d27c444f467d1762ca3b60d537d62a3109a842254b6a4e85e",
+      "llm_input_hash": "deb3a724eeb79c4b5e934f4e3411009376c2c26caec34b1da88d8e474273094d",
       "llm_model": "gpt-5.6-luna",
-      "llm_reviewed_at": "2026-08-19T10:01:15.908005+00:00",
+      "llm_reviewed_at": "2026-08-19T10:40:28.439699+00:00",
       "llm_strict_pass": false
     }
   ],
@@ -227,8 +224,8 @@
   "llm_model": "gpt-5.6-luna",
   "llm_reviewed_jobs": 3,
   "llm_strict_jobs": 0,
-  "llm_new_reviews": 0,
-  "llm_reused_reviews": 3,
+  "llm_new_reviews": 3,
+  "llm_reused_reviews": 0,
   "llm_review_failures": 0,
   "llm_errors": [],
   "llm_skipped_non_high": 0,
@@ -236,7 +233,7 @@
   "remote_contradiction_dropped": 0,
   "llm_reasoning_effort": "none",
   "llm_budget_month": "2026-08",
-  "llm_paid_attempts_month": 6,
+  "llm_paid_attempts_month": 9,
   "llm_max_paid_attempts_per_month": 700,
   "llm_monthly_budget_exhausted": false,
   "llm_fatal_error": null,
