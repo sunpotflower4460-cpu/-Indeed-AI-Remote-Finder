@@ -1,5 +1,4 @@
 name: Update job candidates
-# trigger-check: 2026-08-20T08:12+09:00
 on:
   workflow_dispatch:
   schedule:
@@ -35,14 +34,23 @@ jobs:
       - name: Preserve previous feed for carryover and LLM cache
         run: cp data/jobs.json /tmp/previous-jobs.json
       - name: Refresh diverse autonomous-work candidates
+        id: acquisition
+        continue-on-error: true
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: python scripts/acquisition_supply_yield.py
       - name: Stamp safe provider guard diagnostics
+        if: always()
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: python scripts/stamp_provider_health.py
+      - name: Stamp safe acquisition outcome
+        if: always()
+        env:
+          ACQUISITION_OUTCOME: ${{ steps.acquisition.outcome }}
+        run: python scripts/stamp_refresh_outcome.py
       - name: Deduplicate and maintain rolling candidate pool
+        if: always()
         run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
       - name: Optional LLM second-opinion audit
         id: llm_audit
