@@ -64,6 +64,13 @@ class LlmReviewTests(unittest.TestCase):
         b = mod.input_hash(job(snippet="電話営業と顧客対応"))
         self.assertNotEqual(a, b)
 
+    def test_input_hash_changes_when_review_policy_changes(self):
+        row = job()
+        a = mod.input_hash(row)
+        with patch.object(mod, "REASONING_EFFORT", "low"):
+            b = mod.input_hash(row)
+        self.assertNotEqual(a, b)
+
     def test_extract_output_text_from_response_shape(self):
         payload = {
             "output": [
