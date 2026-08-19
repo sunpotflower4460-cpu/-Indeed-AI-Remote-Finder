@@ -9,13 +9,15 @@ quality gates below.
 Rules:
 1. Explicit, conditional, partial, or hybrid arrangements are rejected.
 2. Jobs that imply ongoing human coordination/attention are rejected.
-3. REVIEW rows must clear an automation floor, a human-risk ceiling, and at
+3. Explicit human-attendance requirements are checked against the full listing
+   text before any UI/LLM excerpt truncation.
+4. REVIEW rows must clear an automation floor, a human-risk ceiling, and at
    least two concrete automation signals.
-4. Equivalent async tasks (OCR verification, extraction, metadata tagging,
+5. Equivalent async tasks (OCR verification, extraction, metadata tagging,
    AI-response rating, etc.) are mapped to scorer vocabulary to avoid false
    negatives without padding the pool with weak work.
-5. Google's deprecated Work From Home filter never contributes to scoring.
-6. A richer listing excerpt is retained for LLM review while the UI still
+6. Google's deprecated Work From Home filter never contributes to scoring.
+7. A richer listing excerpt is retained for LLM review while the UI still
    visually clamps the card text.
 """
 from __future__ import annotations
@@ -25,13 +27,14 @@ import re
 
 import acquisition
 import acquisition_remote
+import apply_llm_quality_gate
 
 QUALITY_POLICY_VERSION = 2
 QUALITY_GATE = "async-ai-remote-v2"
 REVIEW_AUTOMATION_MIN = 64
 REVIEW_HUMAN_RISK_MAX = 18
 REVIEW_AUTOMATION_SIGNAL_MIN = 2
-RICH_SNIPPET_MAX = 2400
+RICH_SNIPPET_MAX = 6000
 
 # Capture generic primitives before acquisition_remote installs provider-filter
 # wrappers. We keep its autonomy and budget protections, but scoring/publication
@@ -154,6 +157,13 @@ def quality_attention_blockers(job: dict) -> list[str]:
     return [phrase for phrase in QUALITY_ATTENTION_BLOCKERS if phrase.lower() in text][:8]
 
 
+def human_presence_blocker(job: dict) -> str | None:
+    """Check human-attendance requirements against the full structured listing."""
+    return apply_llm_quality_gate.presence_requirement_signal(
+        {"snippet": normalized_job_text(job)}
+    )
+
+
 def explicit_full_remote_evidence(job: dict) -> bool:
     text = normalized_job_text(job)
     return any(phrase.lower() in text for phrase in acquisition.legacy.REMOTE_EXPLICIT_FULL)
@@ -221,7 +231,13 @@ def configure_quality_policy() -> None:
     base_build_row = acquisition.build_row
 
     def quality_build_row(job, category, previous):
-        if partial_remote_blockers(job) or quality_attention_blockers(job):
+        # All of these checks see the full provider listing. In particular the
+        # human-presence gate runs before `snippet` is truncated for UI/LLM use.
+        if (
+            partial_remote_blockers(job)
+            or quality_attention_blockers(job)
+            or human_presence_blocker(job)
+        ):
             return None
         if not explicit_full_remote_evidence(job):
             return None
@@ -242,6 +258,7 @@ def configure_quality_policy() -> None:
             row["quality_listing_chars"] = len(richer)
         row["quality_policy_version"] = QUALITY_POLICY_VERSION
         row["quality_gate"] = QUALITY_GATE
+        row["full_listing_presence_screened"] = True
         return row
 
     acquisition.build_row = quality_build_row
@@ -261,6 +278,7 @@ def stamp_quality_metadata() -> None:
         payload["candidate_provider_wfh_filter_used"] = False
         payload["candidate_discovery_can_use_broad_remote_terms"] = True
         payload["candidate_rich_listing_excerpt_max"] = RICH_SNIPPET_MAX
+        payload["candidate_full_listing_presence_screened"] = True
         acquisition.OUT.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
