@@ -18,7 +18,7 @@ spec.loader.exec_module(mod)
 class AcquisitionSupplyTests(unittest.TestCase):
     def test_many_distinct_async_profiles_are_available(self):
         profiles = mod.PRODUCTION_QUERY_PROFILES
-        self.assertGreaterEqual(len(profiles), 60)
+        self.assertGreaterEqual(len(profiles), 90)
         names = [name for name, _ in profiles]
         self.assertEqual(len(names), len(set(names)))
 
@@ -31,6 +31,22 @@ class AcquisitionSupplyTests(unittest.TestCase):
             self.assertTrue(any(term in query for term in ("在宅", "リモート", "remote")), name)
             for term in forbidden:
                 self.assertNotIn(term, query, name)
+
+    def test_every_daily_window_contains_multiple_broad_anchors(self):
+        profiles = mod.PRODUCTION_QUERY_PROFILES
+        size = len(profiles)
+        for start in range(size):
+            window = [profiles[(start + offset) % size][0] for offset in range(mod.DEEP_REQUESTS)]
+            anchors = [name for name in window if name.startswith("anchor_")]
+            self.assertGreaterEqual(len(anchors), 2, f"start={start} window={window}")
+
+    def test_anchor_templates_cover_multiple_automation_families(self):
+        names = [name for name, _ in mod.ANCHOR_QUERY_PROFILES]
+        self.assertEqual(len(names), len(set(names)))
+        self.assertGreaterEqual(len(names), 4)
+        combined = " ".join(query for _, query in mod.ANCHOR_QUERY_PROFILES)
+        for term in ("データ入力", "AIトレーナー", "記事入稿", "Webリサーチ"):
+            self.assertIn(term, combined)
 
     def test_deep_budget_can_run_through_31_day_month(self):
         self.assertEqual(mod.DEEP_REQUESTS, 7)
