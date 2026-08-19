@@ -18,9 +18,17 @@ spec.loader.exec_module(mod)
 
 
 class AcquisitionTests(unittest.TestCase):
-    def test_shallow_pool_gets_aggressive_replenishment(self):
-        self.assertEqual(mod.request_limit_for_pool(0), 10)
-        self.assertEqual(mod.request_limit_for_pool(29), 10)
+    def test_supply_targets_support_daily_ten_applications(self):
+        self.assertEqual(mod.DISPLAY_TARGET, 30)
+        self.assertEqual(mod.DAILY_APPLICATION_TARGET, 10)
+        self.assertEqual(mod.POOL_TARGET, 80)
+        self.assertEqual(mod.POOL_LIMIT, 100)
+        self.assertEqual(mod.MAX_REQUESTS_PER_RUN, len(mod.QUERY_PROFILES))
+        self.assertGreaterEqual(len(mod.QUERY_PROFILES), 18)
+
+    def test_shallow_pool_sweeps_all_search_themes(self):
+        self.assertEqual(mod.request_limit_for_pool(0), len(mod.QUERY_PROFILES))
+        self.assertEqual(mod.request_limit_for_pool(29), len(mod.QUERY_PROFILES))
         self.assertEqual(mod.request_limit_for_pool(30), 6)
         self.assertEqual(mod.request_limit_for_pool(49), 6)
         self.assertEqual(mod.request_limit_for_pool(50), 4)
@@ -33,19 +41,33 @@ class AcquisitionTests(unittest.TestCase):
         self.assertEqual(first[1], second[0])
         self.assertNotEqual(first[0], second[0])
 
-    def test_review_fallback_accepts_plausible_next_best(self):
+    def test_review_fallback_accepts_low_risk_automatable_remote_query_result(self):
         scores = mod.legacy.Scores(
-            remote=62,
-            automation=55,
+            remote=10,
+            automation=36,
             freshness=90,
             risk=10,
-            overall=61,
+            overall=45,
             tier="hidden",
-            remote_reasons=["在宅ワーク"],
+            remote_reasons=[],
             automation_reasons=["リサーチ"],
             risk_reasons=["電話"],
         )
         self.assertTrue(mod.review_fallback(scores, datetime.now(timezone.utc) - timedelta(days=2)))
+
+    def test_review_fallback_rejects_explicit_remote_contradiction(self):
+        scores = mod.legacy.Scores(
+            remote=30,
+            automation=80,
+            freshness=90,
+            risk=10,
+            overall=50,
+            tier="hidden",
+            remote_reasons=["注意:週2出社"],
+            automation_reasons=["データ入力"],
+            risk_reasons=[],
+        )
+        self.assertFalse(mod.review_fallback(scores, datetime.now(timezone.utc)))
 
     def test_review_fallback_rejects_high_human_risk(self):
         scores = mod.legacy.Scores(
@@ -61,7 +83,34 @@ class AcquisitionTests(unittest.TestCase):
         )
         self.assertFalse(mod.review_fallback(scores, datetime.now(timezone.utc)))
 
-    def test_build_row_does_not_trust_deprecated_remote_api_filter(self):
+    def test_build_row_keeps_next_best_without_inflating_remote_score(self):
+        job = {
+            "title": "データ整理スタッフ",
+            "company_name": "Example",
+            "description": "データ整理とリサーチを行います",
+            "detected_extensions": {"posted_at": "1 day ago"},
+            "apply_options": [{"title": "Indeed", "link": "https://jp.indeed.com/viewjob?jk=review123"}],
+        }
+        scores = mod.legacy.Scores(
+            remote=10,
+            automation=40,
+            freshness=98,
+            risk=0,
+            overall=55,
+            tier="hidden",
+            remote_reasons=[],
+            automation_reasons=["データ整理", "リサーチ"],
+            risk_reasons=[],
+        )
+        with patch.object(mod.legacy, "score_job", return_value=scores):
+            row = mod.build_row(job, "structured_data", {})
+        self.assertIsNotNone(row)
+        self.assertEqual(row["tier"], "review")
+        self.assertEqual(row["remote_confidence"], 10)
+        self.assertTrue(row["remote_search_only"])
+        self.assertIn("在宅要確認", row["tags"])
+
+    def test_build_row_does_not_trust_deprecated_remote_api_filter_by_default(self):
         job = {
             "title": "完全在宅 データ入力",
             "company_name": "Example",
