@@ -77,6 +77,57 @@ class ProductionRemoteAcquisitionTests(unittest.TestCase):
         self.assertNotIn("OLD_KEY", calls[1])
         self.assertIn("api_key=NEW_SECRET", calls[1])
 
+    def test_provider_budget_reserves_hourly_headroom(self):
+        account = {
+            "account_rate_limit_per_hour": 50,
+            "this_hour_searches": 45,
+            "total_searches_left": 100,
+        }
+        self.assertEqual(mod.provider_request_budget(account), 3)
+
+    def test_provider_budget_never_exceeds_monthly_searches_left(self):
+        account = {
+            "account_rate_limit_per_hour": 50,
+            "this_hour_searches": 5,
+            "total_searches_left": 2,
+        }
+        self.assertEqual(mod.provider_request_budget(account), 2)
+
+    def test_provider_budget_returns_zero_when_hour_is_full(self):
+        account = {
+            "account_rate_limit_per_hour": 50,
+            "this_hour_searches": 50,
+            "total_searches_left": 100,
+        }
+        self.assertEqual(mod.provider_request_budget(account), 0)
+
+    def test_provider_month_usage_uses_account_source_of_truth(self):
+        self.assertEqual(mod.provider_month_usage({"this_month_usage": 108}), 108)
+        self.assertIsNone(mod.provider_month_usage({"this_month_usage": "bad"}))
+
+    def test_account_api_request_is_read_only_and_not_persisted(self):
+        calls = []
+
+        def fake_urlopen(request, timeout=15):
+            calls.append((request.full_url, timeout))
+            return FakeResponse({
+                "this_month_usage": 108,
+                "this_hour_searches": 48,
+                "account_rate_limit_per_hour": 50,
+                "total_searches_left": 142,
+                "account_email": "private@example.com",
+                "api_key": "SECRET",
+            })
+
+        with patch.object(mod.urllib.request, "urlopen", side_effect=fake_urlopen):
+            account = mod.fetch_serpapi_account("SECRET")
+
+        self.assertEqual(account["this_month_usage"], 108)
+        self.assertEqual(len(calls), 1)
+        self.assertIn("/account.json?", calls[0][0])
+        self.assertIn("api_key=SECRET", calls[0][0])
+        self.assertEqual(calls[0][1], 15)
+
     def test_structured_work_from_home_is_review_evidence_not_high_proof(self):
         job = {
             "title": "データ入力スタッフ",

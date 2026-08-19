@@ -42,6 +42,17 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertNotIn('echo "$SERPAPI_KEY"', workflow)
         self.assertNotIn("printenv SERPAPI_KEY", workflow)
 
+    def test_production_uses_provider_account_budget_guard(self):
+        adapter = (ROOT / "scripts" / "acquisition_remote.py").read_text(encoding="utf-8")
+        self.assertIn('ACCOUNT_API_URL = "https://serpapi.com/account.json"', adapter)
+        self.assertIn('account.get("this_hour_searches")', adapter)
+        self.assertIn('account.get("account_rate_limit_per_hour")', adapter)
+        self.assertIn('account.get("this_month_usage")', adapter)
+        self.assertIn('account.get("total_searches_left")', adapter)
+        self.assertIn("provider_cap == 0", adapter)
+        self.assertNotIn('print(account', adapter)
+        self.assertNotIn('json.dumps(account', adapter)
+
     def test_production_uses_remote_adapter_and_paginated_replenishment(self):
         workflow = (ROOT / ".github" / "workflows" / "update-jobs.yml").read_text(encoding="utf-8")
         adapter = (ROOT / "scripts" / "acquisition_remote.py").read_text(encoding="utf-8")
