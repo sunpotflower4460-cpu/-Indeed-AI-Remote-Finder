@@ -129,5 +129,13 @@
   ],
   "deduplicated_jobs": 0,
   "carryover_jobs": 0,
-  "postprocessed": true
+  "postprocessed": true,
+  "llm_provider_configured": false,
+  "llm_model": null,
+  "llm_reviewed_jobs": 0,
+  "llm_strict_jobs": 0,
+  "llm_new_reviews": 0,
+  "llm_reused_reviews": 0,
+  "llm_review_failures": 0,
+  "llm_errors": []
 }
