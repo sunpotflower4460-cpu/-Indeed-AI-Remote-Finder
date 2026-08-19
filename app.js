@@ -49,8 +49,13 @@ async function boot(){
     const d=await r.json();state.jobs=d.jobs||[];state.meta=d;
     const high=state.jobs.filter(j=>j.tier==='high').length, review=state.jobs.filter(j=>j.tier==='review').length;
     $('#countHigh').textContent=high;$('#countReview').textContent=review;$('#updated').textContent=fmtDate(d.generated_at);
-    $('#sourceHealth').textContent=d.query_total?`検索取得 ${d.query_success||0}/${d.query_total}`:'検索取得 -';
-    if((d.query_success||0)<(d.query_total||0))$('#sourceHealth').classList.add('warnText');
+    if(d.provider_configured===false){
+      $('#sourceHealth').textContent='初期候補を表示中・自動更新はSERPAPI_KEY設定後に有効';
+      $('#sourceHealth').classList.add('warnText');
+    }else{
+      $('#sourceHealth').textContent=d.query_total?`自動検索 ${d.query_success||0}/${d.query_total}・Indeed応募URL ${d.indeed_apply_jobs??'-'}件`:'自動検索 -';
+      if((d.query_success||0)<(d.query_total||0))$('#sourceHealth').classList.add('warnText');
+    }
     render();
   }catch(e){$('#jobs').innerHTML='<div class="empty"><b>求人データを読み込めませんでした。</b><br>下の「Indeedで今すぐ検索」は利用できます。</div>';$('#countHigh').textContent='0';$('#countReview').textContent='0';$('#updated').textContent='-';}
 }
