@@ -75,6 +75,7 @@ class ReviewTierLlmTests(unittest.TestCase):
         self.assertEqual(call.call_count, 2)
         self.assertEqual(got["llm_review_tier_new_reviews"], 2)
         self.assertEqual(got["llm_paid_attempts_month"], 18)
+        self.assertFalse(got["llm_review_tier_skipped_after_primary_failure"])
 
     def test_no_extra_call_when_primary_used_all_eight(self):
         month = base.month_key(datetime.now(timezone.utc))
@@ -84,6 +85,36 @@ class ReviewTierLlmTests(unittest.TestCase):
             got = mod.enrich_review_tier(payload, previous, api_key="fake", model="test")
         self.assertEqual(got["llm_review_tier_new_reviews"], 0)
         self.assertEqual(got["llm_paid_attempts_month"], 28)
+
+    def test_primary_failure_stops_spare_calls(self):
+        month = base.month_key(datetime.now(timezone.utc))
+        previous = {"llm_budget_month": month, "llm_paid_attempts_month": 30, "jobs": []}
+        payload = {
+            "llm_budget_month": month,
+            "llm_paid_attempts_month": 31,
+            "llm_review_failures": 1,
+            "llm_errors": ["x: provider error"],
+            "jobs": [review_job()],
+        }
+        with patch.object(base, "call_openai", side_effect=AssertionError("must not call")):
+            got = mod.enrich_review_tier(payload, previous, api_key="fake", model="test")
+        self.assertEqual(got["llm_review_tier_attempts"], 0)
+        self.assertTrue(got["llm_review_tier_skipped_after_primary_failure"])
+        self.assertEqual(got["llm_paid_attempts_month"], 31)
+
+    def test_uncertain_attempt_accounting_stops_spare_calls(self):
+        month = base.month_key(datetime.now(timezone.utc))
+        previous = {"llm_budget_month": month, "llm_paid_attempts_month": 40, "jobs": []}
+        payload = {
+            "llm_budget_month": month,
+            "llm_paid_attempts_month": 48,
+            "llm_attempts_uncertain": True,
+            "jobs": [review_job()],
+        }
+        with patch.object(base, "call_openai", side_effect=AssertionError("must not call")):
+            got = mod.enrich_review_tier(payload, previous, api_key="fake", model="test")
+        self.assertEqual(got["llm_review_tier_attempts"], 0)
+        self.assertTrue(got["llm_review_tier_skipped_after_primary_failure"])
 
     def test_monthly_cap_still_wins(self):
         month = base.month_key(datetime.now(timezone.utc))
