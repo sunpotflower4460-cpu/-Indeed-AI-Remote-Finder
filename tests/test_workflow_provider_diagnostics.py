@@ -13,7 +13,7 @@ class ProviderDiagnosticsWorkflowTests(unittest.TestCase):
 
     def test_safe_provider_health_is_stamped_after_acquisition(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
-        refresh = "run: python scripts/acquisition_supply.py"
+        refresh = "run: python scripts/acquisition_supply_yield.py"
         stamp = "run: python scripts/stamp_provider_health.py"
         postprocess = "run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json"
         self.assertIn(refresh, workflow)
