@@ -48,8 +48,22 @@ SCHEMA = {
         },
         "automation_summary": {"type": "string"},
         "automation_plan": {"type": "array", "items": {"type": "string"}},
-        "blockers": {"type": "array", "items": {"type": "string"}},
-        "questions_to_confirm": {"type": "array", "items": {"type": "string"}},
+        "blockers": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": (
+                "Only inherent technical or task barriers explicitly supported by the supplied job text. "
+                "Do not put missing, unspecified, or unknown workflow details here; those belong in questions_to_confirm."
+            ),
+        },
+        "questions_to_confirm": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": (
+                "Unknown or unspecified operational details to confirm, including tools, interfaces, rubrics, "
+                "data access, employer AI permission, confidentiality, or human approval requirements."
+            ),
+        },
     },
     "required": [
         "verdict",
@@ -76,7 +90,9 @@ Rules:
 - uncertain: evidence is incomplete, mixed, or hidden workflow details could materially change the answer.
 - reject: physical work, real-time persuasion/support, relationship work, management, frequent meetings/calls, or other inherently human activity is central.
 - If employer permission for AI, confidentiality rules, personal data handling, or external-AI usage is not explicit, put that in questions_to_confirm rather than inventing an answer.
-- blockers are actual technical/task blockers visible in the text, not generic legal cautions.
+- blockers must contain ONLY inherent technical/task barriers that are explicitly supported by the supplied job text and would materially prevent end-to-end technical automation.
+- Missing or unspecified tools, interfaces, rubrics, data formats, access methods, employer rules, approval steps, or other absent details are NOT blockers. Put them in questions_to_confirm.
+- If the verdict is strong, blockers should normally be empty. If an explicit material blocker is present, reconsider whether uncertain or reject is more accurate.
 - automation_plan should be concise and concrete, at most 5 steps.
 - questions_to_confirm should be concise, at most 5 items.
 Return only the schema-defined result.
