@@ -26,6 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
 DEFAULT_MODEL = "gpt-5.6-luna"
+DEFAULT_MAX_NEW_REVIEWS = 8
 
 SCHEMA = {
     "type": "object",
@@ -217,7 +218,7 @@ def call_openai(row: dict, api_key: str, model: str) -> dict:
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent": "AI-Remote-Finder/5.0",
+            "User-Agent": "AI-Remote-Finder/5.1",
         },
     )
     try:
@@ -248,7 +249,7 @@ def enrich(
     *,
     api_key: str,
     model: str,
-    max_new_reviews: int = 30,
+    max_new_reviews: int = DEFAULT_MAX_NEW_REVIEWS,
 ) -> dict:
     jobs = payload.get("jobs") or []
     prev_by_id = {
@@ -256,7 +257,7 @@ def enrich(
         for row in (previous.get("jobs") or [])
         if isinstance(row, dict) and row.get("id")
     }
-    new_reviews = reused = failures = 0
+    new_reviews = reused = failures = skipped_non_high = 0
     errors: list[str] = []
 
     for row in jobs:
@@ -281,6 +282,11 @@ def enrich(
         for key in ("llm_review", "llm_input_hash", "llm_model", "llm_reviewed_at", "llm_strict_pass"):
             row.pop(key, None)
 
+        # Cost guard: only deterministic high-confidence candidates receive a new
+        # paid LLM review. Review-tier rows remain visible through the free rules.
+        if row.get("tier") != "high":
+            skipped_non_high += 1
+            continue
         if not api_key or new_reviews >= max_new_reviews:
             continue
         try:
@@ -305,6 +311,8 @@ def enrich(
     payload["llm_new_reviews"] = new_reviews
     payload["llm_reused_reviews"] = reused
     payload["llm_review_failures"] = failures
+    payload["llm_skipped_non_high"] = skipped_non_high
+    payload["llm_max_new_reviews_per_run"] = max_new_reviews
     payload["llm_errors"] = errors[:8]
     return payload
 
@@ -313,7 +321,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--feed", type=Path, default=DEFAULT_FEED)
     parser.add_argument("--previous", type=Path)
-    parser.add_argument("--max-new-reviews", type=int, default=30)
+    parser.add_argument("--max-new-reviews", type=int, default=DEFAULT_MAX_NEW_REVIEWS)
     args = parser.parse_args()
 
     payload = load_json(args.feed)
@@ -335,7 +343,8 @@ def main() -> None:
     if api_key:
         print(
             f"LLM audit: reviewed={payload['llm_reviewed_jobs']} strict={payload['llm_strict_jobs']} "
-            f"new={payload['llm_new_reviews']} reused={payload['llm_reused_reviews']} failures={payload['llm_review_failures']}"
+            f"new={payload['llm_new_reviews']} reused={payload['llm_reused_reviews']} "
+            f"skipped_non_high={payload['llm_skipped_non_high']} failures={payload['llm_review_failures']}"
         )
     else:
         print(
