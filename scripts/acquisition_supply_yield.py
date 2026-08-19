@@ -5,6 +5,8 @@ This module does not relax any publication rule. It keeps the existing seven
 requests/day budget and v2 full-remote/autonomy/presence gates, while adding:
 
 - four short anchor variants containing ``Indeed`` as a source-bias experiment;
+- a rotation layout that guarantees every seven-search daily window contains at
+  least one Indeed-biased anchor and at least one ordinary anchor;
 - per-profile counts for rows seen, rows with apply options, Indeed apply paths,
   and rows that survive all deterministic publication gates;
 - coarse apply/via source counts with no URLs or secrets persisted.
@@ -21,18 +23,52 @@ import os
 import acquisition
 import acquisition_supply as base
 
-YIELD_TELEMETRY_VERSION = 1
+YIELD_TELEMETRY_VERSION = 2
 
-EXPERIMENTAL_ANCHORS: list[tuple[str, str]] = list(base.ANCHOR_QUERY_PROFILES) + [
+INDEED_BIAS_ANCHORS: list[tuple[str, str]] = [
     ("anchor_indeed_data", "完全在宅 データ入力 Indeed"),
     ("anchor_indeed_ai", "フルリモート AI評価 Indeed"),
     ("anchor_indeed_language", "完全在宅 翻訳 校正 Indeed"),
     ("anchor_indeed_content", "完全在宅 商品登録 Indeed"),
 ]
+EXPERIMENTAL_ANCHORS: list[tuple[str, str]] = list(base.ANCHOR_QUERY_PROFILES) + list(INDEED_BIAS_ANCHORS)
 
 _PROFILE_YIELD: dict[str, dict[str, int]] = {}
 _APPLY_SOURCE_COUNTS: Counter[str] = Counter()
 _VIA_SOURCE_COUNTS: Counter[str] = Counter()
+
+
+def measured_rotation_profiles(tasks: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Alternate ordinary and Indeed-biased anchors across the task rotation.
+
+    Base supply inserts one anchor after each pair of task profiles. A seven
+    profile window therefore contains at least two consecutive anchor slots.
+    Alternating the anchor stream ordinary/bias guarantees at least one source
+    probe per daily seven-search window without spending an additional request.
+    """
+    combined: list[tuple[str, str]] = []
+    ordinary_index = 0
+    bias_index = 0
+    anchor_slot = 0
+    use_bias = False
+
+    for offset in range(0, len(tasks), 2):
+        combined.extend(tasks[offset: offset + 2])
+        if use_bias:
+            name, query = INDEED_BIAS_ANCHORS[bias_index % len(INDEED_BIAS_ANCHORS)]
+            bias_index += 1
+        else:
+            name, query = base.ANCHOR_QUERY_PROFILES[
+                ordinary_index % len(base.ANCHOR_QUERY_PROFILES)
+            ]
+            ordinary_index += 1
+        combined.append((f"{name}_{anchor_slot:02d}", query))
+        anchor_slot += 1
+        use_bias = not use_bias
+    return combined
+
+
+PRODUCTION_QUERY_PROFILES = measured_rotation_profiles(base.TASK_QUERY_PROFILES)
 
 
 def reset_yield_telemetry() -> None:
@@ -133,11 +169,11 @@ def stamp_yield_metadata() -> None:
     payload = acquisition.load_payload()
     if not payload:
         return
-    payload["candidate_search_strategy"] = "anchor-rotation-indeed-yield-experiment-v1"
+    payload["candidate_search_strategy"] = "alternating-anchor-indeed-yield-experiment-v2"
     payload["candidate_search_anchor_templates"] = len(EXPERIMENTAL_ANCHORS)
-    payload["candidate_search_indeed_bias_anchor_templates"] = sum(
-        1 for name, _ in EXPERIMENTAL_ANCHORS if name.startswith("anchor_indeed_")
-    )
+    payload["candidate_search_indeed_bias_anchor_templates"] = len(INDEED_BIAS_ANCHORS)
+    payload["candidate_search_indeed_bias_min_per_daily_window"] = 1
+    payload["candidate_search_ordinary_anchor_min_per_daily_window"] = 1
     payload.update(yield_snapshot())
     acquisition.OUT.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -147,7 +183,7 @@ def stamp_yield_metadata() -> None:
 def main() -> None:
     reset_yield_telemetry()
     base.ANCHOR_QUERY_PROFILES = list(EXPERIMENTAL_ANCHORS)
-    base.PRODUCTION_QUERY_PROFILES = base.interleave_anchor_profiles(base.TASK_QUERY_PROFILES)
+    base.PRODUCTION_QUERY_PROFILES = list(PRODUCTION_QUERY_PROFILES)
     base.configure_supply_rotation()
     configure_yield_wrapper()
 
