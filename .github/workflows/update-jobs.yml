@@ -7,6 +7,7 @@ on:
     branches: ["main"]
     paths-ignore:
       - 'data/jobs.json'
+      - 'data/diagnostics.json'
 permissions:
   contents: write
 jobs:
@@ -22,11 +23,13 @@ jobs:
         run: python -m unittest discover -s tests -q
       - name: Refresh public search-index candidates
         run: python scripts/fetch_jobs.py
+      - name: Capture search-shape diagnostics
+        run: python scripts/diagnose_search.py
       - name: Commit refreshed feed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/jobs.json
+          git add data/jobs.json data/diagnostics.json
           git diff --cached --quiet && exit 0
           git commit -m "chore: refresh high-confidence job candidates"
           git push
