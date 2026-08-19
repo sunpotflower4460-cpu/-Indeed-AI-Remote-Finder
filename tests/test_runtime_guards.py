@@ -53,20 +53,20 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertNotIn('print(account', adapter)
         self.assertNotIn('json.dumps(account', adapter)
 
-    def test_production_uses_remote_adapter_and_paginated_replenishment(self):
+    def test_production_uses_rotating_async_first_page_supply(self):
         workflow = (ROOT / ".github" / "workflows" / "update-jobs.yml").read_text(encoding="utf-8")
         adapter = (ROOT / "scripts" / "acquisition_remote.py").read_text(encoding="utf-8")
-        acquisition = (ROOT / "scripts" / "acquisition.py").read_text(encoding="utf-8")
-        self.assertIn("python scripts/acquisition_remote.py", workflow)
+        supply = (ROOT / "scripts" / "acquisition_supply.py").read_text(encoding="utf-8")
+        self.assertIn("python scripts/acquisition_supply.py", workflow)
+        self.assertNotIn("run: python scripts/acquisition_remote.py", workflow)
         self.assertIn('params["ltype"] = "1"', adapter)
         self.assertIn("remote_api_filter=True", adapter)
-        self.assertIn("next_page_token", adapter)
-        self.assertIn("serpapi_pagination", adapter)
-        self.assertIn('pagination.get("next")', adapter)
-        self.assertIn('host not in {"serpapi.com", "www.serpapi.com"}', adapter)
-        self.assertIn("pagination_queue", acquisition)
-        self.assertIn("MAX_REQUESTS_PER_RUN = 30", acquisition)
-        self.assertNotIn("run: python scripts/fetch_jobs.py", workflow)
+        self.assertIn("PRODUCTION_QUERY_PROFILES", supply)
+        self.assertIn("DEEP_REQUESTS = 15", supply)
+        self.assertIn("MID_REQUESTS = 10", supply)
+        self.assertIn("TOPUP_REQUESTS = 6", supply)
+        self.assertIn('"rotating-async-first-pages"', supply)
+        self.assertIn("acquisition.QUERY_PROFILES = list(PRODUCTION_QUERY_PROFILES)", supply)
 
     def test_ai_substitution_policy_excludes_synchronous_attention_work(self):
         adapter = (ROOT / "scripts" / "acquisition_remote.py").read_text(encoding="utf-8")
