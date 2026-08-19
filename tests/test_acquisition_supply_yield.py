@@ -1,0 +1,72 @@
+import importlib.util
+import json
+import sys
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
+
+path = SCRIPTS / "acquisition_supply_yield.py"
+spec = importlib.util.spec_from_file_location("acquisition_supply_yield_test", path)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+
+
+class AcquisitionSupplyYieldTests(unittest.TestCase):
+    def setUp(self):
+        mod.reset_yield_telemetry()
+
+    def test_experiment_keeps_ordinary_anchors_and_adds_four_indeed_variants(self):
+        ordinary = set(mod.base.ANCHOR_QUERY_PROFILES)
+        experimental = set(mod.EXPERIMENTAL_ANCHORS)
+        self.assertTrue(ordinary.issubset(experimental))
+        biased = [(name, query) for name, query in mod.EXPERIMENTAL_ANCHORS if name.startswith("anchor_indeed_")]
+        self.assertEqual(len(biased), 4)
+        for name, query in biased:
+            self.assertIn("Indeed", query, name)
+            self.assertNotIn(" OR ", query, name)
+            self.assertLessEqual(len(query), 40, name)
+
+    def test_telemetry_counts_apply_sources_without_persisting_urls(self):
+        job = {
+            "title": "完全在宅 データ入力",
+            "via": "Google Jobs",
+            "apply_options": [
+                {"title": "Indeed", "link": "https://jp.indeed.com/viewjob?jk=SECRET_ID"},
+                {"title": "Company careers", "link": "https://example.com/private-token"},
+            ],
+        }
+        mod.observe_job(job, "anchor_indeed_data_08")
+        got = mod.yield_snapshot()
+        self.assertEqual(got["candidate_yield_jobs_seen"], 1)
+        self.assertEqual(got["candidate_jobs_with_apply_options"], 1)
+        self.assertEqual(got["candidate_jobs_with_indeed_apply"], 1)
+        self.assertEqual(got["candidate_indeed_apply_rate_pct"], 100.0)
+        self.assertEqual(got["candidate_apply_source_counts"]["Indeed"], 1)
+        serialized = json.dumps(got, ensure_ascii=False)
+        self.assertNotIn("SECRET_ID", serialized)
+        self.assertNotIn("private-token", serialized)
+
+    def test_no_apply_options_is_visible_as_zero_yield(self):
+        mod.observe_job(
+            {"title": "完全在宅 OCRチェック", "via": "Example source"},
+            "ocr_validation",
+        )
+        got = mod.yield_snapshot()
+        self.assertEqual(got["candidate_yield_jobs_seen"], 1)
+        self.assertEqual(got["candidate_jobs_with_apply_options"], 0)
+        self.assertEqual(got["candidate_jobs_with_indeed_apply"], 0)
+        self.assertEqual(got["candidate_apply_options_coverage_pct"], 0.0)
+        self.assertEqual(got["candidate_via_source_counts"]["Example source"], 1)
+
+    def test_source_labels_are_bounded_and_normalize_indeed(self):
+        self.assertEqual(mod._source_label("Apply on Indeed Japan"), "Indeed")
+        self.assertLessEqual(len(mod._source_label("x" * 200)), 60)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -36,7 +36,7 @@ jobs:
       - name: Refresh diverse autonomous-work candidates
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
-        run: python scripts/acquisition_supply.py
+        run: python scripts/acquisition_supply_yield.py
       - name: Stamp safe provider guard diagnostics
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
