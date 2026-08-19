@@ -47,6 +47,17 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn("python scripts/acquisition.py", workflow)
         self.assertNotIn("run: python scripts/fetch_jobs.py", workflow)
 
+    def test_recommendation_queue_defaults_to_all_and_hides_applied(self):
+        app = (ROOT / "app.js").read_text(encoding="utf-8")
+        index = (ROOT / "index.html").read_text(encoding="utf-8")
+        self.assertIn("const DEFAULT_VISIBLE=30", app)
+        self.assertIn("mode:'all'", app)
+        self.assertIn("if(isHidden||isApplied)return false", app)
+        self.assertIn("rows.slice(0,state.displayLimit)", app)
+        self.assertIn("state.displayLimit+=DEFAULT_VISIBLE", app)
+        self.assertIn('class="chip active" data-mode="all"', index)
+        self.assertIn('id="refreshFeed"', index)
+
     def test_actions_use_node24_setup_python(self):
         for relative in (
             Path(".github/workflows/check.yml"),
