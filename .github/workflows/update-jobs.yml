@@ -34,10 +34,10 @@ jobs:
         run: python -m unittest discover -s tests -q
       - name: Preserve previous feed for carryover and LLM cache
         run: cp data/jobs.json /tmp/previous-jobs.json
-      - name: Refresh candidates adaptively
+      - name: Refresh diverse autonomous-work candidates
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
-        run: python scripts/acquisition_remote.py
+        run: python scripts/acquisition_supply.py
       - name: Deduplicate and maintain rolling candidate pool
         run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
       - name: Optional LLM second-opinion audit
