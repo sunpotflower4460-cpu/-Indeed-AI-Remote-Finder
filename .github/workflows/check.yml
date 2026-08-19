@@ -14,9 +14,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Python scoring tests
+      - name: Python tests
         run: python -m unittest discover -s tests -q
       - name: Python syntax
-        run: python -m py_compile scripts/fetch_jobs.py
+        run: python -m py_compile scripts/fetch_jobs.py scripts/postprocess_feed.py scripts/validate_feed.py
+      - name: Validate current feed
+        run: python scripts/validate_feed.py
       - name: JavaScript syntax
         run: node --check app.js
