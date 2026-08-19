@@ -5,7 +5,8 @@
 - Collapse duplicate postings with the same normalized company/title.
 - Keep only v2 quality-screened missing jobs for up to the 30-day freshness window.
 - Rank live/new rows ahead of carried reserve rows so the app changes day to day.
-- Keep at most 100 ranked candidates in the server-side pool.
+- Keep at most 150 ranked candidates in the server-side pool, leaving surplus
+  inventory above the user's 100-unapplied-candidate target.
 """
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ DEFAULT_FEED = ROOT / "data" / "jobs.json"
 CARRYOVER_MAX = timedelta(days=30)
 PUBLISHED_MAX = timedelta(days=30)
 DISPLAY_TARGET = 30
-POOL_LIMIT = 100
+POOL_LIMIT = 150
 QUALITY_POLICY_VERSION = 2
 QUALITY_GATE = "async-ai-remote-v2"
 REVIEW_AUTOMATION_MIN = 64
@@ -174,7 +175,11 @@ def reserve_row_is_quality_gated(row: dict) -> bool:
             return False
         if int(row.get("human_dependency_risk") or 0) > REVIEW_HUMAN_RISK_MAX:
             return False
-        reasons = {str(value or "").strip().lower() for value in row.get("automation_reasons") or [] if str(value or "").strip()}
+        reasons = {
+            str(value or "").strip().lower()
+            for value in row.get("automation_reasons") or []
+            if str(value or "").strip()
+        }
         if len(reasons) < REVIEW_AUTOMATION_SIGNAL_MIN:
             return False
     return True
@@ -244,16 +249,25 @@ def process(current_payload: dict, previous_payload: dict | None = None) -> dict
     visible = combined[:POOL_LIMIT]
     current_payload["jobs"] = visible
     current_payload["candidate_pool_size"] = len(visible)
-    current_payload["live_jobs"] = sum(1 for row in visible if str(row.get("id") or "") in live_ids)
-    current_payload["new_jobs"] = sum(
-        1 for row in visible if str(row.get("id") or "") not in previous_ids and not row.get("carryover")
+    current_payload["candidate_postprocess_pool_limit"] = POOL_LIMIT
+    current_payload["live_jobs"] = sum(
+        1 for row in visible if str(row.get("id") or "") in live_ids
     )
-    current_payload["remote_search_only_jobs"] = sum(1 for row in visible if row.get("remote_search_only"))
+    current_payload["new_jobs"] = sum(
+        1
+        for row in visible
+        if str(row.get("id") or "") not in previous_ids and not row.get("carryover")
+    )
+    current_payload["remote_search_only_jobs"] = sum(
+        1 for row in visible if row.get("remote_search_only")
+    )
     current_payload["deduplicated_jobs"] = removed
     current_payload["remote_contradiction_dropped"] = contradiction_dropped
     current_payload["carryover_jobs"] = sum(1 for row in visible if row.get("carryover"))
     current_payload["candidate_reserve_max_days"] = int(CARRYOVER_MAX.days)
-    current_payload["pool_under_display_target"] = len(visible) < int(current_payload.get("candidate_display_target") or DISPLAY_TARGET)
+    current_payload["pool_under_display_target"] = len(visible) < int(
+        current_payload.get("candidate_display_target") or DISPLAY_TARGET
+    )
     current_payload["postprocessed"] = True
     return current_payload
 
