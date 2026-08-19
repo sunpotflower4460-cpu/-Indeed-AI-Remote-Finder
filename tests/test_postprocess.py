@@ -24,6 +24,8 @@ def row(jid, title="AI Annotator", company="Example", tier="high", last_seen=Non
         "freshness_confidence": 90,
         "score": score,
         "automation_confidence": 95,
+        "autonomy_attention_risk": "low",
+        "autonomy_policy_version": 1,
         "last_seen": (last_seen or now).isoformat(),
         "first_seen": (first_seen or now).isoformat(),
         "search_published_at": (published or (now - timedelta(days=2))).isoformat(),
@@ -80,6 +82,13 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual(carried[0]["last_seen"], old_seen.isoformat())
         self.assertLessEqual(carried[0]["freshness_confidence"], 58)
 
+    def test_legacy_unscreened_missing_job_is_not_carried(self):
+        now = datetime.now(timezone.utc)
+        old = row("legacy", last_seen=now - timedelta(days=2))
+        old.pop("autonomy_attention_risk")
+        old.pop("autonomy_policy_version")
+        self.assertEqual(mod.carryover_rows([], [old], now), [])
+
     def test_missing_job_older_than_14_days_is_dropped(self):
         now = datetime.now(timezone.utc)
         self.assertEqual(mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=15))], now), [])
@@ -109,7 +118,7 @@ class PostprocessTests(unittest.TestCase):
         now = datetime.now(timezone.utc)
         current = [row("new", company="New", tier="review", first_seen=now)]
         previous = [row("old", company="Old", tier="review", last_seen=now - timedelta(days=2), first_seen=now - timedelta(days=3))]
-        payload = {"generated_at": now.isoformat(), "candidate_display_target": 30, "jobs": current}
+        payload = {"generated_at": now.isoformat(), "candidate_display_target": 100, "jobs": current}
         got = mod.process(payload, {"jobs": previous})
         self.assertEqual(got["candidate_pool_size"], 2)
         self.assertEqual(got["new_jobs"], 1)
@@ -120,7 +129,7 @@ class PostprocessTests(unittest.TestCase):
     def test_pool_is_capped_at_one_hundred(self):
         now = datetime.now(timezone.utc)
         rows = [row(str(i), title=f"Role {i}", company=f"Company {i}", last_seen=now) for i in range(130)]
-        got = mod.process({"generated_at": now.isoformat(), "jobs": rows}, None)
+        got = mod.process({"generated_at": now.isoformat(), "candidate_display_target": 100, "jobs": rows}, None)
         self.assertEqual(len(got["jobs"]), 100)
         self.assertEqual(got["candidate_pool_size"], 100)
         self.assertFalse(got["pool_under_display_target"])
