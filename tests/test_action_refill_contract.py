@@ -13,6 +13,8 @@ class ActionRefillContractTests(unittest.TestCase):
         cls.continuity = (ROOT / "continuity.js").read_text(encoding="utf-8")
         cls.ux = (ROOT / "ux.js").read_text(encoding="utf-8")
         cls.source_tabs = (ROOT / "source-tabs.js").read_text(encoding="utf-8")
+        cls.partner_config = (ROOT / "indeed-partner-config.js").read_text(encoding="utf-8")
+        cls.indeed_official = (ROOT / "indeed-official.js").read_text(encoding="utf-8")
         cls.pages = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
 
     def test_existing_queue_replaces_actioned_row_immediately(self):
@@ -45,12 +47,20 @@ class ActionRefillContractTests(unittest.TestCase):
     def test_pages_bundles_all_browser_layers_after_core_app(self):
         self.assertIn("cp index.html app.js sw.js manifest.webmanifest icon.svg _site/", self.pages)
         self.assertIn(
-            "cat integrity.js refill.js continuity.js ux.js source-tabs.js >> _site/app.js",
+            "cat integrity.js refill.js continuity.js ux.js source-tabs.js indeed-partner-config.js indeed-official.js >> _site/app.js",
             self.pages,
         )
 
     def test_browser_layers_have_no_authenticated_or_search_api_calls(self):
-        for source in (self.integrity, self.refill, self.continuity, self.ux, self.source_tabs):
+        for source in (
+            self.integrity,
+            self.refill,
+            self.continuity,
+            self.ux,
+            self.source_tabs,
+            self.partner_config,
+            self.indeed_official,
+        ):
             lower = source.lower()
             self.assertNotIn("serpapi.com", lower)
             self.assertNotIn("api.github.com", lower)
