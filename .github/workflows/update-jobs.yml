@@ -12,7 +12,10 @@ permissions:
   contents: write
 concurrency:
   group: update-job-candidates
-  cancel-in-progress: false
+  # Candidate-policy pushes already invalidate older generated feeds at commit
+  # time. Cancel those superseded runs early instead of queueing them, wasting
+  # provider budget, and only discarding them at the final stale-main guard.
+  cancel-in-progress: true
 jobs:
   update:
     runs-on: ubuntu-latest
