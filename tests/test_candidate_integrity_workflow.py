@@ -17,9 +17,11 @@ class CandidateIntegrityWorkflowTests(unittest.TestCase):
             self.assertLess(gate, remote_validator)
             self.assertLess(gate, integrity_validator)
 
-    def test_pages_bundles_integrity_layer_before_cache_continuity(self):
+    def test_pages_bundles_integrity_layer_before_cache_continuity_and_ux(self):
         workflow = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
-        self.assertIn("cat integrity.js refill.js continuity.js >> _site/app.js", workflow)
+        self.assertIn("cat integrity.js refill.js continuity.js ux.js >> _site/app.js", workflow)
+        self.assertLess(workflow.index("integrity.js"), workflow.index("continuity.js"))
+        self.assertLess(workflow.index("continuity.js"), workflow.index("ux.js"))
 
     def test_pwa_integrity_layer_evicts_old_cache_and_requires_row_stamp(self):
         source = (ROOT / "integrity.js").read_text(encoding="utf-8")
@@ -30,7 +32,7 @@ class CandidateIntegrityWorkflowTests(unittest.TestCase):
 
     def test_check_workflow_syntax_checks_every_browser_layer(self):
         workflow = (ROOT / ".github/workflows/check.yml").read_text(encoding="utf-8")
-        for filename in ("app.js", "integrity.js", "refill.js", "continuity.js", "sw.js"):
+        for filename in ("app.js", "integrity.js", "refill.js", "continuity.js", "ux.js", "sw.js"):
             self.assertIn(f"node --check {filename}", workflow)
 
 
