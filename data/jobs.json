@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-20T05:28:25.409530+00:00",
+  "generated_at": "2026-08-20T05:33:26.156273+00:00",
   "query_success": 3,
   "query_total": 3,
-  "raw_jobs": 30,
-  "indeed_apply_jobs": 17,
+  "raw_jobs": 15,
+  "indeed_apply_jobs": 2,
   "malformed_jobs": 0,
   "errors": [],
   "method": "serpapi-google-jobs-adaptive-indeed-apply-only",
@@ -18,18 +18,18 @@
   "serpapi_budget_month": "2026-08",
   "serpapi_requests_run": 3,
   "serpapi_paginated_requests_run": 0,
-  "serpapi_requests_month": 176,
+  "serpapi_requests_month": 179,
   "serpapi_monthly_request_cap": 220,
   "serpapi_monthly_pacing_version": 1,
   "serpapi_month_days_remaining": 12,
-  "serpapi_requests_month_before_run": 173,
-  "serpapi_monthly_requests_remaining_before_run": 47,
+  "serpapi_requests_month_before_run": 176,
+  "serpapi_monthly_requests_remaining_before_run": 44,
   "serpapi_pool_based_request_limit": 7,
   "serpapi_monthly_paced_request_limit": 3,
   "serpapi_effective_request_limit": 3,
   "serpapi_monthly_pacing_active": true,
-  "serpapi_monthly_requests_remaining_after_run": 44,
-  "serpapi_rotation_cursor": 4,
+  "serpapi_monthly_requests_remaining_after_run": 41,
+  "serpapi_rotation_cursor": 7,
   "jobs": [
     {
       "id": "96c392b2298159a2",
@@ -134,46 +134,42 @@
   "candidate_rich_listing_excerpt_max": 6000,
   "candidate_full_listing_presence_screened": true,
   "candidate_quality_gate_telemetry_version": 1,
-  "candidate_quality_evaluated_jobs": 30,
-  "candidate_quality_pre_llm_accepted": 1,
-  "candidate_quality_rejected_jobs": 29,
+  "candidate_quality_evaluated_jobs": 15,
+  "candidate_quality_pre_llm_accepted": 0,
+  "candidate_quality_rejected_jobs": 15,
   "candidate_quality_rejection_counts": {
     "no-indeed-apply": 13,
-    "synchronous-human-attention": 10,
-    "score-below-candidate-floor": 3,
-    "partial-or-conditional-remote": 3
+    "partial-or-conditional-remote": 1,
+    "synchronous-human-attention": 1
   },
   "candidate_quality_rejection_by_profile": [
     {
-      "profile": "anchor_core_data_entry_00",
+      "profile": "data_cleanup",
       "evaluated": 10,
-      "accepted": 1,
-      "rejected": 9,
+      "accepted": 0,
+      "rejected": 10,
       "reasons": {
         "no-indeed-apply": 8,
-        "score-below-candidate-floor": 1
+        "partial-or-conditional-remote": 1,
+        "synchronous-human-attention": 1
       }
     },
     {
-      "profile": "anchor_indeed_data_01",
-      "evaluated": 10,
+      "profile": "csv_ops",
+      "evaluated": 3,
       "accepted": 0,
-      "rejected": 10,
+      "rejected": 3,
       "reasons": {
-        "synchronous-human-attention": 6,
-        "partial-or-conditional-remote": 3,
-        "score-below-candidate-floor": 1
+        "no-indeed-apply": 3
       }
     },
     {
-      "profile": "data_entry_excel",
-      "evaluated": 10,
+      "profile": "anchor_core_annotation_02",
+      "evaluated": 2,
       "accepted": 0,
-      "rejected": 10,
+      "rejected": 2,
       "reasons": {
-        "no-indeed-apply": 5,
-        "synchronous-human-attention": 4,
-        "score-below-candidate-floor": 1
+        "no-indeed-apply": 2
       }
     }
   ],
@@ -203,73 +199,73 @@
   "candidate_search_ordinary_anchor_min_per_daily_window": 0,
   "candidate_search_source_targeted_min_per_daily_window": 0,
   "candidate_yield_telemetry_version": 6,
-  "candidate_yield_jobs_seen": 30,
-  "candidate_jobs_with_apply_options": 30,
-  "candidate_jobs_with_indeed_apply": 17,
-  "candidate_deterministic_gate_accepted": 1,
+  "candidate_yield_jobs_seen": 15,
+  "candidate_jobs_with_apply_options": 15,
+  "candidate_jobs_with_indeed_apply": 2,
+  "candidate_deterministic_gate_accepted": 0,
   "candidate_apply_options_coverage_pct": 100.0,
-  "candidate_indeed_apply_rate_pct": 56.7,
-  "candidate_deterministic_accept_rate_pct": 3.3,
+  "candidate_indeed_apply_rate_pct": 13.3,
+  "candidate_deterministic_accept_rate_pct": 0.0,
   "candidate_apply_source_counts": {
-    "Indeed": 17,
-    "バイトル": 6,
-    "求人検索エンジン | SimplyHired": 3,
-    "タウンワーク": 3,
-    "BeBee": 2,
+    "レバテックキャリア": 3,
+    "Indeed": 2,
     "はたらいく": 2,
-    "FunJapan": 1,
-    "エン派遣": 1,
-    "クラウドワークス": 1,
-    "Qiita Careers": 1
+    "エイジレスフリーランス": 1,
+    "レバテックフリーランス": 1,
+    "Midworks": 1,
+    "タウンワーク": 1,
+    "Q-Mate.jp": 1,
+    "マイナビパートナーズ紹介": 1,
+    "ママワークス": 1
   },
   "candidate_via_source_counts": {
-    "Indeed": 16,
-    "バイトル": 6,
-    "FunJapan": 1,
-    "エン派遣": 1,
-    "クラウドワークス": 1,
-    "はたらいく": 1,
-    "イーキャリアFA": 1,
+    "レバテックキャリア": 3,
+    "Indeed": 2,
+    "エイジレスフリーランス": 1,
+    "レバテックフリーランス": 1,
+    "Midworks": 1,
+    "マイナビパートナーズ紹介": 1,
     "ママワークス": 1,
-    "BeBee": 1,
-    "スマートキャリア - しゅふJOBスタッフィング": 1
+    "Type女性の転職エージェント": 1,
+    "はたらいく": 1,
+    "求人": 1
   },
   "candidate_search_profile_yield": [
     {
-      "profile": "anchor_core_data_entry_00",
+      "profile": "data_cleanup",
       "seen": 10,
       "apply_options": 10,
       "indeed_apply": 2,
-      "accepted": 1
-    },
-    {
-      "profile": "anchor_indeed_data_01",
-      "seen": 10,
-      "apply_options": 10,
-      "indeed_apply": 10,
       "accepted": 0
     },
     {
-      "profile": "data_entry_excel",
-      "seen": 10,
-      "apply_options": 10,
-      "indeed_apply": 5,
+      "profile": "csv_ops",
+      "seen": 3,
+      "apply_options": 3,
+      "indeed_apply": 0,
+      "accepted": 0
+    },
+    {
+      "profile": "anchor_core_annotation_02",
+      "seen": 2,
+      "apply_options": 2,
+      "indeed_apply": 0,
       "accepted": 0
     }
   ],
-  "serpapi_guard_checked_at": "2026-08-20T05:28:30.393711+00:00",
+  "serpapi_guard_checked_at": "2026-08-20T05:33:46.420915+00:00",
   "serpapi_guard_status": "ready",
-  "serpapi_safe_request_headroom": 77,
-  "serpapi_provider_month_usage": 173,
+  "serpapi_safe_request_headroom": 72,
+  "serpapi_provider_month_usage": 178,
   "candidate_refresh_pipeline_version": 2,
-  "candidate_refresh_attempted_at": "2026-08-20T05:28:30.604222+00:00",
+  "candidate_refresh_attempted_at": "2026-08-20T05:33:46.609877+00:00",
   "candidate_acquisition_step_outcome": "success",
   "candidate_acquisition_outcome": "success",
   "candidate_refresh_preserved_previous_feed": false,
   "candidate_pool_size": 1,
   "candidate_postprocess_pool_limit": 150,
   "live_jobs": 0,
-  "new_jobs": 1,
+  "new_jobs": 0,
   "remote_search_only_jobs": 0,
   "deduplicated_jobs": 0,
   "remote_contradiction_dropped": 0,
@@ -282,10 +278,10 @@
   "llm_reasoning_effort": "none",
   "llm_reviewed_jobs": 1,
   "llm_strict_jobs": 1,
-  "llm_new_reviews": 1,
+  "llm_new_reviews": 0,
   "llm_reused_reviews": 1,
   "llm_review_failures": 0,
-  "llm_skipped_non_high": 1,
+  "llm_skipped_non_high": 0,
   "llm_max_new_reviews_per_run": 8,
   "llm_budget_month": "2026-08",
   "llm_paid_attempts_month": 14,
@@ -293,8 +289,8 @@
   "llm_monthly_budget_exhausted": false,
   "llm_fatal_error": null,
   "llm_errors": [],
-  "llm_review_tier_new_reviews": 1,
-  "llm_review_tier_attempts": 1,
+  "llm_review_tier_new_reviews": 0,
+  "llm_review_tier_attempts": 0,
   "llm_review_tier_skipped_after_primary_failure": false,
   "llm_run_attempt_cap": 8,
   "llm_error_status": null,
@@ -302,14 +298,10 @@
   "llm_error_code": null,
   "candidate_presence_gate_version": 1,
   "candidate_requires_no_continuous_human_presence": true,
-  "quality_gate_dropped": 1,
-  "quality_gate_drop_reasons": {
-    "confirmed-occasional-sync": 1
-  },
+  "quality_gate_dropped": 0,
+  "quality_gate_drop_reasons": {},
   "presence_quality_dropped": 0,
   "presence_quality_drop_reasons": {},
-  "llm_quality_dropped": 1,
-  "llm_quality_drop_reasons": {
-    "confirmed-occasional-sync": 1
-  }
+  "llm_quality_dropped": 0,
+  "llm_quality_drop_reasons": {}
 }
