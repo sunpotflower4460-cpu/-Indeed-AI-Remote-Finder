@@ -7,9 +7,14 @@ validation from fetch_jobs.py. The difference is acquisition strategy:
 - many rotating search themes while the pool is shallow;
 - second-page pagination while the visible pool is below target;
 - a small steady-state request budget once the pool is healthy;
-- a conservative monthly request cap;
+- a conservative monthly request cap with remaining-month pacing;
 - review-tier fallback for plausible next-best digital/remote work, while the
   existing high tier remains unchanged and strict.
+
+The pacing layer matters when manual or post-merge refreshes consume requests in
+addition to the normal once-daily schedule. It never changes candidate quality
+thresholds; it only lowers a run's request count when current-month usage is
+running ahead of the remaining calendar budget.
 """
 from __future__ import annotations
 
@@ -41,6 +46,7 @@ STEADY_REQUESTS = 2
 # for page 2 of productive themes. The monthly cap remains the final guard.
 MAX_REQUESTS_PER_RUN = 30
 DEFAULT_MONTHLY_REQUEST_CAP = 220
+MONTHLY_PACING_VERSION = 1
 DEFAULT_SEARCH_ORIGIN = "Tokyo, Japan"
 
 REMOTE_QUERY = (
@@ -132,6 +138,53 @@ def configured_monthly_cap() -> int:
         return max(1, min(5000, int(raw)))
     except Exception:
         return DEFAULT_MONTHLY_REQUEST_CAP
+
+
+def month_days_remaining(now: datetime = NOW) -> int:
+    """Return UTC calendar days remaining in the provider budget month, inclusive."""
+    current = now if now.tzinfo else now.replace(tzinfo=timezone.utc)
+    current = current.astimezone(timezone.utc)
+    if current.month == 12:
+        next_month = current.replace(
+            year=current.year + 1,
+            month=1,
+            day=1,
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+    else:
+        next_month = current.replace(
+            month=current.month + 1,
+            day=1,
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+    return max(1, (next_month.date() - current.date()).days)
+
+
+def paced_monthly_request_limit(
+    requests_month: int,
+    monthly_cap: int,
+    now: datetime = NOW,
+) -> int:
+    """Spread remaining quota over the rest of the month after extra refreshes.
+
+    The normal daily budget remains the upper bound elsewhere. This helper only
+    supplies a lower cap when current usage is ahead of a once-daily cadence.
+    A minimum of one request is retained while quota remains so a sparse feed can
+    still make progress; the hard monthly cap remains authoritative.
+    """
+    used = max(0, int(requests_month))
+    cap = max(0, int(monthly_cap))
+    remaining = max(0, cap - used)
+    if remaining <= 0:
+        return 0
+    days_left = month_days_remaining(now)
+    return max(1, remaining // days_left)
 
 
 def configured_search_origin() -> str:
@@ -275,6 +328,7 @@ def main() -> None:
     month = month_key()
     monthly_cap = configured_monthly_cap()
     requests_month = previous_request_count(previous_payload, month)
+    requests_month_before_run = requests_month
     remaining = max(0, monthly_cap - requests_month)
     if remaining <= 0:
         print("SerpApi monthly safety cap reached; preserving the last known-good feed.")
@@ -286,8 +340,11 @@ def main() -> None:
         cursor = 0
     profiles = rotated_profiles(cursor)
     desired_requests = request_limit_for_pool(pool_size)
-    request_limit = min(desired_requests, remaining)
+    paced_limit = paced_monthly_request_limit(requests_month, monthly_cap, NOW)
+    request_limit = min(desired_requests, remaining, paced_limit)
     first_page_limit = min(len(profiles), request_limit)
+    days_left = month_days_remaining(NOW)
+    pacing_active = request_limit < min(desired_requests, remaining)
 
     found: dict[str, dict] = {}
     errors: list[str] = []
@@ -401,6 +458,15 @@ def main() -> None:
         "serpapi_paginated_requests_run": paginated_requests,
         "serpapi_requests_month": requests_month,
         "serpapi_monthly_request_cap": monthly_cap,
+        "serpapi_monthly_pacing_version": MONTHLY_PACING_VERSION,
+        "serpapi_month_days_remaining": days_left,
+        "serpapi_requests_month_before_run": requests_month_before_run,
+        "serpapi_monthly_requests_remaining_before_run": remaining,
+        "serpapi_pool_based_request_limit": desired_requests,
+        "serpapi_monthly_paced_request_limit": paced_limit,
+        "serpapi_effective_request_limit": request_limit,
+        "serpapi_monthly_pacing_active": pacing_active,
+        "serpapi_monthly_requests_remaining_after_run": max(0, monthly_cap - requests_month),
         "serpapi_rotation_cursor": (cursor + first_page_limit) % len(QUERY_PROFILES),
         "jobs": jobs,
     }
@@ -408,11 +474,12 @@ def main() -> None:
     OUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     high = sum(1 for row in jobs if row["tier"] == "high")
     review = sum(1 for row in jobs if row["tier"] == "review")
+    pacing_note = f", paced limit {request_limit}/{desired_requests}" if pacing_active else ""
     print(
         f"wrote {len(jobs)} fresh candidates ({high} high / {review} review); "
         f"requests {query_success}/{requests_run} including {paginated_requests} page2, "
         f"raw {raw_jobs}, Indeed apply {indeed_apply_jobs}; rolling pool before refresh "
-        f"{pool_size}, SerpApi month {requests_month}/{monthly_cap}"
+        f"{pool_size}, SerpApi month {requests_month}/{monthly_cap}{pacing_note}"
     )
 
 
