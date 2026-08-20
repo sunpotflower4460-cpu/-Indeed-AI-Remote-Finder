@@ -195,8 +195,8 @@ def target_tuple(job: dict) -> tuple[str, str] | None:
 def _row_has_verified_indeed(row: object) -> bool:
     if not isinstance(row, dict):
         return False
-    if str(row.get("apply_source_kind") or "").strip().lower() == "indeed":
-        return True
+    if str(row.get("apply_source_kind") or "").strip().lower() != "indeed":
+        return False
     return _indeed_target(_clean(row.get("url"))) is not None
 
 
