@@ -16,6 +16,12 @@ MAX_JOBS = 150
 MAX_LLM_REVIEWS_PER_RUN = 8
 MAX_LLM_PAID_ATTEMPTS_PER_MONTH = 700
 BUDGET_MODEL = "gpt-5.6-luna"
+REVIEW_QUALITY_POLICY_VERSION = 2
+REVIEW_QUALITY_GATE = "async-ai-remote-v2"
+REVIEW_AUTOMATION_MIN = 64
+REVIEW_HUMAN_RISK_MAX = 18
+REVIEW_AUTOMATION_SIGNAL_MIN = 2
+PRESENCE_GATE_VERSION = 1
 
 
 def parse_iso(value: str | None) -> datetime | None:
@@ -28,6 +34,42 @@ def parse_iso(value: str | None) -> datetime | None:
         return dt.astimezone(timezone.utc)
     except Exception:
         return None
+
+
+def review_tier_strict_context_valid(row: dict) -> bool:
+    """Allow strict LLM review rows only inside the current deterministic safety envelope.
+
+    REVIEW rows are intentionally audited by ``llm_review_quality.py`` when the
+    primary HIGH-tier audit has spare budget. A strong LLM result does not
+    promote the deterministic tier; it is valid only when the row still carries
+    every v2 review-quality and final presence-gate proof.
+    """
+    if not isinstance(row, dict) or row.get("tier") != "review":
+        return False
+    try:
+        automation = int(row.get("automation_confidence") or 0)
+        human_risk = int(row.get("human_dependency_risk") or 0)
+        quality_version = int(row.get("quality_policy_version") or 0)
+        presence_version = int(row.get("presence_gate_version") or 0)
+    except (TypeError, ValueError):
+        return False
+    reasons = {
+        str(value or "").strip().lower()
+        for value in row.get("automation_reasons") or []
+        if str(value or "").strip()
+    }
+    return bool(
+        quality_version == REVIEW_QUALITY_POLICY_VERSION
+        and row.get("quality_gate") == REVIEW_QUALITY_GATE
+        and row.get("autonomy_attention_risk") == "low"
+        and row.get("remote_search_only") is not True
+        and automation >= REVIEW_AUTOMATION_MIN
+        and human_risk <= REVIEW_HUMAN_RISK_MAX
+        and len(reasons) >= REVIEW_AUTOMATION_SIGNAL_MIN
+        and row.get("full_listing_presence_screened") is True
+        and presence_version == PRESENCE_GATE_VERSION
+        and row.get("continuous_presence_risk") == "low"
+    )
 
 
 def validate_llm(row: dict, prefix: str, errors: list[str]) -> None:
@@ -82,8 +124,17 @@ def validate_llm(row: dict, prefix: str, errors: list[str]) -> None:
         errors.append(f"{prefix}.llm_review.strict_pass inconsistent")
     if strict_flag is not expected_strict:
         errors.append(f"{prefix}.llm_strict_pass inconsistent")
-    if strict_flag is True and row.get("tier") != "high":
-        errors.append(f"{prefix} LLM strict pass requires deterministic high tier")
+    if strict_flag is True:
+        tier = row.get("tier")
+        if tier == "high":
+            pass
+        elif tier == "review":
+            if not review_tier_strict_context_valid(row):
+                errors.append(
+                    f"{prefix} review-tier LLM strict pass lacks current deterministic quality/presence proof"
+                )
+        else:
+            errors.append(f"{prefix} LLM strict pass requires high or quality-gated review tier")
 
 
 def validate_llm_metadata(payload: dict, errors: list[str]) -> None:
