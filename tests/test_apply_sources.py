@@ -23,7 +23,7 @@ class ApplySourceTests(unittest.TestCase):
     def test_indeed_remains_first_choice(self):
         got = mod.find_trusted_apply(
             self.job(
-                "https://next.rikunabi.com/viewjob/jk123456",
+                "https://jobs.lever.co/example/123456",
                 "https://jp.indeed.com/viewjob?jk=abc123456",
             )
         )
@@ -47,7 +47,36 @@ class ApplySourceTests(unittest.TestCase):
                 self.assertIsNotNone(got)
                 self.assertEqual(got.source, source)
                 self.assertEqual(got.kind, "trusted-job-board")
-                self.assertTrue(got.job_id.startswith("board-"))
+                self.assertTrue(got.job_id.startswith("apply-"))
+
+    def test_major_ats_hosts_are_allowed(self):
+        cases = (
+            ("https://jobs.lever.co/weloglobal/abc123", "Lever"),
+            ("https://boards.greenhouse.io/example/jobs/123456", "Greenhouse"),
+            ("https://job-boards.greenhouse.io/example/jobs/123456", "Greenhouse"),
+            ("https://jobs.ashbyhq.com/example/abc123", "Ashby"),
+            ("https://example.wd3.myworkdayjobs.com/en-US/jobs/job/Japan/abc", "Workday"),
+            ("https://jobs.smartrecruiters.com/Example/123456-role", "SmartRecruiters"),
+            ("https://apply.workable.com/example/j/ABC123/", "Workable"),
+        )
+        for url, source in cases:
+            with self.subTest(source=source):
+                got = mod.find_trusted_apply(self.job(url))
+                self.assertIsNotNone(got)
+                self.assertEqual(got.source, source)
+                self.assertEqual(got.kind, "trusted-ats")
+
+    def test_verified_provider_application_hosts_are_allowed(self):
+        cases = (
+            ("https://app.outlier.ai/login?job_post_id=4505556005", "Outlier"),
+            ("https://jobs.telusdigital.com/en_US/careers/PipelineDetail/abc/123", "TELUS Digital"),
+        )
+        for url, source in cases:
+            with self.subTest(source=source):
+                got = mod.find_trusted_apply(self.job(url))
+                self.assertIsNotNone(got)
+                self.assertEqual(got.source, source)
+                self.assertEqual(got.kind, "trusted-provider")
 
     def test_unknown_aggregator_is_not_allowed(self):
         self.assertIsNone(
@@ -64,11 +93,12 @@ class ApplySourceTests(unittest.TestCase):
             mod.find_trusted_apply(self.job("https://townwork.net/"))
         )
 
-    def test_board_job_id_is_stable_for_same_url(self):
-        url = "https://townwork.net/viewjob/abc123?from=googlejobs"
+    def test_non_indeed_job_id_is_stable_for_same_url(self):
+        url = "https://jobs.lever.co/weloglobal/abc123?lever-source=googlejobs"
         first = mod.find_trusted_apply(self.job(url))
         second = mod.find_trusted_apply(self.job(url))
         self.assertEqual(first.job_id, second.job_id)
+        self.assertTrue(first.job_id.startswith("apply-"))
 
 
 if __name__ == "__main__":
