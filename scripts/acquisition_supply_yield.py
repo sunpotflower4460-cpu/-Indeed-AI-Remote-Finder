@@ -1,24 +1,27 @@
 #!/usr/bin/env python3
-"""Measured supply experiment layered on top of the strict production pipeline.
+"""Measured supply strategy layered on top of the strict production pipeline.
 
-This module does not relax any publication rule. It keeps the existing seven
-requests/day budget and v2 full-remote/autonomy/presence gates, while improving
-where those seven requests are spent:
+This module never relaxes publication rules or the seven-request/day budget.
+It improves where those seven searches are spent and can temporarily switch to
+an Indeed source-recovery mode when measured telemetry shows that otherwise
+relevant Google Jobs rows are mostly unusable because they do not expose an
+Indeed application path.
 
-- short async-core anchors target work that is structurally easier to automate
-  end-to-end (data entry, annotation, AI rating, OCR, labeling, document/data ops);
-- four short anchor variants containing ``Indeed`` remain as a source-bias
-  experiment;
-- the rotation layout alternates task exploration and async anchors so every
-  seven-search daily window contains at least three async-core probes, including
-  at least one Indeed-biased probe and one ordinary core probe;
-- per-profile counts record rows seen, apply options, Indeed apply paths, and
-  rows surviving all deterministic publication gates;
-- coarse apply/via source counts persist no URLs or secrets.
+Normal mode:
+- alternate long-tail task exploration with async-core anchors;
+- keep at least three async-core probes in every seven-search window;
+- retain an Indeed-biased probe for source-yield measurement.
 
-The final publication gates are unchanged. More search budget is pointed toward
-work that can plausibly pass those gates instead of weakening the gates when
-supply is sparse.
+Source-recovery mode:
+- activate only when the previous low-stock run evaluated enough jobs and at
+  least half were rejected solely because there was no Indeed apply path;
+- use Google Jobs query operators to target ``site:jp.indeed.com`` and exact
+  ``完全在宅`` / ``フルリモート`` phrases for all seven requests;
+- automatically fall back to normal exploration when that measured source
+  bottleneck is no longer present or the recovery run returns too little data.
+
+Every returned row still passes the same v2 full-remote/autonomy/presence gates
+and final LLM vetoes before publication.
 """
 from __future__ import annotations
 
@@ -29,7 +32,12 @@ import os
 import acquisition
 import acquisition_supply as base
 
-YIELD_TELEMETRY_VERSION = 3
+YIELD_TELEMETRY_VERSION = 4
+SOURCE_RECOVERY_VERSION = 1
+SOURCE_RECOVERY_MIN_EVALUATED = 10
+SOURCE_RECOVERY_NO_INDEED_RATIO = 0.50
+SOURCE_RECOVERY_POOL_CEILING = 30
+INDEED_SITE_OPERATOR = "site:jp.indeed.com"
 
 # These anchors intentionally avoid categories that commonly introduce recurring
 # human coordination (for example translation/localization project work). They
@@ -46,29 +54,48 @@ ASYNC_CORE_ANCHORS: list[tuple[str, str]] = [
     ("anchor_core_metadata", "フルリモート タグ付け データ整理"),
 ]
 
+# These are still useful in normal mode, but use the supported Google Jobs
+# `site:` operator instead of merely appending the word "Indeed".
 INDEED_BIAS_ANCHORS: list[tuple[str, str]] = [
-    ("anchor_indeed_data", "完全在宅 データ入力 Indeed"),
-    ("anchor_indeed_annotation", "完全在宅 アノテーション Indeed"),
-    ("anchor_indeed_rater", "フルリモート AI評価 Indeed"),
-    ("anchor_indeed_ocr", "完全在宅 OCR チェック Indeed"),
+    ("anchor_indeed_data", '"完全在宅" "データ入力" site:jp.indeed.com'),
+    ("anchor_indeed_annotation", '"完全在宅" アノテーション site:jp.indeed.com'),
+    ("anchor_indeed_rater", '"フルリモート" "AI評価" site:jp.indeed.com'),
+    ("anchor_indeed_ocr", '"完全在宅" OCR site:jp.indeed.com'),
 ]
 
 EXPERIMENTAL_ANCHORS: list[tuple[str, str]] = list(ASYNC_CORE_ANCHORS) + list(INDEED_BIAS_ANCHORS)
 
+# When source recovery is active, all seven daily requests come from this list.
+# The list is deliberately longer than one daily window so consecutive recovery
+# runs still explore different async task families.
+SOURCE_RECOVERY_QUERY_PROFILES: list[tuple[str, str]] = [
+    ("source_data_entry_home", '"完全在宅" "データ入力" site:jp.indeed.com'),
+    ("source_data_entry_remote", '"フルリモート" "データ入力" site:jp.indeed.com'),
+    ("source_annotation_home", '"完全在宅" アノテーション site:jp.indeed.com'),
+    ("source_annotation_remote", '"フルリモート" アノテーション site:jp.indeed.com'),
+    ("source_ai_rating_home", '"完全在宅" "AI評価" site:jp.indeed.com'),
+    ("source_ai_trainer_remote", '"フルリモート" "AIトレーナー" site:jp.indeed.com'),
+    ("source_ocr_home", '"完全在宅" OCR site:jp.indeed.com'),
+    ("source_labeling_remote", '"フルリモート" ラベリング site:jp.indeed.com'),
+    ("source_transcription_home", '"完全在宅" "文字起こし" site:jp.indeed.com'),
+    ("source_proofreading_home", '"完全在宅" 校正 site:jp.indeed.com'),
+    ("source_product_entry_home", '"完全在宅" "商品登録" site:jp.indeed.com'),
+    ("source_document_check_home", '"完全在宅" "書類チェック" site:jp.indeed.com'),
+    ("source_data_check_home", '"完全在宅" "データチェック" site:jp.indeed.com'),
+    ("source_metadata_remote", '"フルリモート" "タグ付け" site:jp.indeed.com'),
+    ("source_web_research_home", '"完全在宅" "Webリサーチ" site:jp.indeed.com'),
+    ("source_testing_home", '"完全在宅" "動作確認" site:jp.indeed.com'),
+]
+
 _PROFILE_YIELD: dict[str, dict[str, int]] = {}
 _APPLY_SOURCE_COUNTS: Counter[str] = Counter()
 _VIA_SOURCE_COUNTS: Counter[str] = Counter()
+_ACTIVE_SOURCE_RECOVERY = False
+_SOURCE_RECOVERY_TRIGGER_RATIO = 0.0
 
 
 def measured_rotation_profiles(tasks: list[tuple[str, str]]) -> list[tuple[str, str]]:
-    """Alternate one exploratory task with one high-likelihood async anchor.
-
-    Anchors themselves alternate ordinary-core / Indeed-biased. Because every
-    second profile is an anchor, any circular seven-profile window contains at
-    least three anchors. Alternating anchor classes guarantees each seven-search
-    window contains both an ordinary core probe and an Indeed-biased source
-    probe, while the task slots continue to explore the long-tail profile set.
-    """
+    """Alternate one exploratory task with one high-likelihood async anchor."""
     combined: list[tuple[str, str]] = []
     core_index = 0
     bias_index = 0
@@ -90,6 +117,42 @@ def measured_rotation_profiles(tasks: list[tuple[str, str]]) -> list[tuple[str, 
 
 
 PRODUCTION_QUERY_PROFILES = measured_rotation_profiles(base.TASK_QUERY_PROFILES)
+
+
+def _nonnegative_int(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def source_recovery_signal(payload: dict | None) -> tuple[bool, float]:
+    """Return whether the previous feed proves an Indeed-source bottleneck."""
+    if not isinstance(payload, dict):
+        return False, 0.0
+    pool = _nonnegative_int(payload.get("candidate_pool_size"))
+    evaluated = _nonnegative_int(payload.get("candidate_quality_evaluated_jobs"))
+    counts = payload.get("candidate_quality_rejection_counts") or {}
+    no_indeed = _nonnegative_int(counts.get("no-indeed-apply")) if isinstance(counts, dict) else 0
+    ratio = (no_indeed / evaluated) if evaluated else 0.0
+    active = bool(
+        pool < SOURCE_RECOVERY_POOL_CEILING
+        and evaluated >= SOURCE_RECOVERY_MIN_EVALUATED
+        and ratio >= SOURCE_RECOVERY_NO_INDEED_RATIO
+    )
+    return active, ratio
+
+
+def select_query_profiles(previous_payload: dict | None) -> list[tuple[str, str]]:
+    global _ACTIVE_SOURCE_RECOVERY, _SOURCE_RECOVERY_TRIGGER_RATIO
+    active, ratio = source_recovery_signal(previous_payload)
+    _ACTIVE_SOURCE_RECOVERY = active
+    _SOURCE_RECOVERY_TRIGGER_RATIO = ratio
+    if active:
+        return list(SOURCE_RECOVERY_QUERY_PROFILES)
+    return list(PRODUCTION_QUERY_PROFILES)
 
 
 def reset_yield_telemetry() -> None:
@@ -193,13 +256,35 @@ def stamp_yield_metadata() -> None:
     payload = acquisition.load_payload()
     if not payload:
         return
-    payload["candidate_search_strategy"] = "async-core-interleaved-indeed-yield-v3"
+    payload["candidate_search_strategy"] = (
+        "indeed-site-source-recovery-v1"
+        if _ACTIVE_SOURCE_RECOVERY
+        else "async-core-interleaved-indeed-yield-v4"
+    )
     payload["candidate_search_anchor_templates"] = len(EXPERIMENTAL_ANCHORS)
     payload["candidate_search_async_core_anchor_templates"] = len(ASYNC_CORE_ANCHORS)
     payload["candidate_search_indeed_bias_anchor_templates"] = len(INDEED_BIAS_ANCHORS)
-    payload["candidate_search_anchor_min_per_daily_window"] = 3
-    payload["candidate_search_indeed_bias_min_per_daily_window"] = 1
-    payload["candidate_search_ordinary_anchor_min_per_daily_window"] = 1
+    payload["candidate_search_source_recovery_version"] = SOURCE_RECOVERY_VERSION
+    payload["candidate_search_source_recovery_active"] = _ACTIVE_SOURCE_RECOVERY
+    payload["candidate_search_source_recovery_trigger_ratio_pct"] = round(
+        _SOURCE_RECOVERY_TRIGGER_RATIO * 100, 1
+    )
+    payload["candidate_search_source_recovery_ratio_threshold_pct"] = round(
+        SOURCE_RECOVERY_NO_INDEED_RATIO * 100, 1
+    )
+    payload["candidate_search_source_recovery_min_evaluated"] = SOURCE_RECOVERY_MIN_EVALUATED
+    payload["candidate_search_source_recovery_pool_ceiling"] = SOURCE_RECOVERY_POOL_CEILING
+    payload["candidate_search_site_operator"] = INDEED_SITE_OPERATOR
+    if _ACTIVE_SOURCE_RECOVERY:
+        payload["candidate_search_anchor_min_per_daily_window"] = 0
+        payload["candidate_search_indeed_bias_min_per_daily_window"] = base.DEEP_REQUESTS
+        payload["candidate_search_ordinary_anchor_min_per_daily_window"] = 0
+        payload["candidate_search_source_targeted_min_per_daily_window"] = base.DEEP_REQUESTS
+    else:
+        payload["candidate_search_anchor_min_per_daily_window"] = 3
+        payload["candidate_search_indeed_bias_min_per_daily_window"] = 1
+        payload["candidate_search_ordinary_anchor_min_per_daily_window"] = 1
+        payload["candidate_search_source_targeted_min_per_daily_window"] = 1
     payload.update(yield_snapshot())
     acquisition.OUT.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -209,8 +294,10 @@ def stamp_yield_metadata() -> None:
 def main() -> None:
     reset_yield_telemetry()
     base.acquisition_quality.reset_quality_telemetry()
+    previous_payload = acquisition.load_payload()
+    selected_profiles = select_query_profiles(previous_payload)
     base.ANCHOR_QUERY_PROFILES = list(EXPERIMENTAL_ANCHORS)
-    base.PRODUCTION_QUERY_PROFILES = list(PRODUCTION_QUERY_PROFILES)
+    base.PRODUCTION_QUERY_PROFILES = selected_profiles
     base.configure_supply_rotation()
     configure_yield_wrapper()
 

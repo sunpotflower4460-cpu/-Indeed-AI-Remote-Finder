@@ -19,8 +19,9 @@ spec.loader.exec_module(mod)
 class AcquisitionSupplyYieldTests(unittest.TestCase):
     def setUp(self):
         mod.reset_yield_telemetry()
+        mod.select_query_profiles({})
 
-    def test_async_core_and_indeed_anchor_templates_are_short_and_task_focused(self):
+    def test_async_core_and_indeed_anchor_templates_are_task_focused(self):
         self.assertGreaterEqual(len(mod.ASYNC_CORE_ANCHORS), 8)
         self.assertEqual(len(mod.INDEED_BIAS_ANCHORS), 4)
         all_names = [name for name, _ in mod.EXPERIMENTAL_ANCHORS]
@@ -36,11 +37,11 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
             self.assertNotIn(" OR ", query, name)
             self.assertLessEqual(len(query), 40, name)
         for name, query in mod.INDEED_BIAS_ANCHORS:
-            self.assertIn("Indeed", query, name)
+            self.assertIn(mod.INDEED_SITE_OPERATOR, query, name)
+            self.assertTrue('"完全在宅"' in query or '"フルリモート"' in query, name)
             self.assertNotIn(" OR ", query, name)
-            self.assertLessEqual(len(query), 40, name)
 
-    def test_every_daily_window_has_three_anchors_and_both_anchor_classes(self):
+    def test_every_normal_daily_window_has_three_anchors_and_both_anchor_classes(self):
         profiles = mod.PRODUCTION_QUERY_PROFILES
         size = len(profiles)
         self.assertGreaterEqual(size, mod.base.DEEP_REQUESTS)
@@ -61,6 +62,67 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
                 f"missing ordinary async-core anchor start={start} window={window}",
             )
 
+    def test_source_recovery_profiles_all_target_japanese_indeed_and_explicit_remote(self):
+        self.assertGreaterEqual(len(mod.SOURCE_RECOVERY_QUERY_PROFILES), 14)
+        for name, query in mod.SOURCE_RECOVERY_QUERY_PROFILES:
+            self.assertIn(mod.INDEED_SITE_OPERATOR, query, name)
+            self.assertTrue('"完全在宅"' in query or '"フルリモート"' in query, name)
+            self.assertNotIn(" OR ", query, name)
+
+    def test_source_recovery_activates_only_for_measured_no_indeed_bottleneck(self):
+        active, ratio = mod.source_recovery_signal(
+            {
+                "candidate_pool_size": 0,
+                "candidate_quality_evaluated_jobs": 28,
+                "candidate_quality_rejection_counts": {"no-indeed-apply": 22},
+            }
+        )
+        self.assertTrue(active)
+        self.assertAlmostEqual(ratio, 22 / 28)
+
+        for payload in (
+            {
+                "candidate_pool_size": 0,
+                "candidate_quality_evaluated_jobs": 28,
+                "candidate_quality_rejection_counts": {"no-indeed-apply": 10},
+            },
+            {
+                "candidate_pool_size": 0,
+                "candidate_quality_evaluated_jobs": 9,
+                "candidate_quality_rejection_counts": {"no-indeed-apply": 9},
+            },
+            {
+                "candidate_pool_size": mod.SOURCE_RECOVERY_POOL_CEILING,
+                "candidate_quality_evaluated_jobs": 28,
+                "candidate_quality_rejection_counts": {"no-indeed-apply": 22},
+            },
+            {},
+        ):
+            active, _ = mod.source_recovery_signal(payload)
+            self.assertFalse(active, payload)
+
+    def test_profile_selector_switches_to_recovery_and_can_fall_back(self):
+        recovery = mod.select_query_profiles(
+            {
+                "candidate_pool_size": 0,
+                "candidate_quality_evaluated_jobs": 20,
+                "candidate_quality_rejection_counts": {"no-indeed-apply": 15},
+            }
+        )
+        self.assertTrue(mod._ACTIVE_SOURCE_RECOVERY)
+        self.assertEqual(recovery, mod.SOURCE_RECOVERY_QUERY_PROFILES)
+        self.assertTrue(all(mod.INDEED_SITE_OPERATOR in query for _, query in recovery))
+
+        normal = mod.select_query_profiles(
+            {
+                "candidate_pool_size": 0,
+                "candidate_quality_evaluated_jobs": 20,
+                "candidate_quality_rejection_counts": {"no-indeed-apply": 2},
+            }
+        )
+        self.assertFalse(mod._ACTIVE_SOURCE_RECOVERY)
+        self.assertEqual(normal, mod.PRODUCTION_QUERY_PROFILES)
+
     def test_rotation_keeps_same_seven_request_budget(self):
         mod.base.PRODUCTION_QUERY_PROFILES = list(mod.PRODUCTION_QUERY_PROFILES)
         mod.base.configure_supply_rotation()
@@ -78,7 +140,7 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
         }
         mod.observe_job(job, "anchor_indeed_data_08")
         got = mod.yield_snapshot()
-        self.assertEqual(got["candidate_yield_telemetry_version"], 3)
+        self.assertEqual(got["candidate_yield_telemetry_version"], 4)
         self.assertEqual(got["candidate_yield_jobs_seen"], 1)
         self.assertEqual(got["candidate_jobs_with_apply_options"], 1)
         self.assertEqual(got["candidate_jobs_with_indeed_apply"], 1)
