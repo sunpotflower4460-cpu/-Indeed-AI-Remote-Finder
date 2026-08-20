@@ -22,9 +22,13 @@ jobs:
         run: |
           python scripts/validate_feed_trusted.py
           python scripts/validate_remote_feed.py
+          python scripts/validate_candidate_integrity.py
       - name: Validate manifest JSON
         run: python -m json.tool manifest.webmanifest > /dev/null
       - name: JavaScript syntax
         run: |
           node --check app.js
+          node --check integrity.js
+          node --check refill.js
+          node --check continuity.js
           node --check sw.js
