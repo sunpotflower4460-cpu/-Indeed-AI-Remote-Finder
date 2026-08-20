@@ -8,7 +8,8 @@ instead of discarding an otherwise high-quality remote/AI-automatable listing
 before the strict quality gates can evaluate it.
 
 This module never crawls or scrapes a job board or ATS. It only validates
-structured ``apply_options`` URLs already returned by SerpApi/Google Jobs.
+structured ``apply_options`` URLs already returned by SerpApi/Google Jobs or
+application URLs returned by documented public employer ATS feeds.
 """
 from __future__ import annotations
 
@@ -39,6 +40,7 @@ TRUSTED_ATS_HOSTS: tuple[tuple[str, str], ...] = (
     ("jobs.lever.co", "Lever"),
     ("boards.greenhouse.io", "Greenhouse"),
     ("job-boards.greenhouse.io", "Greenhouse"),
+    ("job-boards.eu.greenhouse.io", "Greenhouse"),
     ("jobs.ashbyhq.com", "Ashby"),
     ("myworkdayjobs.com", "Workday"),
     ("jobs.smartrecruiters.com", "SmartRecruiters"),

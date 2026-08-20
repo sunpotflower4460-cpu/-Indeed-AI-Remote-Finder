@@ -11,13 +11,23 @@ class QualityLayerWiringTests(unittest.TestCase):
         self.assertIn('return "explicit-ai-tool-ban"', text)
         self.assertIn("acquisition_quality.prefilter_rejection_reason = policy_aware_prefilter", text)
 
-    def test_final_ai_policy_gate_runs_after_llm_gate_before_validation(self):
+    def test_public_ats_supplement_runs_before_postprocess_without_serpapi_secret(self):
+        workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
+        supplement = workflow.index("python scripts/supplement_public_ats.py")
+        postprocess = workflow.index("python scripts/postprocess_feed.py")
+        self.assertLess(supplement, postprocess)
+        ats_step = workflow[workflow.rfind("- name:", 0, supplement):supplement]
+        self.assertNotIn("SERPAPI_KEY", ats_step)
+        self.assertIn("--previous /tmp/previous-jobs.json", workflow)
+
+    def test_final_ai_policy_gate_runs_after_llm_gate_before_trusted_validation(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
         llm = workflow.index("python scripts/apply_llm_quality_gate.py")
         policy = workflow.index("python scripts/apply_ai_tool_policy_gate.py")
-        validate = workflow.index("python scripts/validate_feed.py")
+        validate = workflow.index("python scripts/validate_feed_trusted.py")
         self.assertLess(llm, policy)
         self.assertLess(policy, validate)
+        self.assertNotIn("python scripts/validate_feed.py\n", workflow)
 
     def test_server_reserve_window_is_fourteen_days(self):
         post = (ROOT / "scripts/postprocess_feed.py").read_text(encoding="utf-8")
