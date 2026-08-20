@@ -18,10 +18,12 @@ class RefreshTriggerSingletonTests(unittest.TestCase):
         self.assertNotIn("pull_request_target:", workflow)
         self.assertNotIn("gh workflow run update-jobs.yml", workflow)
 
-    def test_refreshes_remain_serialized(self):
+    def test_refreshes_are_serialized_but_latest_policy_wins(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
         self.assertIn("group: update-job-candidates", workflow)
-        self.assertIn("cancel-in-progress: false", workflow)
+        self.assertIn("cancel-in-progress: true", workflow)
+        self.assertNotIn("cancel-in-progress: false", workflow)
+        self.assertIn("stale generated-feed commit", workflow)
 
 
 if __name__ == "__main__":
