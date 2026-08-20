@@ -37,8 +37,9 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
             self.assertNotIn(" OR ", query, name)
             self.assertLessEqual(len(query), 40, name)
         for name, query in mod.INDEED_BIAS_ANCHORS:
-            self.assertIn(mod.INDEED_SITE_OPERATOR, query, name)
+            self.assertIn(mod.INDEED_SOURCE_BIAS_TERM, query, name)
             self.assertTrue('"完全在宅"' in query or '"フルリモート"' in query, name)
+            self.assertNotIn("site:", query, name)
             self.assertNotIn(" OR ", query, name)
 
     def test_every_normal_daily_window_has_three_anchors_and_both_anchor_classes(self):
@@ -62,11 +63,12 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
                 f"missing ordinary async-core anchor start={start} window={window}",
             )
 
-    def test_source_recovery_profiles_all_target_japanese_indeed_and_explicit_remote(self):
+    def test_source_recovery_profiles_use_empirical_indeed_keyword_and_explicit_remote(self):
         self.assertGreaterEqual(len(mod.SOURCE_RECOVERY_QUERY_PROFILES), 14)
         for name, query in mod.SOURCE_RECOVERY_QUERY_PROFILES:
-            self.assertIn(mod.INDEED_SITE_OPERATOR, query, name)
+            self.assertIn(mod.INDEED_SOURCE_BIAS_TERM, query, name)
             self.assertTrue('"完全在宅"' in query or '"フルリモート"' in query, name)
+            self.assertNotIn("site:", query, name)
             self.assertNotIn(" OR ", query, name)
 
     def test_source_recovery_activates_only_for_measured_no_indeed_bottleneck(self):
@@ -101,6 +103,50 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
             active, _ = mod.source_recovery_signal(payload)
             self.assertFalse(active, payload)
 
+    def test_failed_current_recovery_enters_cooldown_and_counts_down(self):
+        active, ratio, cooldown, reason = mod.source_recovery_decision(
+            {
+                "candidate_pool_size": 0,
+                "candidate_quality_evaluated_jobs": 0,
+                "candidate_quality_rejection_counts": {},
+                "candidate_search_source_recovery_active": True,
+                "candidate_search_source_recovery_version": mod.SOURCE_RECOVERY_VERSION,
+                "candidate_search_source_recovery_trigger_ratio_pct": 78.6,
+            }
+        )
+        self.assertFalse(active)
+        self.assertEqual(ratio, 0.0)
+        self.assertEqual(cooldown, mod.SOURCE_RECOVERY_COOLDOWN_RUNS)
+        self.assertEqual(reason, "recovery-empty-backoff")
+
+        active, _, cooldown, reason = mod.source_recovery_decision(
+            {
+                "candidate_pool_size": 0,
+                "candidate_quality_evaluated_jobs": 20,
+                "candidate_quality_rejection_counts": {"no-indeed-apply": 18},
+                "candidate_search_source_recovery_cooldown_runs_remaining": 3,
+            }
+        )
+        self.assertFalse(active)
+        self.assertEqual(cooldown, 2)
+        self.assertEqual(reason, "cooldown")
+
+    def test_strategy_upgrade_can_retry_previous_empty_v1_once(self):
+        active, ratio, cooldown, reason = mod.source_recovery_decision(
+            {
+                "candidate_pool_size": 0,
+                "candidate_quality_evaluated_jobs": 0,
+                "candidate_quality_rejection_counts": {},
+                "candidate_search_source_recovery_active": True,
+                "candidate_search_source_recovery_version": 1,
+                "candidate_search_source_recovery_trigger_ratio_pct": 78.6,
+            }
+        )
+        self.assertTrue(active)
+        self.assertAlmostEqual(ratio, 0.786)
+        self.assertEqual(cooldown, 0)
+        self.assertEqual(reason, "strategy-upgrade-retry")
+
     def test_profile_selector_switches_to_recovery_and_can_fall_back(self):
         recovery = mod.select_query_profiles(
             {
@@ -111,7 +157,7 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
         )
         self.assertTrue(mod._ACTIVE_SOURCE_RECOVERY)
         self.assertEqual(recovery, mod.SOURCE_RECOVERY_QUERY_PROFILES)
-        self.assertTrue(all(mod.INDEED_SITE_OPERATOR in query for _, query in recovery))
+        self.assertTrue(all(mod.INDEED_SOURCE_BIAS_TERM in query for _, query in recovery))
 
         normal = mod.select_query_profiles(
             {
@@ -140,7 +186,7 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
         }
         mod.observe_job(job, "anchor_indeed_data_08")
         got = mod.yield_snapshot()
-        self.assertEqual(got["candidate_yield_telemetry_version"], 4)
+        self.assertEqual(got["candidate_yield_telemetry_version"], 5)
         self.assertEqual(got["candidate_yield_jobs_seen"], 1)
         self.assertEqual(got["candidate_jobs_with_apply_options"], 1)
         self.assertEqual(got["candidate_jobs_with_indeed_apply"], 1)
