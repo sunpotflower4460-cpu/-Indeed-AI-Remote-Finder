@@ -92,6 +92,37 @@ def _normalized(value: object) -> str:
     return unicodedata.normalize("NFKC", str(value or "")).lower()
 
 
+def _eligibility_signal(row: dict) -> str | None:
+    """Return only explicit Japan/worldwide eligibility, never generic Remote.
+
+    A plain "Remote" label is insufficient for this product: many remote jobs
+    are still country-restricted. We require Japan in the structured location or
+    a strong eligibility phrase in the listing, or explicit worldwide/anywhere
+    availability. This keeps "Japan-compatible" evidence positive rather than
+    merely the absence of a foreign restriction.
+    """
+    location = _normalized(row.get("location"))
+    text = _normalized(_text(row))
+    if re.search(r"\bjapan\b", location) or "日本" in location:
+        return "japan-explicit"
+    if any(value in location for value in ("worldwide", "world wide", "global", "anywhere")):
+        return "worldwide-explicit"
+    if any(
+        re.search(pattern, text, re.I | re.S)
+        for pattern in (
+            r"\b(?:based|located|residing|living)\s+in\s+japan\b",
+            r"\b(?:must|required\s+to|need\s+to|currently)\s+(?:be\s+)?(?:based|located|residing|living)\s+in\s+japan\b",
+            r"\bavailable\s+in.{0,240}\bjapan\b",
+            r"\bjapanese\s*[-(]\s*japan\b",
+            r"\bjapan\s*\(\s*japanese\s*\)",
+        )
+    ):
+        return "japan-explicit"
+    if re.search(r"\b(?:worldwide|world\s+wide|anywhere\s+in\s+the\s+world|work\s+from\s+anywhere)\b", text):
+        return "worldwide-explicit"
+    return None
+
+
 def japan_eligibility_rejection(row: dict) -> str | None:
     title = _normalized(row.get("title"))
     location = _normalized(row.get("location"))
@@ -106,13 +137,13 @@ def japan_eligibility_rejection(row: dict) -> str | None:
             return f"foreign-residence-or-work-rights:{match.group(1).lower()}"
 
     # Location fields like "USA (Remote)" or "Canada - Remote" are explicit
-    # enough to reject when they are not qualified as worldwide/global/Japan.
-    global_hint = any(value in location for value in ("worldwide", "world wide", "global", "anywhere"))
-    japan_hint = bool(re.search(r"\bjapan\b", location)) or "日本" in location
-    if not global_hint and not japan_hint:
+    # enough to reject even before the positive eligibility-evidence check.
+    signal = _eligibility_signal(row)
+    if signal is None:
         for market in FOREIGN_MARKETS:
             if market in location and "remote" in location:
                 return f"foreign-remote-location:{market}"
+        return "japan-eligibility-not-explicit"
     return None
 
 
@@ -128,12 +159,7 @@ def identity_dependency_rejection(row: dict) -> str | None:
 
 
 def japan_eligibility_status(row: dict) -> str:
-    text = _normalized(_text(row))
-    if re.search(r"\bjapan\b", text) or "日本" in text:
-        return "japan-explicit"
-    if any(value in text for value in ("worldwide", "world wide", "global", "anywhere")):
-        return "worldwide-explicit"
-    return "no-foreign-restriction-detected"
+    return _eligibility_signal(row) or "not-explicit"
 
 
 def _canonical_title(row: dict) -> str:
@@ -226,6 +252,7 @@ def apply(payload: dict) -> dict:
     payload["candidate_integrity_gate_version"] = INTEGRITY_GATE_VERSION
     payload["candidate_semantic_dedupe_version"] = SEMANTIC_DEDUPE_VERSION
     payload["candidate_requires_japan_compatible"] = True
+    payload["candidate_requires_explicit_japan_or_worldwide"] = True
     payload["candidate_rejects_personal_identity_tasks"] = True
     payload["candidate_integrity_checked"] = len(rows)
     payload["candidate_integrity_dropped"] = len(rows) - len(kept) - semantic_removed
@@ -251,6 +278,8 @@ def validate_active_payload(payload: dict) -> list[str]:
             errors.append(f"{prefix} requires personal identity/presence: {reason}")
         if int(row.get("candidate_integrity_gate_version") or 0) < INTEGRITY_GATE_VERSION:
             errors.append(f"{prefix} missing integrity-gate stamp")
+        if row.get("japan_eligibility_status") not in {"japan-explicit", "worldwide-explicit"}:
+            errors.append(f"{prefix} missing explicit Japan/worldwide eligibility stamp")
         fp = semantic_fingerprint(row)
         if fp in seen:
             errors.append(f"{prefix} duplicates a semantic role family")
