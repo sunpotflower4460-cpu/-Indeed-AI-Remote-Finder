@@ -35,7 +35,7 @@ import supplement_public_ats as base
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
-VERSION = 1
+VERSION = 2
 TARGET_POOL = 30
 MAX_Welo_PAGES = 5
 LEVER_PAGE_SIZE = 200
@@ -147,16 +147,21 @@ def _lilt_language_job(post: dict) -> dict | None:
     }
 
 
+def _explicit_japan_market(text: str) -> bool:
+    """Match Japan as a market token without mistaking 'Japanese' for 'Japan'."""
+    return bool(re.search(r"\bjapan\b", str(text or "").lower()))
+
+
 def _prolific_title_eligible(title: str) -> bool:
     lower = title.lower()
     if "japanese" not in lower or "ai train" not in lower:
         return False
-    # Explicit Japan roles are fine. The generic Advanced Japanese Fluency role
-    # is also worldwide/remote. Exclude titles tied to named foreign markets.
-    if "japan" in lower:
-        return True
+    # Reject named foreign markets before considering an explicit Japan token.
+    # The substring "japan" inside "japanese" must never qualify a role.
     if any(value in lower for value in FOREIGN_GEO_HINTS):
         return False
+    if _explicit_japan_market(lower):
+        return True
     return "advanced japanese fluency" in lower
 
 
@@ -187,6 +192,9 @@ def _prolific_job(post: dict) -> dict | None:
     location_obj = post.get("location") or {}
     location = base._clean(location_obj.get("name") if isinstance(location_obj, dict) else location_obj)
     body = base._clean(post.get("content"))
+    location_lower = location.lower()
+    if any(term in location_lower for term in FOREIGN_GEO_HINTS) and not _explicit_japan_market(location_lower):
+        return None
     combined = f"{title} {location} {body}".lower()
     if any(term in combined for term in base.CLEAR_HUMAN_MEDIA_BLOCKERS):
         return None
