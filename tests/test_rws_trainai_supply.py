@@ -67,11 +67,12 @@ class RWSTrainAISupplyTests(unittest.TestCase):
         self.assertIsNot(row.get("remote_search_only"), True)
         self.assertTrue(str(row.get("url", "")).startswith("https://jobs.lever.co/rws/"))
 
-    def test_rws_stops_network_work_at_user_stock_target(self):
-        existing = [{"id": f"existing-{i}"} for i in range(100)]
+    def test_rws_stops_network_work_at_pre_final_target(self):
+        existing = [{"id": f"existing-{i}"} for i in range(120)]
         out = mod.supplement({"jobs": existing}, {}, posts=[rws_japanese()])
-        self.assertEqual(len(out["jobs"]), 100)
-        self.assertEqual(out["candidate_rws_trainai_skipped"], "pool-at-or-above-user-stock-target")
+        self.assertEqual(len(out["jobs"]), 120)
+        self.assertEqual(out["candidate_rws_trainai_skipped"], "pool-at-or-above-pre-final-target")
+        self.assertTrue(out["candidate_rws_trainai_pre_final_ready"])
 
 
 if __name__ == "__main__":
