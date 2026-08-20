@@ -13,7 +13,11 @@ class RefreshResilienceWorkflowTests(unittest.TestCase):
             workflow.index("- name: Stamp safe provider guard diagnostics")
         ]
         self.assertIn("continue-on-error: true", acquisition_block)
-        self.assertIn("python scripts/acquisition_supply_yield.py", acquisition_block)
+        self.assertIn("python scripts/acquisition_precision.py", acquisition_block)
+
+        wrapper = (ROOT / "scripts/acquisition_precision.py").read_text(encoding="utf-8")
+        self.assertIn("import acquisition_supply_yield as supply", wrapper)
+        self.assertIn("supply.main()", wrapper)
 
         provider_block = workflow[
             workflow.index("- name: Stamp safe provider guard diagnostics"):
