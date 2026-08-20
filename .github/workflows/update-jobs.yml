@@ -52,6 +52,13 @@ jobs:
         if: always()
         continue-on-error: true
         run: python scripts/supplement_targeted_public_ats_buffered.py --previous /tmp/previous-jobs.json
+      - name: Match exact Indeed URLs from the public web index
+        id: indeed_index
+        if: always()
+        continue-on-error: true
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+        run: python scripts/supplement_indeed_web_index.py --previous /tmp/previous-jobs.json
       - name: Stamp safe provider guard diagnostics
         if: always()
         env:

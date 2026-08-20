@@ -9,6 +9,8 @@ class SimplifiedUXContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.ux = (ROOT / "ux.js").read_text(encoding="utf-8")
         cls.source_tabs = (ROOT / "source-tabs.js").read_text(encoding="utf-8")
+        cls.indeed_config = (ROOT / "indeed-partner-config.js").read_text(encoding="utf-8")
+        cls.indeed_official = (ROOT / "indeed-official.js").read_text(encoding="utf-8")
         cls.pages = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
         cls.check = (ROOT / ".github/workflows/check.yml").read_text(encoding="utf-8")
 
@@ -52,13 +54,21 @@ class SimplifiedUXContractTests(unittest.TestCase):
             self.assertIn(needle, self.source_tabs)
         self.assertNotIn("Indeedで同じ求人を探す", self.source_tabs)
 
-    def test_source_tabs_are_last_in_pages_bundle_and_syntax_checked(self):
+    def test_official_plugin_is_disabled_until_partner_ids_are_supplied(self):
+        self.assertIn("partnerAppId:''", self.indeed_config)
+        self.assertIn("placementId:''", self.indeed_config)
+        self.assertIn("https://plugins.indeed.com/publisher-plugin/main.js", self.indeed_official)
+        self.assertIn("dataset.indeedPluginType='job-search'", self.indeed_official)
+        self.assertIn("Indeed公式検索", self.indeed_official)
+        self.assertIn("!configured()||!indeedMode", self.indeed_official)
+
+    def test_official_indeed_adapter_is_last_in_pages_bundle_and_syntax_checked(self):
         self.assertIn(
-            "cat integrity.js refill.js continuity.js ux.js source-tabs.js >> _site/app.js",
+            "cat integrity.js refill.js continuity.js ux.js source-tabs.js indeed-partner-config.js indeed-official.js >> _site/app.js",
             self.pages,
         )
-        self.assertIn("node --check ux.js", self.check)
-        self.assertIn("node --check source-tabs.js", self.check)
+        for filename in ("ux.js", "source-tabs.js", "indeed-partner-config.js", "indeed-official.js"):
+            self.assertIn(f"node --check {filename}", self.check)
 
 
 if __name__ == "__main__":

@@ -33,4 +33,6 @@ jobs:
           node --check continuity.js
           node --check ux.js
           node --check source-tabs.js
+          node --check indeed-partner-config.js
+          node --check indeed-official.js
           node --check sw.js

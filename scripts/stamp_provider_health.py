@@ -4,6 +4,10 @@
 This script intentionally stores only coarse operational state needed to explain
 why a scheduled refresh did or did not search. Raw account responses, email,
 API keys, and provider error text are never written to the public feed.
+
+The workflow runs this immediately after the Indeed web-index supplement, so the
+main entrypoint also applies the fail-closed company-evidence hardening pass
+before any candidate can reach postprocessing or final validation.
 """
 from __future__ import annotations
 
@@ -14,6 +18,7 @@ from pathlib import Path
 
 import acquisition
 import acquisition_remote
+import harden_indeed_index_matches
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
@@ -61,6 +66,10 @@ def stamp(path: Path = DEFAULT_FEED, *, api_key: str | None = None) -> dict:
 
 
 def main() -> None:
+    # The index supplement runs immediately before this workflow step. Apply
+    # truth-first disambiguation before adding provider telemetry or allowing
+    # postprocess/final gates to see the promoted rows.
+    harden_indeed_index_matches.main()
     payload = stamp()
     print(
         "SerpApi guard status: "
