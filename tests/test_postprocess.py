@@ -4,7 +4,12 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-path = Path(__file__).resolve().parents[1] / "scripts" / "postprocess_feed.py"
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
+
+path = SCRIPTS / "postprocess_feed.py"
 spec = importlib.util.spec_from_file_location("postprocess", path)
 mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
@@ -63,14 +68,16 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual(len(kept), 1)
         self.assertEqual(dropped, 0)
 
-    def test_current_quality_job_can_be_carried_for_twenty_days(self):
+    def test_current_quality_job_can_be_carried_for_ten_days(self):
         now = datetime.now(timezone.utc)
-        item = row("a", last_seen=now - timedelta(days=20))
+        item = row("a", last_seen=now - timedelta(days=10))
         item["search_published_at"] = None
         carried = mod.carryover_rows([], [item], now)
         self.assertEqual(len(carried), 1)
         self.assertEqual(carried[0]["tier"], "review")
         self.assertTrue(carried[0]["carryover"])
+        self.assertEqual(carried[0]["verification_status"], "reserve-not-rediscovered")
+        self.assertEqual(carried[0]["verification_age_days"], 10)
 
     def test_v1_job_never_reenters_reserve(self):
         now = datetime.now(timezone.utc)
@@ -90,6 +97,15 @@ class PostprocessTests(unittest.TestCase):
             item[field] = value
             self.assertEqual(mod.carryover_rows([], [item], now), [], field)
 
+    def test_explicit_ai_use_ban_never_reenters_reserve(self):
+        now = datetime.now(timezone.utc)
+        item = row(
+            "ai-ban",
+            last_seen=now - timedelta(days=2),
+            snippet="完全在宅です。生成AIの使用は禁止です。",
+        )
+        self.assertEqual(mod.carryover_rows([], [item], now), [])
+
     def test_weak_or_single_signal_review_never_reenters(self):
         now = datetime.now(timezone.utc)
         weak = row("weak", tier="review", last_seen=now - timedelta(days=2))
@@ -105,19 +121,25 @@ class PostprocessTests(unittest.TestCase):
         item["remote_search_only"] = True
         self.assertEqual(mod.carryover_rows([], [item], now), [])
 
-    def test_older_than_thirty_days_never_reenters(self):
+    def test_older_than_fourteen_days_never_reenters(self):
         now = datetime.now(timezone.utc)
-        self.assertEqual(mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=31))], now), [])
+        self.assertEqual(mod.carryover_rows([], [row("a", last_seen=now - timedelta(days=15))], now), [])
         self.assertEqual(mod.carryover_rows([], [row("b", published=now - timedelta(days=31))], now), [])
 
-    def test_live_rows_rank_before_reserve_and_pool_caps_at_150(self):
+    def test_live_rows_get_current_verification_stamp_and_rank_before_reserve(self):
         now = datetime.now(timezone.utc)
         live = row("live", tier="review", company="Live", score=70)
         reserve = row("reserve", tier="review", company="Reserve", score=95, last_seen=now - timedelta(days=2))
         got = mod.process({"generated_at": now.isoformat(), "jobs": [live]}, {"jobs": [reserve]})
         self.assertEqual([x["id"] for x in got["jobs"]], ["live", "reserve"])
-        self.assertEqual(got["candidate_reserve_max_days"], 30)
+        self.assertEqual(got["candidate_reserve_max_days"], 14)
+        self.assertEqual(got["candidate_verification_status_version"], 1)
+        self.assertTrue(got["candidate_requires_recent_rediscovery"])
+        self.assertEqual(got["jobs"][0]["verification_status"], "live-search-hit")
+        self.assertEqual(got["jobs"][0]["verification_age_days"], 0)
 
+    def test_pool_caps_at_150(self):
+        now = datetime.now(timezone.utc)
         rows = [row(str(i), company=f"Company {i}", title=f"Role {i}") for i in range(180)]
         capped = mod.process({"generated_at": now.isoformat(), "candidate_display_target": 100, "jobs": rows}, None)
         self.assertEqual(mod.POOL_LIMIT, 150)
