@@ -3,11 +3,12 @@
 
 Indeed remains the preferred destination. When a Google Jobs result has no
 Indeed apply option, allow a small audited set of established Japanese job
-boards instead of discarding an otherwise high-quality remote/AI-automatable
-listing before the strict quality gates can evaluate it.
+boards, major ATS hosts, and selected official AI-work provider career hosts
+instead of discarding an otherwise high-quality remote/AI-automatable listing
+before the strict quality gates can evaluate it.
 
-This module never crawls or scrapes a job board. It only validates structured
-``apply_options`` URLs already returned by SerpApi/Google Jobs.
+This module never crawls or scrapes a job board or ATS. It only validates
+structured ``apply_options`` URLs already returned by SerpApi/Google Jobs.
 """
 from __future__ import annotations
 
@@ -25,13 +26,32 @@ class ApplyTarget:
     kind: str
 
 
-# Ordered after Indeed. Keep this list intentionally small and recognizable.
+# Ordered after Indeed. Keep these lists intentionally bounded and recognizable.
 TRUSTED_JOB_BOARD_HOSTS: tuple[tuple[str, str], ...] = (
     ("next.rikunabi.com", "リクナビNEXT"),
     ("townwork.net", "タウンワーク"),
     ("froma.com", "フロム・エー ナビ"),
     ("hatalike.jp", "はたらいく"),
     ("toranet.jp", "とらばーゆ"),
+)
+
+TRUSTED_ATS_HOSTS: tuple[tuple[str, str], ...] = (
+    ("jobs.lever.co", "Lever"),
+    ("boards.greenhouse.io", "Greenhouse"),
+    ("job-boards.greenhouse.io", "Greenhouse"),
+    ("jobs.ashbyhq.com", "Ashby"),
+    ("myworkdayjobs.com", "Workday"),
+    ("jobs.smartrecruiters.com", "SmartRecruiters"),
+    ("apply.workable.com", "Workable"),
+)
+
+# Direct career/application hosts are deliberately limited to providers whose
+# current remote Japanese AI-training/rating roles have been independently
+# verified. These hosts are application destinations only; the listing still
+# has to pass every normal publication gate.
+TRUSTED_PROVIDER_HOSTS: tuple[tuple[str, str], ...] = (
+    ("outlier.ai", "Outlier"),
+    ("jobs.telusdigital.com", "TELUS Digital"),
 )
 
 
@@ -62,6 +82,16 @@ def _safe_https_url(link: str) -> tuple[str, str] | None:
     return normalized, host
 
 
+def _stable_target(link: str, source: str, kind: str) -> ApplyTarget:
+    digest = hashlib.sha256(link.encode("utf-8")).hexdigest()[:24]
+    return ApplyTarget(
+        url=link,
+        job_id=f"apply-{digest}",
+        source=source,
+        kind=kind,
+    )
+
+
 def _indeed_target(link: str) -> ApplyTarget | None:
     safe = _safe_https_url(link)
     if not safe:
@@ -85,26 +115,35 @@ def _indeed_target(link: str) -> ApplyTarget | None:
     )
 
 
-def _trusted_board_target(link: str) -> ApplyTarget | None:
+def _match_allowlist(
+    link: str,
+    rules: tuple[tuple[str, str], ...],
+    kind: str,
+) -> ApplyTarget | None:
     safe = _safe_https_url(link)
     if not safe:
         return None
     normalized, host = safe
-    for suffix, label in TRUSTED_JOB_BOARD_HOSTS:
-        if not _host_matches(host, suffix):
-            continue
-        digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:24]
-        return ApplyTarget(
-            url=normalized,
-            job_id=f"board-{digest}",
-            source=label,
-            kind="trusted-job-board",
-        )
+    for suffix, label in rules:
+        if _host_matches(host, suffix):
+            return _stable_target(normalized, label, kind)
     return None
 
 
+def _trusted_board_target(link: str) -> ApplyTarget | None:
+    return _match_allowlist(link, TRUSTED_JOB_BOARD_HOSTS, "trusted-job-board")
+
+
+def _trusted_ats_target(link: str) -> ApplyTarget | None:
+    return _match_allowlist(link, TRUSTED_ATS_HOSTS, "trusted-ats")
+
+
+def _trusted_provider_target(link: str) -> ApplyTarget | None:
+    return _match_allowlist(link, TRUSTED_PROVIDER_HOSTS, "trusted-provider")
+
+
 def find_trusted_apply(job: dict) -> ApplyTarget | None:
-    """Return Indeed first, then an audited major-job-board application URL."""
+    """Return Indeed first, then audited board/ATS/provider application URLs."""
     if not isinstance(job, dict):
         return None
     options = job.get("apply_options") or []
@@ -124,10 +163,15 @@ def find_trusted_apply(job: dict) -> ApplyTarget | None:
         target = _indeed_target(link)
         if target:
             return target
-    for link in links:
-        target = _trusted_board_target(link)
-        if target:
-            return target
+    for resolver in (
+        _trusted_board_target,
+        _trusted_ats_target,
+        _trusted_provider_target,
+    ):
+        for link in links:
+            target = resolver(link)
+            if target:
+                return target
     return None
 
 
