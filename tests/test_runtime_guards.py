@@ -59,6 +59,13 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn("localStorage.setItem(migration,'1')", index)
         self.assertLess(index.index("presenceGateCacheMigrationV1"), index.index('<script src="./app.js"></script>'))
 
+    def test_pre_ai_policy_v4_cache_is_not_reused(self):
+        index = (ROOT / "index.html").read_text(encoding="utf-8")
+        app = (ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn("localStorage.removeItem('candidateCacheV4')", index)
+        self.assertIn("candidateCacheV5", app)
+        self.assertNotIn("candidateCacheV4", app)
+
     def test_production_update_uses_strict_remote_validator(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
         check = (ROOT / ".github/workflows/check.yml").read_text(encoding="utf-8")
@@ -134,12 +141,15 @@ class RuntimeGuardTests(unittest.TestCase):
 
     def test_client_cache_requires_server_quality_parity(self):
         app = (ROOT / "app.js").read_text(encoding="utf-8")
-        self.assertIn("candidateCacheV4", app)
+        self.assertIn("candidateCacheV5", app)
+        self.assertNotIn("candidateCacheV4", app)
         self.assertNotIn("candidateCacheV3", app)
         self.assertIn("LOCAL_POOL_LIMIT=150", app)
+        self.assertIn("LOCAL_RESERVE_MAX_DAYS=14", app)
         self.assertIn("QUALITY_POLICY_VERSION=2", app)
         self.assertIn("QUALITY_GATE='async-ai-remote-v2'", app)
         self.assertIn("PRESENCE_GATE_VERSION=1", app)
+        self.assertIn("AI_TOOL_POLICY_GATE_VERSION=1", app)
         self.assertIn("REVIEW_AUTOMATION_MIN=64", app)
         self.assertIn("REVIEW_HUMAN_RISK_MAX=18", app)
         self.assertIn("automatable<75", app)
@@ -150,8 +160,15 @@ class RuntimeGuardTests(unittest.TestCase):
         self.assertIn("presence monitoring", app)
         self.assertIn("full_listing_presence_screened!==true", app)
         self.assertIn("continuous_presence_risk!=='low'", app)
+        self.assertIn("j.ai_tool_policy_status==='prohibited'", app)
+        self.assertIn("aiPolicyEligible", app)
         self.assertIn("llmQualityRejected", app)
         self.assertIn("qualityEligible", app)
+
+    def test_client_shows_ai_permission_and_verification_state(self):
+        app = (ROOT / "app.js").read_text(encoding="utf-8")
+        for needle in ("AI利用可明記", "AI利用可否確認", "最終検出から", "verification_age_days"):
+            self.assertIn(needle, app)
 
     def test_recommendation_queue_keeps_user_actions(self):
         app = (ROOT / "app.js").read_text(encoding="utf-8")

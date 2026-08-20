@@ -3,10 +3,12 @@ const DEFAULT_VISIBLE=30;
 const DAILY_TARGET=10;
 const USER_STOCK_TARGET=100;
 const LOCAL_POOL_LIMIT=150;
-const LOCAL_CACHE_KEY='candidateCacheV4';
+const LOCAL_CACHE_KEY='candidateCacheV5';
+const LOCAL_RESERVE_MAX_DAYS=14;
 const QUALITY_POLICY_VERSION=2;
 const QUALITY_GATE='async-ai-remote-v2';
 const PRESENCE_GATE_VERSION=1;
+const AI_TOOL_POLICY_GATE_VERSION=1;
 const REVIEW_AUTOMATION_MIN=64;
 const REVIEW_HUMAN_RISK_MAX=18;
 const REVIEW_AUTOMATION_SIGNAL_MIN=2;
@@ -73,7 +75,7 @@ function resetWindow(){state.displayLimit=DEFAULT_VISIBLE;}
 function localDateKey(d=new Date()){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function todayAppliedCount(){const today=localDateKey();return[...state.applied].filter(id=>String(state.appliedAt[id]||'').startsWith(today)).length;}
 function isNewCandidate(j){return(ageDays(j.first_seen)??99)<1.5&&!j.carryover&&!j._localReserve;}
-function isCurrentEnough(j){const seen=ageDays(j.last_seen);const published=ageDays(j.search_published_at);return(seen===null||seen<=30)&&(published===null||published<=30);}
+function isCurrentEnough(j){const seen=ageDays(j.last_seen);const published=ageDays(j.search_published_at);return(seen===null||seen<=LOCAL_RESERVE_MAX_DAYS)&&(published===null||published<=30);}
 function llmQualityRejected(j){
   const r=j?.llm_review;if(!r||typeof r!=='object')return false;
   const confidence=Number(r.confidence||0),automatable=Number(r.automatable_fraction||0),blockers=Array.isArray(r.blockers)?r.blockers.filter(Boolean):[];
@@ -83,8 +85,14 @@ function llmQualityRejected(j){
   if(confidence>=75&&LLM_PRESENCE_TERMS.some(term=>blockerText.includes(term.toLowerCase())))return true;
   return confidence>=85&&blockers.length>0&&automatable<90;
 }
-function qualityEligible(j,policyActive=true){
-  if(!isCurrentEnough(j)||llmQualityRejected(j))return false;
+function aiPolicyEligible(j,aiPolicyActive=true){
+  if(!aiPolicyActive)return true;
+  if(Number(j.ai_tool_policy_gate_version||0)!==AI_TOOL_POLICY_GATE_VERSION)return false;
+  if(j.ai_tool_policy_status==='prohibited')return false;
+  return j.ai_tool_policy_status==='explicitly-allowed'||j.ai_tool_policy_status==='not-stated';
+}
+function qualityEligible(j,policyActive=true,aiPolicyActive=true){
+  if(!isCurrentEnough(j)||llmQualityRejected(j)||!aiPolicyEligible(j,aiPolicyActive))return false;
   if(!policyActive)return true;
   if(Number(j.quality_policy_version||0)!==QUALITY_POLICY_VERSION||j.quality_gate!==QUALITY_GATE)return false;
   if(j.autonomy_attention_risk!=='low'||j.remote_search_only===true)return false;
@@ -98,14 +106,14 @@ function qualityEligible(j,policyActive=true){
 }
 function isAvailable(j){const id=String(j.id);return effectiveTier(j)!=='expired'&&!state.declined.has(id)&&!state.applied.has(id);}
 
-function mergeCandidateStock(serverRows,policyActive){
+function mergeCandidateStock(serverRows,policyActive,aiPolicyActive){
   const map=new Map();
   for(const row of loadCachedJobs()){
-    if(!row?.id||!qualityEligible(row,true))continue;
+    if(!row?.id||!qualityEligible(row,true,true))continue;
     map.set(String(row.id),{...row,_localReserve:true});
   }
   for(const row of serverRows){
-    if(!row?.id||!qualityEligible(row,policyActive))continue;
+    if(!row?.id||!qualityEligible(row,policyActive,aiPolicyActive))continue;
     map.set(String(row.id),{...row,_localReserve:false});
   }
   const rows=[...map.values()];
@@ -176,7 +184,11 @@ function render(){
   }
   let html=visible.map(j=>{
     const id=String(j.id),favorite=state.favorite.has(id),declined=state.declined.has(id),applied=state.applied.has(id),tier=effectiveTier(j),high=tier==='high',dual=hasDualPass(j),published=j.search_published_at||j.last_seen,org=[j.company,j.location].filter(Boolean).map(esc).join(' · '),isNew=isNewCandidate(j);
-    return `<article class="card ${high?'high':''} ${dual?'dualCard':''} ${tier==='expired'?'expired':''}"><div class="cardHead"><div class="verdict ${dual?'dualBadge':high?'ok':tier==='expired'?'expiredBadge':'review'}">${dual?'◎ 二重審査通過':verdictText(tier)}</div><div class="fresh">${esc(ageLabel(published))}</div></div><h3>${esc(j.title)}</h3>${org?`<div class="org">${org}</div>`:''}<p class="snippet">${esc(j.snippet||'求人概要なし')}</p><div class="scores"><div><span>AI代替</span><b class="${meterClass(j.automation_confidence)}">${j.automation_confidence??'-'}</b></div><div><span>完全在宅</span><b class="${meterClass(j.remote_confidence)}">${j.remote_confidence??'-'}</b></div><div><span>新しさ</span><b class="${meterClass(j.freshness_confidence)}">${j.freshness_confidence??'-'}</b></div></div><div class="why">${esc(reasonText(j))}</div><div class="tags">${isNew?'<span class="tag repeat">NEW</span>':''}${j.autonomy_attention_risk==='low'?'<span class="tag autonomyTag">張り付きリスク低</span>':''}${(j.tags||[]).filter(t=>t!=='張り付きリスク低').slice(0,5).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${j.llm_review?'<span class="tag dualTag">LLM監査済み</span>':''}${j.seen_count>1?`<span class="tag repeat">再検出 ${j.seen_count}回</span>`:''}${j.duplicate_count>1?`<span class="tag">類似掲載 ${j.duplicate_count}件を統合</span>`:''}${j.carryover?'<span class="tag carry">予備・今回未再検出</span>':''}${j._localReserve?'<span class="tag carry">端末予備</span>':''}${dual?'<span class="tag dualTag">LLM二重審査 ✓</span>':''}${favorite?'<span class="tag favoriteTag">お気に入り</span>':''}${applied?'<span class="tag appliedTag">応募済み</span>':''}${declined?'<span class="tag declinedTag">応募しない</span>':''}</div>${j.carryover||j._localReserve?'<div class="reserveNote">品質確認済みの予備候補です。リンク先で募集継続を確認してください。</div>':''}${j.risk_reasons?.length?`<div class="risk">要注意: ${esc(j.risk_reasons.join('・'))}</div>`:''}${llmPanel(j)}${tier==='expired'?'<div class="risk">掲載日から30日を超えたため通常一覧から除外しています。</div>':''}<div class="actions"><button class="btn ghost favorite" data-id="${esc(id)}">${favorite?'★ お気に入り':'☆ お気に入り'}</button><button class="btn ghost applied" data-id="${esc(id)}">${applied?'↩ 応募済み解除':'✓ 応募済みにする'}</button><button class="btn ghost decline" data-id="${esc(id)}">${declined?'↩ 候補に戻す':'× 応募しない'}</button><a class="btn primary" href="${esc(j.url)}" target="_blank" rel="noopener noreferrer">求人を確認・応募 →</a></div><div class="meta">掲載目安: ${esc(j.posted_label||fmtDate(j.search_published_at))} / 最終検出: ${esc(fmtDate(j.last_seen))}${j.llm_model?` / LLM: ${esc(j.llm_model)}`:''}</div></article>`;
+    const aiPolicyTag=j.ai_tool_policy_status==='explicitly-allowed'?'<span class="tag autonomyTag">AI利用可明記</span>':j.ai_tool_use_permission_confirm_required===true?'<span class="tag checkTag">AI利用可否確認</span>':'';
+    const verifyDays=Number.isFinite(Number(j.verification_age_days))?Math.max(0,Number(j.verification_age_days)):Math.max(0,Math.floor(ageDays(j.last_seen)||0));
+    const reserveNote=j.carryover||j._localReserve?`<div class="reserveNote">${verifyDays>0?`最終検出から${esc(verifyDays)}日未再検出。`:'今回の検索では未再検出。'}品質確認済みの予備候補ですが、リンク先で募集継続を確認してください。</div>`:'';
+    const policyNote=j.ai_tool_use_permission_confirm_required===true?'<div class="checkNote">求人票ではAI利用許可を確認できていません。応募・業務開始前に生成AI／外部AIの利用可否を確認してください。</div>':'';
+    return `<article class="card ${high?'high':''} ${dual?'dualCard':''} ${tier==='expired'?'expired':''}"><div class="cardHead"><div class="verdict ${dual?'dualBadge':high?'ok':tier==='expired'?'expiredBadge':'review'}">${dual?'◎ 二重審査通過':verdictText(tier)}</div><div class="fresh">${esc(ageLabel(published))}</div></div><h3>${esc(j.title)}</h3>${org?`<div class="org">${org}</div>`:''}<p class="snippet">${esc(j.snippet||'求人概要なし')}</p><div class="scores"><div><span>AI代替</span><b class="${meterClass(j.automation_confidence)}">${j.automation_confidence??'-'}</b></div><div><span>完全在宅</span><b class="${meterClass(j.remote_confidence)}">${j.remote_confidence??'-'}</b></div><div><span>新しさ</span><b class="${meterClass(j.freshness_confidence)}">${j.freshness_confidence??'-'}</b></div></div><div class="why">${esc(reasonText(j))}</div><div class="tags">${isNew?'<span class="tag repeat">NEW</span>':''}${j.autonomy_attention_risk==='low'?'<span class="tag autonomyTag">張り付きリスク低</span>':''}${aiPolicyTag}${(j.tags||[]).filter(t=>t!=='張り付きリスク低').slice(0,5).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${j.llm_review?'<span class="tag dualTag">LLM監査済み</span>':''}${j.seen_count>1?`<span class="tag repeat">再検出 ${j.seen_count}回</span>`:''}${j.duplicate_count>1?`<span class="tag">類似掲載 ${j.duplicate_count}件を統合</span>`:''}${j.carryover?'<span class="tag carry">予備・今回未再検出</span>':''}${j._localReserve?'<span class="tag carry">端末予備</span>':''}${dual?'<span class="tag dualTag">LLM二重審査 ✓</span>':''}${favorite?'<span class="tag favoriteTag">お気に入り</span>':''}${applied?'<span class="tag appliedTag">応募済み</span>':''}${declined?'<span class="tag declinedTag">応募しない</span>':''}</div>${reserveNote}${policyNote}${j.risk_reasons?.length?`<div class="risk">要注意: ${esc(j.risk_reasons.join('・'))}</div>`:''}${llmPanel(j)}${tier==='expired'?'<div class="risk">掲載日から30日を超えたため通常一覧から除外しています。</div>':''}<div class="actions"><button class="btn ghost favorite" data-id="${esc(id)}">${favorite?'★ お気に入り':'☆ お気に入り'}</button><button class="btn ghost applied" data-id="${esc(id)}">${applied?'↩ 応募済み解除':'✓ 応募済みにする'}</button><button class="btn ghost decline" data-id="${esc(id)}">${declined?'↩ 候補に戻す':'× 応募しない'}</button><a class="btn primary" href="${esc(j.url)}" target="_blank" rel="noopener noreferrer">求人を確認・応募 →</a></div><div class="meta">掲載目安: ${esc(j.posted_label||fmtDate(j.search_published_at))} / 最終検出: ${esc(fmtDate(j.last_seen))}${j.llm_model?` / LLM: ${esc(j.llm_model)}`:''}</div></article>`;
   }).join('');
   if(recommendationMode()&&visible.length<rows.length)html+=`<button id="loadMore" class="btn ghost moreBtn">次の候補を${Math.min(DEFAULT_VISIBLE,rows.length-visible.length)}件見る</button>`;
   $('#jobs').innerHTML=html;
@@ -197,6 +209,8 @@ function updateHealth(d){
   if(Number.isInteger(d.carryover_jobs)&&d.carryover_jobs>0)text+=`・予備 ${d.carryover_jobs}件`;
   if(Number.isInteger(d.presence_quality_dropped)&&d.presence_quality_dropped>0)text+=`・本人在席要件 ${d.presence_quality_dropped}件除外`;
   if(Number.isInteger(d.llm_quality_dropped)&&d.llm_quality_dropped>0)text+=`・LLM品質除外 ${d.llm_quality_dropped}件`;
+  if(Number.isInteger(d.candidate_ai_tool_policy_dropped)&&d.candidate_ai_tool_policy_dropped>0)text+=`・AI利用禁止 ${d.candidate_ai_tool_policy_dropped}件除外`;
+  if(Number.isInteger(d.candidate_ai_tool_policy_confirmation_required)&&d.candidate_ai_tool_policy_confirmation_required>0)text+=`・AI利用可否要確認 ${d.candidate_ai_tool_policy_confirmation_required}件`;
   if(Number.isInteger(d.serpapi_paginated_requests_run)&&d.serpapi_paginated_requests_run>0)text+=`・追加ページ ${d.serpapi_paginated_requests_run}回`;
   if(Number.isInteger(d.serpapi_requests_month)&&Number.isInteger(d.serpapi_monthly_request_cap))text+=` / 検索API ${d.serpapi_requests_month}/${d.serpapi_monthly_request_cap}`;
   if(d.remote_contradiction_dropped>0)text+=` / リモート矛盾 ${d.remote_contradiction_dropped}件除外`;
@@ -213,8 +227,9 @@ async function loadFeed(){
   const d=await r.json();
   state.meta=d;
   const policyActive=Number(d.candidate_quality_policy_version||0)>=QUALITY_POLICY_VERSION&&d.candidate_quality_gate===QUALITY_GATE;
+  const aiPolicyActive=Number(d.candidate_ai_tool_policy_gate_version||0)>=AI_TOOL_POLICY_GATE_VERSION&&d.candidate_rejects_explicit_ai_tool_bans===true;
   const serverRows=Array.isArray(d.jobs)?d.jobs:[];
-  state.jobs=mergeCandidateStock(serverRows,policyActive);
+  state.jobs=mergeCandidateStock(serverRows,policyActive,aiPolicyActive);
   updateHealth(d);resetWindow();render();
 }
 async function boot(){try{await loadFeed()}catch(e){$('#jobs').innerHTML='<div class="empty"><b>求人データを読み込めませんでした。</b><br>下の「Indeedで今すぐ検索」は利用できます。</div>';$('#countAvailable').textContent='0';$('#countHigh').textContent='0';$('#todayApplied').textContent=`${todayAppliedCount()}/${DAILY_TARGET}`;$('#updated').textContent='-';}}
