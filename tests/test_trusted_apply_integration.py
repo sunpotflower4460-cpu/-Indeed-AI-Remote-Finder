@@ -36,9 +36,18 @@ class TrustedApplyIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(row)
         self.assertEqual(row["apply_source"], "タウンワーク")
         self.assertEqual(row["apply_source_kind"], "trusted-job-board")
-        self.assertEqual(row["trusted_apply_policy_version"], 1)
+        self.assertEqual(row["trusted_apply_policy_version"], 2)
         self.assertEqual(row["url"], "https://townwork.net/viewjob/job123456")
-        self.assertTrue(row["id"].startswith("board-"))
+        self.assertTrue(row["id"].startswith("apply-"))
+
+    def test_trusted_ats_job_can_reach_existing_row_builder(self):
+        job = self.strong_remote_job("https://jobs.lever.co/weloglobal/abc123")
+        self.assertIsNone(mod.policy_aware_prefilter(job))
+        row = mod.trusted_source_build_row(job, "test_search_eval", {})
+        self.assertIsNotNone(row)
+        self.assertEqual(row["apply_source"], "Lever")
+        self.assertEqual(row["apply_source_kind"], "trusted-ats")
+        self.assertEqual(row["trusted_apply_policy_version"], 2)
 
     def test_unknown_apply_host_is_rejected_before_quality_publication(self):
         job = self.strong_remote_job("https://unknown.invalid/viewjob/job123456")
