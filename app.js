@@ -41,7 +41,7 @@ const state={
   applied:loadSet('appliedJobs'),appliedAt:loadMap('appliedAt'),meta:{}
 };
 
-function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]));}
 function parseDate(s){if(!s)return null;const d=new Date(s);return Number.isNaN(+d)?null:d;}
 function fmtDate(s){const d=parseDate(s);if(!d)return'不明';return new Intl.DateTimeFormat('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)}
 function ageDays(s){const d=parseDate(s);if(!d)return null;return Math.max(0,(Date.now()-d.getTime())/864e5);}
@@ -49,7 +49,25 @@ function ageLabel(s){const d=parseDate(s);if(!d)return'日付不明';const h=Mat
 function meterClass(v){return v>=82?'good':v>=64?'warn':'bad'}
 function effectiveTier(j){const age=ageDays(j.search_published_at);if(age!==null&&age>30)return'expired';if(j.tier==='high'&&(age===null||age>14))return'review';return j.tier||'review';}
 function feedAgeHours(){const d=parseDate(state.meta.generated_at);return d?Math.max(0,(Date.now()-d.getTime())/36e5):null;}
-function hasDualPass(j){return effectiveTier(j)==='high'&&j.llm_strict_pass===true;}
+function reviewStrictContextValid(j){
+  if(j?.tier!=='review')return false;
+  const reasons=new Set((j.automation_reasons||[]).map(x=>String(x||'').trim().toLowerCase()).filter(Boolean));
+  return Number(j.quality_policy_version||0)===QUALITY_POLICY_VERSION
+    &&j.quality_gate===QUALITY_GATE
+    &&j.autonomy_attention_risk==='low'
+    &&j.remote_search_only!==true
+    &&Number(j.automation_confidence||0)>=REVIEW_AUTOMATION_MIN
+    &&Number(j.human_dependency_risk||0)<=REVIEW_HUMAN_RISK_MAX
+    &&reasons.size>=REVIEW_AUTOMATION_SIGNAL_MIN
+    &&j.full_listing_presence_screened===true
+    &&Number(j.presence_gate_version||0)===PRESENCE_GATE_VERSION
+    &&j.continuous_presence_risk==='low';
+}
+function hasDualPass(j){
+  if(j?.llm_strict_pass!==true||j?.llm_review?.strict_pass!==true||effectiveTier(j)==='expired')return false;
+  if(j.tier==='high')return true;
+  return reviewStrictContextValid(j);
+}
 function recommendationMode(){return['all','high','review','dual'].includes(state.mode)}
 function resetWindow(){state.displayLimit=DEFAULT_VISIBLE;}
 function localDateKey(d=new Date()){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
@@ -141,7 +159,7 @@ function verdictText(tier){return tier==='high'?'高確度':tier==='expired'?'�
 function listItems(items){return(items||[]).map(x=>`<li>${esc(x)}</li>`).join('');}
 function llmPanel(j){
   const r=j.llm_review;if(!r)return'';
-  const verdict={strong:'強い候補',uncertain:'不確定',reject:'不適合'}[r.verdict]||r.verdict,strict=j.llm_strict_pass===true;
+  const verdict={strong:'強い候補',uncertain:'不確定',reject:'不適合'}[r.verdict]||r.verdict,strict=hasDualPass(j);
   return `<details class="llmBox" ${strict?'open':''}><summary>${strict?'◎ LLM二重審査通過':'LLM二次審査'} · 技術代替 ${esc(r.automatable_fraction)}% · 確信 ${esc(r.confidence)}%</summary><div class="llmGrid"><div><span>判定</span><b>${esc(verdict)}</b></div><div><span>人間依存</span><b>${esc(r.human_dependency)}</b></div><div><span>同期対応</span><b>${esc(r.synchronous_human_interaction)}</b></div><div><span>データ注意</span><b>${esc(r.data_sensitivity_risk)}</b></div></div>${r.automation_summary?`<p>${esc(r.automation_summary)}</p>`:''}${r.automation_plan?.length?`<div class="llmSection"><b>自動化レシピ</b><ol>${listItems(r.automation_plan)}</ol></div>`:''}${r.blockers?.length?`<div class="llmSection risk"><b>技術的ブロッカー</b><ul>${listItems(r.blockers)}</ul></div>`:''}${r.questions_to_confirm?.length?`<div class="llmSection"><b>応募後に確認</b><ul>${listItems(r.questions_to_confirm)}</ul></div>`:''}</details>`;
 }
 
