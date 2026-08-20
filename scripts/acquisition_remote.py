@@ -14,16 +14,18 @@ automatable. Generic real-time processing or monitoring is not rejected by
 word alone because unattended AI/RPA can perform it; human-attention context is
 required for that kind of exclusion.
 
-SerpApi's Google Jobs endpoint still accepts ltype=1 for Work From Home results,
-but Google marks that filter deprecated and Work From Home can include hybrid
-roles. Production therefore uses it only to widen acquisition/REVIEW scoring.
-The deterministic HIGH tier still requires explicit full-remote wording in the
-job text itself.
+Discovery uses the same configurable Google Jobs search origin as the generic
+acquisition layer (Tokyo, Japan by default). The deprecated Work From Home
+`ltype` filter is not used and provider-side remote classification is not treated
+as evidence. Remote confidence must come from the listing text itself. The
+stricter v2 quality layer additionally requires explicit unconditional full-
+remote wording before publication.
 
-For pagination, prefer SerpApi's own `serpapi_pagination.next` URL. The deprecated
-`ltype` parameter is deliberately removed from page 2 while the server-generated
-`uds` / pagination state is retained. The URL is host/path validated and the API
-key is replaced in memory before the request; it is never written to feed/logs.
+For pagination, prefer SerpApi's own `serpapi_pagination.next` URL. Any legacy
+`ltype` parameter present in a server-generated URL is deliberately removed
+while the server-generated `uds` / pagination state is retained. The URL is
+host/path validated and the API key is replaced in memory before the request;
+it is never written to feed/logs.
 
 Before counted Google Jobs requests, production queries SerpApi's free Account
 API. Provider-reported hourly/monthly usage becomes a hard upper bound so
@@ -204,7 +206,7 @@ def fetch_serpapi_account(api_key: str) -> dict:
     params = urllib.parse.urlencode({"api_key": api_key})
     request = urllib.request.Request(
         f"{ACCOUNT_API_URL}?{params}",
-        headers={"User-Agent": "AI-Remote-Finder/6.9", "Accept": "application/json"},
+        headers={"User-Agent": "AI-Remote-Finder/7.0", "Accept": "application/json"},
     )
     with urllib.request.urlopen(request, timeout=15) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -300,10 +302,12 @@ def configure_production_policy() -> None:
 
     base_score_job = acquisition.legacy.score_job
 
-    def score_with_remote_filter(text, published, previous, *, remote_api_filter=False):
-        return base_score_job(text, published, previous, remote_api_filter=True)
+    def score_without_provider_remote_assumption(text, published, previous, *, remote_api_filter=False):
+        # Search/provider classification is discovery-only. Remote confidence
+        # must be earned by listing text even when this adapter is run directly.
+        return base_score_job(text, published, previous, remote_api_filter=False)
 
-    acquisition.legacy.score_job = score_with_remote_filter
+    acquisition.legacy.score_job = score_without_provider_remote_assumption
     base_build_row = acquisition.build_row
 
     def build_row_with_remote_evidence(job, category, previous):
@@ -366,7 +370,7 @@ def configure_production_policy() -> None:
         )
         request = urllib.request.Request(
             safe_url,
-            headers={"User-Agent": "AI-Remote-Finder/6.9", "Accept": "application/json"},
+            headers={"User-Agent": "AI-Remote-Finder/7.0", "Accept": "application/json"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
@@ -384,7 +388,7 @@ def configure_production_policy() -> None:
         if token and next_url:
             pagination_next_urls[token] = next_url
 
-    def serpapi_fetch_work_from_home(
+    def serpapi_fetch_remote_candidates(
         query: str,
         api_key: str,
         next_page_token: str | None = None,
@@ -399,7 +403,7 @@ def configure_production_policy() -> None:
         params = {
             "engine": "google_jobs",
             "q": query,
-            "location": "Japan",
+            "location": acquisition.configured_search_origin(),
             "hl": "ja",
             "gl": "jp",
             "api_key": api_key,
@@ -407,12 +411,10 @@ def configure_production_policy() -> None:
         }
         if next_page_token:
             params["next_page_token"] = next_page_token
-        else:
-            params["ltype"] = "1"
         url = "https://serpapi.com/search.json?" + urllib.parse.urlencode(params)
         request = urllib.request.Request(
             url,
-            headers={"User-Agent": "AI-Remote-Finder/6.9", "Accept": "application/json"},
+            headers={"User-Agent": "AI-Remote-Finder/7.0", "Accept": "application/json"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
@@ -422,7 +424,7 @@ def configure_production_policy() -> None:
         remember_next_url(payload)
         return payload
 
-    acquisition.serpapi_fetch = serpapi_fetch_work_from_home
+    acquisition.serpapi_fetch = serpapi_fetch_remote_candidates
 
 
 def configure_provider_budget(api_key: str) -> int | None:
