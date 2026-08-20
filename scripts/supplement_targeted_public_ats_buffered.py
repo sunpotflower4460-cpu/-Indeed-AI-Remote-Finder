@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Keep deep stock above the PWA's 30-candidate visible minimum.
 
-The free ATS supplements deliberately do not relax any quality rule. This
-wrapper changes only *when* acquisition is allowed to stop: RWS TrainAI is
-checked first, then the existing Welo/LILT/Prolific targeted supplement keeps
-topping up while the pre-final pool is below the 100-row user stock target.
-Final LLM/presence and AI-use-policy vetoes still run afterwards, so the deeper
-buffer absorbs user actions and downstream quality drops without accepting
-weaker jobs.
+The user-facing target remains 100 strict, unapplied candidates, but acquisition
+must happen *before* final LLM/presence/AI-use vetoes. Recent production kept 42
+of 50 pre-final rows, so stopping acquisition at 100 can systematically miss the
+100-row final-stock goal. This wrapper therefore targets 120 pre-final rows.
+
+All supplemental sources remain zero-SerpApi and pass the same production
+quality builder. Direct official provider pages are checked first, RWS TrainAI
+next, then Welo/LILT/Prolific targeted ATS feeds. Final quality vetoes still run
+afterwards, so the deeper buffer absorbs both user actions and downstream
+quality removals without accepting weaker jobs.
 """
 from __future__ import annotations
 
@@ -15,14 +18,16 @@ import argparse
 import json
 from pathlib import Path
 
+import supplement_official_ai_providers as direct
 import supplement_rws_trainai as rws
 import supplement_targeted_public_ats as targeted
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
 VISIBLE_MINIMUM = 30
-PRE_FINAL_BUFFER_TARGET = 100
-BUFFER_POLICY_VERSION = 2
+POST_FINAL_STOCK_TARGET = 100
+PRE_FINAL_BUFFER_TARGET = 120
+BUFFER_POLICY_VERSION = 3
 
 
 def _load(path: Path | None) -> dict:
@@ -41,8 +46,16 @@ def top_up_with_buffer(
     **source_overrides,
 ) -> dict:
     previous = previous_payload or {}
-    # Tests may provide rws_posts=[] to avoid network access. Production omits
-    # it and uses the documented RWS Lever endpoint.
+
+    # Tests can supply direct_pages/rws_posts to stay fully offline. Production
+    # omits both and checks only the audited public endpoints/pages.
+    direct_pages_supplied = "direct_pages" in source_overrides
+    direct_pages = source_overrides.pop("direct_pages", None)
+    if direct_pages_supplied:
+        payload = direct.supplement(payload, previous, fetched_pages=direct_pages)
+    else:
+        payload = direct.supplement(payload, previous)
+
     rws_posts_supplied = "rws_posts" in source_overrides
     rws_posts = source_overrides.pop("rws_posts", None)
     if rws_posts_supplied:
@@ -60,14 +73,18 @@ def top_up_with_buffer(
     after = len([row for row in result.get("jobs") or [] if isinstance(row, dict)])
     result["candidate_pre_final_buffer_policy_version"] = BUFFER_POLICY_VERSION
     result["candidate_visible_minimum"] = VISIBLE_MINIMUM
+    result["candidate_post_final_stock_target"] = POST_FINAL_STOCK_TARGET
     result["candidate_pre_final_buffer_target"] = PRE_FINAL_BUFFER_TARGET
     result["candidate_pre_final_buffer_ready"] = after >= PRE_FINAL_BUFFER_TARGET
     result["candidate_pre_final_buffer_uses_serpapi"] = False
-    # Keep the original field semantically honest: it means the 30-row product
-    # minimum, not the deeper internal stock target.
+    # The 30-row field remains the product's hard visible-floor signal, not the
+    # deeper stock target.
     result["candidate_targeted_public_ats_goal_30_ready"] = after >= VISIBLE_MINIMUM
-    if result.get("candidate_targeted_public_ats_skipped") == "pool-at-or-above-30":
-        result["candidate_targeted_public_ats_skipped"] = "pool-at-or-above-buffer-target"
+    if result.get("candidate_targeted_public_ats_skipped") in {
+        "pool-at-or-above-30",
+        "pool-at-or-above-buffer-target",
+    }:
+        result["candidate_targeted_public_ats_skipped"] = "pool-at-or-above-pre-final-target"
     return result
 
 
@@ -82,11 +99,11 @@ def main() -> None:
     result = top_up_with_buffer(payload, _load(args.previous))
     args.feed.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(
-        "buffered targeted ATS top-up: "
+        "buffered official-source top-up: "
         f"before={result.get('candidate_targeted_public_ats_pool_before')} "
         f"after={result.get('candidate_targeted_public_ats_pool_after')} "
         f"min30={result.get('candidate_targeted_public_ats_goal_30_ready')} "
-        f"buffer100={result.get('candidate_pre_final_buffer_ready')}"
+        f"pre120={result.get('candidate_pre_final_buffer_ready')}"
     )
 
 

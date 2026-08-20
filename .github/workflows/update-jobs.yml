@@ -44,7 +44,7 @@ jobs:
         if: always()
         continue-on-error: true
         run: python scripts/supplement_public_ats.py --previous /tmp/previous-jobs.json
-      - name: Maintain 100-candidate pre-final ATS stock buffer
+      - name: Maintain 120-candidate pre-final official-source stock buffer
         id: targeted_public_ats
         if: always()
         continue-on-error: true

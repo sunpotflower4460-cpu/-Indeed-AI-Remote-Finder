@@ -1,10 +1,10 @@
 (()=>{
   'use strict';
 
-  // Keep enough headroom that one or several user actions do not push the
-  // recommendation queue below its 30-row visible minimum. This only reloads
-  // the already-published feed; it never calls SerpApi or exposes credentials.
-  const ACTION_REFILL_TRIGGER=45;
+  // Start checking for a newer published feed while there is still a full
+  // 30-row reserve behind the visible 30. This only reloads jobs.json; it never
+  // calls SerpApi, dispatches Actions, or exposes credentials.
+  const ACTION_REFILL_TRIGGER=60;
   const REFILL_COOLDOWN_MS=30_000;
   const FOREGROUND_RECHECK_MS=5*60_000;
   let lastAttempt=0;

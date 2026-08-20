@@ -18,7 +18,8 @@ class ActionRefillContractTests(unittest.TestCase):
         self.assertIn("document.querySelectorAll('.applied')", self.app)
 
     def test_low_stock_refill_runs_after_apply_or_decline(self):
-        self.assertIn("const ACTION_REFILL_TRIGGER=45", self.refill)
+        # 60 = the visible 30 plus another complete 30-row reserve batch.
+        self.assertIn("const ACTION_REFILL_TRIGGER=60", self.refill)
         self.assertIn(".applied,.decline", self.refill)
         self.assertIn("setTimeout(()=>{void reloadLatestIfLow();},0)", self.refill)
         self.assertIn("available>=ACTION_REFILL_TRIGGER", self.refill)

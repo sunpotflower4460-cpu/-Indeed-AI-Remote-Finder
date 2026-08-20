@@ -33,42 +33,46 @@ class PreFinalSupplyBufferTests(unittest.TestCase):
         targeted.acquisition.build_row = targeted.acquisition_precision._ORIGINAL_ACQUISITION_BUILD_ROW
         targeted.acquisition.legacy.score_job = targeted.acquisition_quality.GENERIC_SCORE_JOB
 
-    def test_pool_above_thirty_still_tops_up_toward_one_hundred(self):
-        existing = [{"id": f"existing-{i}", "tier": "review", "score": 80} for i in range(35)]
+    def test_pool_above_final_stock_target_still_tops_up_to_one_twenty(self):
+        existing = [{"id": f"existing-{i}", "tier": "review", "score": 80} for i in range(105)]
         out = mod.top_up_with_buffer(
             {"jobs": existing},
             {},
+            direct_pages={},
             rws_posts=[],
-            welo_posts=[welo(i) for i in range(70)],
+            welo_posts=[welo(i) for i in range(20)],
             lilt_posts=[],
             prolific_posts=[],
         )
-        self.assertGreaterEqual(len(out["jobs"]), 100)
+        self.assertGreaterEqual(len(out["jobs"]), 120)
         self.assertTrue(out["candidate_targeted_public_ats_goal_30_ready"])
         self.assertTrue(out["candidate_pre_final_buffer_ready"])
-        self.assertEqual(out["candidate_pre_final_buffer_target"], 100)
+        self.assertEqual(out["candidate_post_final_stock_target"], 100)
+        self.assertEqual(out["candidate_pre_final_buffer_target"], 120)
         self.assertEqual(out["candidate_visible_minimum"], 30)
         self.assertFalse(out["candidate_pre_final_buffer_uses_serpapi"])
 
-    def test_pool_at_user_stock_target_skips_extra_ats_work(self):
-        existing = [{"id": f"existing-{i}", "tier": "review", "score": 80} for i in range(100)]
+    def test_pool_at_pre_final_target_skips_extra_source_work(self):
+        existing = [{"id": f"existing-{i}", "tier": "review", "score": 80} for i in range(120)]
         out = mod.top_up_with_buffer(
             {"jobs": existing},
             {},
+            direct_pages={},
             rws_posts=[],
             welo_posts=[],
             lilt_posts=[],
             prolific_posts=[],
         )
-        self.assertEqual(len(out["jobs"]), 100)
-        self.assertEqual(out["candidate_targeted_public_ats_skipped"], "pool-at-or-above-buffer-target")
+        self.assertEqual(len(out["jobs"]), 120)
+        self.assertEqual(out["candidate_targeted_public_ats_skipped"], "pool-at-or-above-pre-final-target")
         self.assertTrue(out["candidate_targeted_public_ats_goal_30_ready"])
         self.assertTrue(out["candidate_pre_final_buffer_ready"])
-        self.assertEqual(out["candidate_pre_final_buffer_target"], 100)
+        self.assertEqual(out["candidate_post_final_stock_target"], 100)
+        self.assertEqual(out["candidate_pre_final_buffer_target"], 120)
 
     def test_workflow_uses_buffered_entrypoint(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
-        self.assertIn("Maintain 100-candidate pre-final ATS stock buffer", workflow)
+        self.assertIn("Maintain 120-candidate pre-final official-source stock buffer", workflow)
         self.assertIn("python scripts/supplement_targeted_public_ats_buffered.py", workflow)
 
 

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Conservative application-target selection for Google Jobs rows.
+"""Conservative application-target selection for candidate rows.
 
-Indeed remains the preferred destination. When a Google Jobs result has no
-Indeed apply option, allow a small audited set of established Japanese job
-boards, major ATS hosts, and selected official AI-work provider career hosts
-instead of discarding an otherwise high-quality remote/AI-automatable listing
-before the strict quality gates can evaluate it.
+Indeed remains the preferred destination. When a result has no Indeed apply
+option, allow a small audited set of established Japanese job boards, major ATS
+hosts, and selected official AI-work provider career/project hosts instead of
+discarding an otherwise high-quality remote/AI-automatable listing before the
+strict quality gates can evaluate it.
 
-This module never crawls or scrapes a job board or ATS. It only validates
-structured ``apply_options`` URLs already returned by SerpApi/Google Jobs or
-application URLs returned by documented public employer ATS feeds.
+This module does not grant publication eligibility by URL alone. The listing
+must still pass the production remote, autonomy, presence, AI-use-policy,
+deterministic-quality, freshness and applicable LLM gates.
 """
 from __future__ import annotations
 
@@ -47,12 +47,15 @@ TRUSTED_ATS_HOSTS: tuple[tuple[str, str], ...] = (
     ("apply.workable.com", "Workable"),
 )
 
-# Direct career/application hosts are deliberately limited to providers whose
-# current remote Japanese AI-training/rating roles have been independently
-# verified. These hosts are application destinations only; the listing still
-# has to pass every normal publication gate.
+# Direct career/project hosts are deliberately limited to providers whose
+# current remote AI-training/rating/annotation work has been independently
+# verified. These hosts are only trusted destinations; they never bypass the
+# content quality gates.
 TRUSTED_PROVIDER_HOSTS: tuple[tuple[str, str], ...] = (
     ("outlier.ai", "Outlier"),
+    ("alignerr.com", "Alignerr"),
+    ("oneforma.com", "OneForma"),
+    ("dataannotation.tech", "DataAnnotation"),
     ("jobs.telusdigital.com", "TELUS Digital"),
 )
 

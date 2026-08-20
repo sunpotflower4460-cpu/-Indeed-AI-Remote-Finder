@@ -30,17 +30,22 @@ class AiToolPolicyGateTests(unittest.TestCase):
             "完全在宅。AIツールの利用は不可です。",
             "完全在宅。ChatGPTを使用しないで作業してください。",
             "完全在宅。外部AIの使用は禁止。",
+            "完全在宅。ボットの使用は禁止です。",
+            "完全在宅。自動化ツールの利用は不可です。",
         )
         for text in samples:
             status, signal = mod.policy_signal(row(text))
             self.assertEqual(status, "prohibited", text)
             self.assertTrue(signal, text)
 
-    def test_explicit_english_ai_bans_are_rejected(self):
+    def test_explicit_english_ai_or_automation_bans_are_rejected(self):
         for text in (
             "Fully remote. AI tools are prohibited for this assignment.",
             "Fully remote. Complete the work without AI assistance.",
             "Fully remote. You must not use generative AI.",
+            "Fully remote. Bots or scripts are not allowed for task completion.",
+            "Complete all tasks by yourself without seeking assistance from technological automation such as bots or scripts.",
+            "AI Trainers avoid using generated content for training.",
         ):
             self.assertEqual(mod.policy_signal(row(text))[0], "prohibited", text)
 
@@ -73,6 +78,7 @@ class AiToolPolicyGateTests(unittest.TestCase):
         self.assertEqual([x["id"] for x in got["jobs"]], ["keep"])
         self.assertEqual(got["candidate_ai_tool_policy_dropped"], 1)
         self.assertTrue(got["candidate_rejects_explicit_ai_tool_bans"])
+        self.assertTrue(got["candidate_rejects_explicit_automation_bans"])
         self.assertEqual(got["candidate_pool_size"], 1)
         self.assertEqual(got["live_jobs"], 1)
         self.assertEqual(got["new_jobs"], 1)
