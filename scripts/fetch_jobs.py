@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Refresh high-confidence AI-automatable remote-work candidates.
+"""Legacy scoring/Indeed-URL helper plus a minimal standalone refresh path.
+
+The production refresh is orchestrated by `acquisition_supply_yield.py`; this
+module remains the shared home for deterministic scoring helpers imported by
+`acquisition.py` and for a small direct fallback refresh.
+
+Both paths follow the same remote-evidence rule: search location/provider
+classification is discovery context only. A listing earns remote confidence
+from its own text. The deprecated Google Jobs Work From Home `ltype` filter is
+not used.
 
 Primary acquisition uses SerpApi's Google Jobs API. We only keep jobs whose
 structured apply_options explicitly contain an Indeed application URL. This
@@ -28,9 +37,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "jobs.json"
 NOW = datetime.now(timezone.utc)
+DEFAULT_SEARCH_ORIGIN = "Tokyo, Japan"
 
-# Two broad searches every 8 hours. Keep the acquisition surface small and let
-# the strict local scorer decide which rows are worth showing.
+
+def configured_search_origin() -> str:
+    return os.environ.get("SERPAPI_SEARCH_ORIGIN", "").strip() or DEFAULT_SEARCH_ORIGIN
+
+
+# Minimal standalone fallback queries. Production uses the much broader rotating
+# supply strategy in acquisition_supply.py.
 QUERIES = [
     (
         "structured",
@@ -398,17 +413,16 @@ def serpapi_fetch(query: str, api_key: str) -> dict:
     params = {
         "engine": "google_jobs",
         "q": query,
-        "location": "Japan",
+        "location": configured_search_origin(),
         "hl": "ja",
         "gl": "jp",
-        "ltype": "1",
         "api_key": api_key,
         "output": "json",
     }
     url = "https://serpapi.com/search.json?" + urllib.parse.urlencode(params)
     request = urllib.request.Request(
         url,
-        headers={"User-Agent": "AI-Remote-Finder/3.0", "Accept": "application/json"},
+        headers={"User-Agent": "AI-Remote-Finder/7.0", "Accept": "application/json"},
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -444,7 +458,7 @@ def build_row(job: dict, category: str, previous: dict[str, dict]) -> dict | Non
     old = previous.get(jid)
 
     text = " ".join([title, company, location, description, highlights, extensions])
-    scores = score_job(text, published, old, remote_api_filter=True)
+    scores = score_job(text, published, old, remote_api_filter=False)
     if scores.tier == "hidden":
         return None
 
@@ -560,6 +574,7 @@ def main() -> None:
         "errors": errors[:8],
         "method": "serpapi-google-jobs-indeed-apply-only",
         "provider_configured": True,
+        "search_origin": configured_search_origin(),
         "jobs": jobs,
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
