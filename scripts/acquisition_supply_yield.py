@@ -208,6 +208,7 @@ def stamp_yield_metadata() -> None:
 
 def main() -> None:
     reset_yield_telemetry()
+    base.acquisition_quality.reset_quality_telemetry()
     base.ANCHOR_QUERY_PROFILES = list(EXPERIMENTAL_ANCHORS)
     base.PRODUCTION_QUERY_PROFILES = list(PRODUCTION_QUERY_PROFILES)
     base.configure_supply_rotation()
