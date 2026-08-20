@@ -1,4 +1,5 @@
 import importlib
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -22,10 +23,22 @@ def job(description: str) -> dict:
     }
 
 
+def indeed_job(description: str) -> dict:
+    row = job(description)
+    row["apply_options"] = [
+        {"title": "Indeed", "link": "https://jp.indeed.com/viewjob?jk=abc123def"}
+    ]
+    return row
+
+
 class AcquisitionQualityTests(unittest.TestCase):
+    def setUp(self):
+        mod.reset_quality_telemetry()
+
     def test_policy_version_and_thresholds_are_strict(self):
         self.assertEqual(mod.QUALITY_POLICY_VERSION, 2)
         self.assertEqual(mod.QUALITY_GATE, "async-ai-remote-v2")
+        self.assertEqual(mod.QUALITY_TELEMETRY_VERSION, 1)
         self.assertEqual(mod.REVIEW_AUTOMATION_MIN, 64)
         self.assertEqual(mod.REVIEW_HUMAN_RISK_MAX, 18)
         self.assertEqual(mod.REVIEW_AUTOMATION_SIGNAL_MIN, 2)
@@ -74,6 +87,18 @@ class AcquisitionQualityTests(unittest.TestCase):
         self.assertFalse(mod.review_row_meets_quality({**good, "automation_confidence": 63}))
         self.assertFalse(mod.review_row_meets_quality({**good, "human_dependency_risk": 19}))
         self.assertFalse(mod.review_row_meets_quality({**good, "automation_reasons": ["データ入力"]}))
+        self.assertEqual(
+            mod.review_row_quality_rejection({**good, "automation_confidence": 63}),
+            "review-automation-below-floor",
+        )
+        self.assertEqual(
+            mod.review_row_quality_rejection({**good, "human_dependency_risk": 19}),
+            "review-human-risk-above-ceiling",
+        )
+        self.assertEqual(
+            mod.review_row_quality_rejection({**good, "automation_reasons": ["データ入力"]}),
+            "review-insufficient-automation-signals",
+        )
 
     def test_rich_excerpt_keeps_more_context_for_llm(self):
         raw = job("完全在宅。" + ("データ入力と転記。" * 800))
@@ -91,6 +116,43 @@ class AcquisitionQualityTests(unittest.TestCase):
     def test_automatable_always_on_system_is_not_presence_blocked(self):
         raw = job("完全在宅。自動監視システムを常時ログイン状態で稼働し、異常を自動記録します。")
         self.assertIsNone(mod.human_presence_blocker(raw))
+
+    def test_prefilter_rejection_reasons_are_coarse_and_ordered(self):
+        self.assertEqual(
+            mod.prefilter_rejection_reason(job("完全在宅。データ入力と転記。")),
+            "no-indeed-apply",
+        )
+        self.assertEqual(
+            mod.prefilter_rejection_reason(indeed_job("在宅勤務可能。データ入力と転記。")),
+            "missing-explicit-full-remote",
+        )
+        self.assertEqual(
+            mod.prefilter_rejection_reason(indeed_job("完全在宅相談可。データ入力と転記。")),
+            "partial-or-conditional-remote",
+        )
+        self.assertEqual(
+            mod.prefilter_rejection_reason(indeed_job("完全在宅。顧客対応をリアルタイムで行います。")),
+            "synchronous-human-attention",
+        )
+        self.assertIsNone(
+            mod.prefilter_rejection_reason(indeed_job("完全在宅。データ入力と転記を行います。"))
+        )
+
+    def test_quality_telemetry_contains_counts_only(self):
+        mod._record_quality_outcome("anchor_core_data_entry_00", "missing-explicit-full-remote")
+        mod._record_quality_outcome("anchor_core_data_entry_00", None)
+        mod._record_quality_outcome("translation", "ongoing-human-coordination")
+        got = mod.quality_telemetry_snapshot()
+        self.assertEqual(got["candidate_quality_gate_telemetry_version"], 1)
+        self.assertEqual(got["candidate_quality_evaluated_jobs"], 3)
+        self.assertEqual(got["candidate_quality_pre_llm_accepted"], 1)
+        self.assertEqual(got["candidate_quality_rejected_jobs"], 2)
+        self.assertEqual(got["candidate_quality_rejection_counts"]["missing-explicit-full-remote"], 1)
+        self.assertEqual(got["candidate_quality_rejection_counts"]["ongoing-human-coordination"], 1)
+        serialized = json.dumps(got, ensure_ascii=False)
+        self.assertNotIn("title", serialized.lower())
+        self.assertNotIn("company", serialized.lower())
+        self.assertNotIn("https://", serialized.lower())
 
     def test_provider_no_results_becomes_empty_success(self):
         with patch.object(mod, "GENERIC_SERPAPI_FETCH", return_value={"error": "Google hasn't returned any results for this query."}):
