@@ -34,12 +34,12 @@
   <section class="panel controls">
     <div class="row"><input id="search" class="input" placeholder="絞り込み：データ入力、校正、AI評価…"><button id="openIndeed" class="btn primary">Indeedで今すぐ検索</button></div>
     <div class="chips" id="chips"><button class="chip active" data-mode="all">おすすめ候補</button><button class="chip" data-mode="high">高確度だけ</button><button class="chip" data-mode="dual">◎ 二重審査</button><button class="chip" data-mode="review">次点候補</button><button class="chip" data-mode="favorite">★ お気に入り</button><button class="chip" data-mode="applied">✓ 応募済み</button><button class="chip" data-mode="declined">× 応募しない</button></div>
-    <div class="subrow"><small>応募済み・「応募しない」はおすすめから即除外し、次候補が繰り上がります。お気に入りは別保存。NEWと今回再検出された候補を優先し、足りない時だけ品質確認済みの30日以内の予備候補を使います。</small><div class="subactions"><button id="refreshFeed" class="btn ghost">最新候補を再読込</button><select id="sort"><option value="best">おすすめ順</option><option value="fresh">新しい順</option><option value="auto">AI代替順</option><option value="llm">LLM代替率順</option></select></div></div>
+    <div class="subrow"><small>応募済み・「応募しない」はおすすめから即除外し、次候補が繰り上がります。お気に入りは別保存。NEWと今回再検出された候補を優先し、足りない時だけ品質確認済みの14日以内の予備候補を使います。</small><div class="subactions"><button id="refreshFeed" class="btn ghost">最新候補を再読込</button><select id="sort"><option value="best">おすすめ順</option><option value="fresh">新しい順</option><option value="auto">AI代替順</option><option value="llm">LLM代替率順</option></select></div></div>
   </section>
   <div class="toolbar"><h2 id="listTitle">おすすめ候補</h2><small id="resultCount"></small></div>
   <section id="jobs" class="list"></section>
-  <section class="panel note"><b>大事な意味：</b>「張り付きリスク低」「高確度」「LLM監査済み」は技術的な自動化適性の判定です。雇用主が生成AIや無人運用を許可する保証ではないため、生成AI利用・守秘義務・個人情報の扱い・実際の勤務方法は応募前後に確認してください。</section>
-  <div class="footer">AI Remote Finder — quality policy v2 + presence gate / 100-job stock target</div>
+  <section class="panel note"><b>大事な意味：</b>求人本文に生成AI・AIツール・外部AIの利用禁止が明記されている候補は除外します。ただし「張り付きリスク低」「高確度」「LLM監査済み」は技術的な自動化適性の判定であり、AI利用許可が明記されていない求人では許可を保証しません。守秘義務・個人情報・外部AI利用・実際の勤務方法は応募前後に確認してください。</section>
+  <div class="footer">AI Remote Finder — quality policy v2 + presence gate + AI-use policy gate / 100-job stock target</div>
 </main>
 <script>
 (()=>{
@@ -49,6 +49,9 @@
       localStorage.removeItem('candidateCacheV3');
       localStorage.setItem(migration,'1');
     }
+    // Server-side AI-policy and freshness are authoritative. V4 is only a
+    // browser reserve, so clear it before app.js can merge stale candidates.
+    localStorage.removeItem('candidateCacheV4');
   }catch{}
 })();
 </script>
