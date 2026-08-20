@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import sys
 import urllib.parse
 from dataclasses import dataclass
 
@@ -58,6 +59,10 @@ TRUSTED_PROVIDER_HOSTS: tuple[tuple[str, str], ...] = (
     ("dataannotation.tech", "DataAnnotation"),
     ("jobs.telusdigital.com", "TELUS Digital"),
 )
+
+# The product is Indeed-first. Other trusted sources are a separately presented
+# fallback pool and must never make the Indeed inventory look healthy.
+INDEED_PRIMARY_STOCK_TARGET = 30
 
 
 def _clean(value: object) -> str:
@@ -185,3 +190,60 @@ def target_tuple(job: dict) -> tuple[str, str] | None:
     if not target:
         return None
     return target.url, target.job_id
+
+
+def _row_has_verified_indeed(row: object) -> bool:
+    if not isinstance(row, dict):
+        return False
+    if str(row.get("apply_source_kind") or "").strip().lower() == "indeed":
+        return True
+    return _indeed_target(_clean(row.get("url"))) is not None
+
+
+def _indeed_stock(payload: object) -> int:
+    if not isinstance(payload, dict):
+        return 0
+    jobs = payload.get("jobs") or []
+    if isinstance(jobs, list):
+        return sum(1 for row in jobs if _row_has_verified_indeed(row))
+    try:
+        return max(0, int(payload.get("candidate_final_indeed_apply_jobs") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _install_production_indeed_priority() -> None:
+    """Make SerpApi search budget follow Indeed stock, not total mixed-source stock.
+
+    This is intentionally installed only when the production acquisition entrypoint
+    is executed. Unit tests and supplemental-source scripts keep their isolated
+    module behavior.
+    """
+    if not str(sys.argv[0] or "").replace("\\", "/").endswith("/acquisition_precision.py"):
+        return
+
+    import acquisition_supply_yield as supply
+
+    if getattr(supply, "_indeed_primary_priority_installed", False):
+        return
+    supply._indeed_primary_priority_installed = True
+    original_select = supply.select_query_profiles
+
+    def indeed_first_select(previous_payload: dict | None) -> list[tuple[str, str]]:
+        stock = _indeed_stock(previous_payload)
+        if stock < INDEED_PRIMARY_STOCK_TARGET:
+            # All paced SerpApi requests are directed at the existing proven
+            # Indeed-biased recovery query set until the Indeed pool is healthy.
+            supply._ACTIVE_SOURCE_RECOVERY = True
+            supply._SOURCE_RECOVERY_TRIGGER_RATIO = 1.0
+            supply._SOURCE_RECOVERY_COOLDOWN_REMAINING = 0
+            supply._SOURCE_RECOVERY_TRIGGER_REASON = (
+                f"indeed-primary-stock-low:{stock}/{INDEED_PRIMARY_STOCK_TARGET}"
+            )
+            return list(supply.SOURCE_RECOVERY_QUERY_PROFILES)
+        return original_select(previous_payload)
+
+    supply.select_query_profiles = indeed_first_select
+
+
+_install_production_indeed_priority()
