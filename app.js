@@ -43,7 +43,7 @@ const state={
 
 function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function parseDate(s){if(!s)return null;const d=new Date(s);return Number.isNaN(+d)?null:d;}
-function fmtDate(s){const d=parseDate(s);if(!d)return'不明';return new Intl.DateTimeFormat('ja-JP',{month:'numeric',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(d)}
+function fmtDate(s){const d=parseDate(s);if(!d)return'不明';return new Intl.DateTimeFormat('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)}
 function ageDays(s){const d=parseDate(s);if(!d)return null;return Math.max(0,(Date.now()-d.getTime())/864e5);}
 function ageLabel(s){const d=parseDate(s);if(!d)return'日付不明';const h=Math.max(0,(Date.now()-d.getTime())/36e5);if(h<24)return`${Math.max(1,Math.round(h))}時間以内`;return`${Math.floor(h/24)}日前目安`;}
 function meterClass(v){return v>=82?'good':v>=64?'warn':'bad'}
