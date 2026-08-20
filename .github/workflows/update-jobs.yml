@@ -44,6 +44,11 @@ jobs:
         if: always()
         continue-on-error: true
         run: python scripts/supplement_public_ats.py --previous /tmp/previous-jobs.json
+      - name: Target Japan ATS gaps until 30 candidates
+        id: targeted_public_ats
+        if: always()
+        continue-on-error: true
+        run: python scripts/supplement_targeted_public_ats.py --previous /tmp/previous-jobs.json
       - name: Stamp safe provider guard diagnostics
         if: always()
         env:
