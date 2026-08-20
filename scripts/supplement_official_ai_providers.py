@@ -33,7 +33,7 @@ import acquisition_quality
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
-VERSION = 1
+VERSION = 2
 STOCK_TARGET = 120
 MAX_PAGE_BYTES = 2_000_000
 MAX_DESCRIPTION_CHARS = 12_000
@@ -95,6 +95,15 @@ SOURCES: tuple[SourceSpec, ...] = (
         "Worldwide (Remote)",
         ("ai trainer", "remote", "freelance", "apply"),
         "AIトレーナー AI評価 データ評価 アノテーション labeling 分類 品質評価",
+    ),
+    SourceSpec(
+        "telus-qa-rater-japanese-japan",
+        "TELUS Digital",
+        "Quality Assurance Rater - Japanese (Japan)",
+        "https://jobs.telusdigital.com/jobs/17841111-quality-assurance-rater-japanese-japan",
+        "Japan (Remote)",
+        ("quality assurance rater", "japan", "remote", "ai-generated content"),
+        "AI評価 データ評価 品質評価 検索評価 リサーチ ファクトチェック",
     ),
     SourceSpec(
         "oneforma-uhrs-japan",
@@ -171,6 +180,7 @@ HUMAN_MEDIA_BLOCKERS = (
     "video recording of yourself",
     "take photos of yourself",
     "capture photos of yourself",
+    "first-person video data collection",
     "live video call",
     "scheduled guided recording session",
     "camera must remain on",
@@ -200,6 +210,7 @@ def _provider_host_ok(provider: str, url: str) -> bool:
         "Outlier": ("outlier.ai",),
         "Alignerr": ("alignerr.com",),
         "OneForma": ("oneforma.com",),
+        "TELUS Digital": ("jobs.telusdigital.com",),
     }.get(provider, ())
     return any(host == suffix or host.endswith("." + suffix) for suffix in allowed)
 
