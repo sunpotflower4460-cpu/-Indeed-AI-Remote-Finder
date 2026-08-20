@@ -23,6 +23,7 @@ Production recommendations are not a generic remote-job list. A published candid
 - Deterministic filtering remains authoritative and works even when OpenAI is unavailable.
 - The primary LLM pass reviews HIGH candidates first.
 - Any unused portion of the same eight-attempt per-run budget can review v2 REVIEW candidates. This does not increase the per-run cap.
+- A REVIEW row that receives a strict LLM pass remains deterministically `review`; the strict pass may be surfaced as an additional UI badge/filter only while the row still carries the current deterministic quality and presence proofs.
 - When an available LLM review clearly confirms a mismatch — reject verdict, physical presence, frequent/confirmed occasional synchronous interaction, medium/high human dependency, or another high-confidence material blocker — the candidate is removed before final feed validation.
 - An LLM-reviewed candidate with confidence >=80 and estimated end-to-end `automatable_fraction < 75` is too weak for this feed and is vetoed.
 - LLM blockers explicitly describing human attendance, webcam/camera requirements, presence monitoring, desk-side waiting, attendance checks, or equivalent human-presence constraints are vetoed even if the nominal automation percentage is high.
@@ -35,7 +36,7 @@ The user-facing goal is to keep at least 100 unapplied recommendations available
 
 Discovery uses broad task-focused anchor searches interleaved with many narrower rotating task profiles. This improves the chance of finding Indeed-backed candidates every day without turning the feed into a generic remote-job list. Only rows that pass the same publication gates enter the rolling pool.
 
-The deep-search cadence is seven SerpApi requests per daily run. Seven requests × 31 days = 217, which fits inside the repository's 220-request monthly safety cap and avoids exhausting search budget early in the month. Provider-reported usage is also used as a stricter runtime ceiling when available. Quality-gated candidates may remain as reserve candidates for up to 30 days, while fresh/live candidates rank ahead of reserves.
+The nominal deep-search ceiling is seven SerpApi requests per run. Under the normal once-daily cadence, seven requests × 31 days = 217, which fits inside the repository's 220-request monthly safety cap. If extra manual or code-change refreshes push monthly usage ahead of that cadence, the acquisition layer spreads the remaining allowance across the remaining UTC calendar days and can lower the effective request count below seven. The pool-size request limit, remaining-month pacing, the hard monthly cap, and provider-reported headroom are cumulative ceilings: none of them may increase another limit or weaken publication quality. Quality-gated candidates may remain as reserve candidates for up to 30 days, while fresh/live candidates rank ahead of reserves.
 
 ## Client cache policy
 
@@ -45,7 +46,7 @@ The presence-gate rollout included a one-time purge of the older `candidateCache
 
 ## Refresh/publication contract
 
-Production refresh is performed from trusted `main`, not from pull-request code with production secrets. Relevant merges dispatch a main-branch refresh. Acquisition/provider failures preserve the last-known-good feed rather than writing an empty replacement as if it were fresh.
+Production refresh is performed from trusted `main`, not from pull-request code with production secrets. The daily schedule and explicit manual dispatch remain available. A relevant merged PR naturally creates a trusted `main` push, and that push is the **single automatic post-merge refresh path**; there is intentionally no second merged-PR dispatcher because production testing showed that the duplicate path spent SerpApi quota twice. Acquisition/provider failures preserve the last-known-good feed rather than writing an empty replacement as if it were fresh.
 
 The final published JSON must pass both:
 
