@@ -7,6 +7,7 @@ on:
 permissions:
   actions: write
   contents: read
+  pull-requests: read
 
 jobs:
   dispatch:
@@ -14,10 +15,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Dispatch trusted main-branch refresh
+      - name: Dispatch trusted main-branch refresh when relevant
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
+          changed_files="$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename')"
+          if ! grep -Eq '^(scripts/|\.github/workflows/(update-jobs|refresh-after-merge)\.yml$)' <<<"$changed_files"; then
+            echo "No candidate-pipeline files changed; production refresh skipped."
+            exit 0
+          fi
           gh workflow run update-jobs.yml --repo "$GITHUB_REPOSITORY" --ref main
           echo "Trusted main-branch candidate refresh dispatched."
