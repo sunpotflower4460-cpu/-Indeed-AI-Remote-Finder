@@ -23,6 +23,7 @@ jobs:
         run: |
           mkdir -p _site/data
           cp index.html app.js sw.js manifest.webmanifest icon.svg _site/
+          cp icon-180.png icon-192.png icon-512.png _site/
           # Production app.js also includes the no-secret integrity, static-feed
           # refresher and source-ID/action continuity layers. None dispatches
           # Actions or calls SerpApi/authenticated APIs from the browser.
