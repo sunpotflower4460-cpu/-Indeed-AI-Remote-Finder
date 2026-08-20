@@ -49,7 +49,7 @@ class ClientDualPassParityTests(unittest.TestCase):
     def test_html_escaping_and_existing_date_format_are_unchanged(self):
         app = (ROOT / "app.js").read_text(encoding="utf-8")
 
-        self.assertIn("'\\\"':'&quot;'", app)
+        self.assertIn("'\"':'&quot;'", app)
         self.assertIn("month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'", app)
 
 
