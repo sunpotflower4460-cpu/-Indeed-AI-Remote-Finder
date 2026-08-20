@@ -25,9 +25,10 @@ jobs:
           cp index.html app.js sw.js manifest.webmanifest icon.svg _site/
           cp icon-180.png icon-192.png icon-512.png _site/
           # Production app.js also includes the no-secret integrity, static-feed,
-          # source-ID/action continuity, simplified Japanese UX, and source tabs.
-          # None dispatches Actions or calls SerpApi/authenticated APIs in-browser.
-          cat integrity.js refill.js continuity.js ux.js source-tabs.js >> _site/app.js
+          # source continuity, Japanese UX/source tabs, and a disabled-by-default
+          # official Indeed Publisher Plugin adapter. No browser layer calls
+          # SerpApi or authenticated APIs.
+          cat integrity.js refill.js continuity.js ux.js source-tabs.js indeed-partner-config.js indeed-official.js >> _site/app.js
           cp data/jobs.json _site/data/jobs.json
       - uses: actions/upload-pages-artifact@v4
         with:
