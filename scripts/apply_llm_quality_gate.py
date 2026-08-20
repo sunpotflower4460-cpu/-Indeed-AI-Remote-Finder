@@ -204,6 +204,23 @@ def reject_reason(row: dict) -> str | None:
     return llm_reject_reason(row)
 
 
+def row_is_new_for_refresh(row: dict) -> bool:
+    """Identify a first-seen live row using acquisition's persisted lifecycle fields."""
+    if not isinstance(row, dict) or row.get("carryover"):
+        return False
+    try:
+        seen_count = int(row.get("seen_count") or 0)
+    except (TypeError, ValueError):
+        seen_count = 0
+    if seen_count == 1:
+        return True
+    if seen_count > 1:
+        return False
+    first_seen = str(row.get("first_seen") or "").strip()
+    last_seen = str(row.get("last_seen") or "").strip()
+    return bool(first_seen and last_seen and first_seen == last_seen)
+
+
 def apply(payload: dict) -> dict:
     jobs = payload.get("jobs") or []
     if not isinstance(jobs, list):
@@ -243,6 +260,9 @@ def apply(payload: dict) -> dict:
     payload["candidate_pool_size"] = len(kept)
     payload["live_jobs"] = sum(
         1 for row in kept if isinstance(row, dict) and not row.get("carryover")
+    )
+    payload["new_jobs"] = sum(
+        1 for row in kept if isinstance(row, dict) and row_is_new_for_refresh(row)
     )
     payload["carryover_jobs"] = sum(
         1 for row in kept if isinstance(row, dict) and row.get("carryover")
