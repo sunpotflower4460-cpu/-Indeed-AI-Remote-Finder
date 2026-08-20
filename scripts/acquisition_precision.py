@@ -5,11 +5,10 @@ The underlying acquisition, strict quality gates, source-recovery decision,
 provider budget guard, and base telemetry remain in acquisition_supply_yield.py.
 This wrapper reorders approved search profiles using bounded historical outcomes,
 diversifies scarce windows, uses a guarded champion slot, rotates within proven
-job families when an exact query is fatigued, adds high-intent AI-evaluation
-probes, replaces known-negative profiles in two/three-request windows when a
-better unexplored family exists, records successful zero-result searches so they
-can be learned from, and broadens only the *application destination* from Indeed
-to a small audited set of established Japanese job boards.
+job families when an exact query is fatigued, records successful zero-result
+searches, switches critically low stock to focused AI-evaluation discovery, and
+broadens only the application destination from Indeed to bounded audited boards,
+ATS hosts and selected official provider career hosts.
 
 Publication quality is not relaxed: every candidate still has to pass the same
 full-remote, autonomy, presence, deterministic, LLM and AI-use-policy gates.
@@ -24,17 +23,16 @@ import acquisition_quality
 import acquisition_supply_yield as supply
 import apply_ai_tool_policy_gate as ai_policy
 import apply_sources
-import profile_precision_v7 as profile_precision
+import profile_precision_v8 as profile_precision
 
 
 _ORIGINAL_SELECT = supply.select_query_profiles
 _ORIGINAL_STAMP = supply.stamp_yield_metadata
 _ORIGINAL_PREFILTER = acquisition_quality.prefilter_rejection_reason
 _ORIGINAL_ACQUISITION_BUILD_ROW = acquisition.build_row
-_ORIGINAL_INDEED_APPLY = acquisition.legacy.find_indeed_apply
 _PLANNED_ACTUAL_PROFILES: list[tuple[str, str]] = []
 ATTEMPT_TELEMETRY_VERSION = 1
-TRUSTED_APPLY_POLICY_VERSION = 1
+TRUSTED_APPLY_POLICY_VERSION = 2
 SAFE_INTERNAL_MONTHLY_CAP = 245
 
 
@@ -56,7 +54,7 @@ def adaptive_select_query_profiles(previous_payload: dict | None) -> list[tuple[
     return ordered
 
 
-def _call_with_trusted_apply(callback, job: dict):
+def _call_with_trusted_apply(callback):
     """Temporarily widen the legacy lookup only inside one synchronous gate call."""
     original = acquisition.legacy.find_indeed_apply
     acquisition.legacy.find_indeed_apply = apply_sources.target_tuple
@@ -73,8 +71,7 @@ def trusted_source_build_row(job: dict, category: str, previous: dict[str, dict]
         return None
 
     row = _call_with_trusted_apply(
-        lambda: _ORIGINAL_ACQUISITION_BUILD_ROW(job, category, previous),
-        job,
+        lambda: _ORIGINAL_ACQUISITION_BUILD_ROW(job, category, previous)
     )
     if not row:
         return None
@@ -94,9 +91,9 @@ def policy_aware_prefilter(job: dict) -> str | None:
         return "no-trusted-apply"
 
     # The existing quality prefilter begins with an Indeed-only check. Substitute
-    # our audited structured apply target only for this synchronous call, then
-    # immediately restore the original helper so Indeed telemetry stays truthful.
-    reason = _call_with_trusted_apply(lambda: _ORIGINAL_PREFILTER(job), job)
+    # our audited structured target only for this synchronous call, then restore
+    # the original helper so raw Indeed-yield telemetry remains truthful.
+    reason = _call_with_trusted_apply(lambda: _ORIGINAL_PREFILTER(job))
     if reason == "no-indeed-apply":
         reason = "no-trusted-apply"
     if reason:
@@ -172,7 +169,7 @@ def stamp_attempt_telemetry(
             ) + 1
             zero_profiles.append(category)
 
-    payload["candidate_search_profile_yield"] = rows[:24]
+    payload["candidate_search_profile_yield"] = rows[:36]
     payload["candidate_search_attempt_telemetry_version"] = ATTEMPT_TELEMETRY_VERSION
     payload["candidate_search_attempted_profiles"] = attempted_names[:7]
     payload["candidate_search_first_page_attempts"] = len(attempted_names)
@@ -184,6 +181,7 @@ def stamp_attempt_telemetry(
 
 def stamp_apply_source_metadata(payload: dict) -> None:
     counts: Counter[str] = Counter()
+    kind_counts: Counter[str] = Counter()
     indeed = 0
     trusted_other = 0
     for row in payload.get("jobs") or []:
@@ -193,18 +191,30 @@ def stamp_apply_source_metadata(payload: dict) -> None:
         kind = str(row.get("apply_source_kind") or "").strip()
         if source:
             counts[source] += 1
+        if kind:
+            kind_counts[kind] += 1
         if kind == "indeed":
             indeed += 1
-        elif kind == "trusted-job-board":
+        elif kind.startswith("trusted-"):
             trusted_other += 1
 
+    payload["method"] = "serpapi-google-jobs-adaptive-trusted-apply"
     payload["candidate_trusted_apply_policy_version"] = TRUSTED_APPLY_POLICY_VERSION
-    payload["candidate_apply_destination_policy"] = "indeed-first+audited-major-job-boards"
+    payload["candidate_apply_destination_policy"] = (
+        "indeed-first+audited-job-boards+major-ats+verified-provider-careers"
+    )
     payload["candidate_apply_destination_quality_unchanged"] = True
     payload["candidate_trusted_apply_board_domains"] = [
         suffix for suffix, _ in apply_sources.TRUSTED_JOB_BOARD_HOSTS
     ]
-    payload["candidate_final_apply_source_counts"] = dict(counts.most_common(8))
+    payload["candidate_trusted_apply_ats_domains"] = [
+        suffix for suffix, _ in apply_sources.TRUSTED_ATS_HOSTS
+    ]
+    payload["candidate_trusted_apply_provider_domains"] = [
+        suffix for suffix, _ in apply_sources.TRUSTED_PROVIDER_HOSTS
+    ]
+    payload["candidate_final_apply_source_counts"] = dict(counts.most_common(10))
+    payload["candidate_final_apply_source_kind_counts"] = dict(kind_counts.most_common())
     payload["candidate_final_indeed_apply_jobs"] = indeed
     payload["candidate_final_other_trusted_apply_jobs"] = trusted_other
     payload["serpapi_internal_monthly_cap_default"] = SAFE_INTERNAL_MONTHLY_CAP
@@ -243,9 +253,9 @@ def adaptive_stamp_yield_metadata() -> None:
 
 
 def install() -> None:
-    # The connected account currently exposes more headroom than the old 220
-    # internal ceiling. Keep a five-search safety buffer under the observed
-    # 250-search plan while the free Account API remains the hard real-time guard.
+    # The connected account exposes more headroom than the old 220 internal
+    # ceiling. Keep a five-search safety buffer under the observed 250-search
+    # plan while the free Account API remains the hard real-time guard.
     acquisition.DEFAULT_MONTHLY_REQUEST_CAP = max(
         int(acquisition.DEFAULT_MONTHLY_REQUEST_CAP), SAFE_INTERNAL_MONTHLY_CAP
     )
