@@ -6,9 +6,10 @@ provider budget guard, and telemetry remain in acquisition_supply_yield.py.
 This wrapper reorders approved search profiles using bounded historical outcomes,
 diversifies scarce windows, uses a guarded champion slot, rotates within proven
 job families when an exact query is fatigued, adds high-intent AI-evaluation
-probes, and enforces one narrow policy invariant: listings that explicitly
-prohibit AI/external-AI assistance are rejected before they can enter the
-candidate pool.
+probes, replaces known-negative profiles in two/three-request windows when a
+better unexplored family exists, and enforces one narrow policy invariant:
+listings that explicitly prohibit AI/external-AI assistance are rejected before
+they can enter the candidate pool.
 """
 from __future__ import annotations
 
@@ -18,7 +19,7 @@ import acquisition
 import acquisition_quality
 import acquisition_supply_yield as supply
 import apply_ai_tool_policy_gate as ai_policy
-import profile_precision_v5 as profile_precision
+import profile_precision_v6 as profile_precision
 
 
 _ORIGINAL_SELECT = supply.select_query_profiles
