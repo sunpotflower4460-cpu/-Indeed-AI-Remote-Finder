@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 """Measured supply strategy layered on top of the strict production pipeline.
 
-This module never relaxes publication rules or the seven-request/day budget.
-It improves where those seven searches are spent and can temporarily switch to
-an Indeed source-recovery mode when measured telemetry shows that otherwise
-relevant Google Jobs rows are mostly unusable because they do not expose an
-Indeed application path.
+This module never relaxes publication rules or the nominal seven-request/day
+budget. It improves where those searches are spent, respects any lower effective
+request limit imposed by monthly pacing, and can temporarily switch to an Indeed
+source-recovery mode when measured telemetry shows that otherwise relevant
+Google Jobs rows are mostly unusable because they do not expose an Indeed
+application path.
 
 Normal mode:
 - alternate long-tail task exploration with async-core anchors;
-- keep at least three async-core probes in every seven-search window;
+- at the nominal seven-search window, keep at least three async-core probes;
 - retain an Indeed-biased probe for source-yield measurement.
 
 Source-recovery mode:
 - activate only when the previous low-stock run evaluated enough jobs and at
   least half were rejected solely because there was no Indeed apply path;
 - use the empirically productive ``Indeed`` query term together with exact
-  ``完全在宅`` / ``フルリモート`` phrases for all seven requests;
+  ``完全在宅`` / ``フルリモート`` phrases for every effective request;
 - if a recovery run returns too little data, back off for several runs instead
   of oscillating between broad search and an empty recovery strategy;
 - automatically return to normal exploration when the measured source
@@ -34,7 +35,7 @@ import os
 import acquisition
 import acquisition_supply as base
 
-YIELD_TELEMETRY_VERSION = 5
+YIELD_TELEMETRY_VERSION = 6
 SOURCE_RECOVERY_VERSION = 2
 SOURCE_RECOVERY_MIN_EVALUATED = 10
 SOURCE_RECOVERY_NO_INDEED_RATIO = 0.50
@@ -69,9 +70,9 @@ INDEED_BIAS_ANCHORS: list[tuple[str, str]] = [
 
 EXPERIMENTAL_ANCHORS: list[tuple[str, str]] = list(ASYNC_CORE_ANCHORS) + list(INDEED_BIAS_ANCHORS)
 
-# When source recovery is active, all seven daily requests come from this list.
-# The list is deliberately longer than one daily window so consecutive recovery
-# runs still explore different async task families.
+# When source recovery is active, all effective daily requests come from this
+# list. It is deliberately longer than one nominal daily window so consecutive
+# recovery runs still explore different async task families.
 SOURCE_RECOVERY_QUERY_PROFILES: list[tuple[str, str]] = [
     ("source_data_entry_home", '"完全在宅" "データ入力" Indeed'),
     ("source_data_entry_remote", '"フルリモート" "データ入力" Indeed'),
@@ -300,6 +301,40 @@ def yield_snapshot() -> dict:
     }
 
 
+def effective_request_limit(payload: dict) -> int:
+    """Return the request window actually available after provider/month pacing."""
+    effective = _nonnegative_int(payload.get("serpapi_effective_request_limit"))
+    if effective <= 0:
+        effective = _nonnegative_int(payload.get("query_total"))
+    if effective <= 0:
+        effective = base.DEEP_REQUESTS
+    return min(base.DEEP_REQUESTS, effective)
+
+
+def search_window_minima(active_recovery: bool, effective_limit: int) -> dict[str, int]:
+    """Describe guarantees for the *effective* request window, not nominal seven."""
+    width = max(0, min(base.DEEP_REQUESTS, int(effective_limit)))
+    if active_recovery:
+        return {
+            "anchors": 0,
+            "indeed_bias": width,
+            "ordinary": 0,
+            "source_targeted": width,
+        }
+
+    # Normal mode alternates task, anchor, task, anchor...; anchor classes then
+    # alternate core/Indeed. At fewer than four requests a window cannot promise
+    # both anchor classes, so report zero rather than an overstated guarantee.
+    anchors = width // 2
+    both_classes = 1 if width >= 4 else 0
+    return {
+        "anchors": anchors,
+        "indeed_bias": both_classes,
+        "ordinary": both_classes,
+        "source_targeted": both_classes,
+    }
+
+
 def stamp_yield_metadata() -> None:
     payload = acquisition.load_payload()
     if not payload:
@@ -307,7 +342,7 @@ def stamp_yield_metadata() -> None:
     payload["candidate_search_strategy"] = (
         "indeed-keyword-source-recovery-v2"
         if _ACTIVE_SOURCE_RECOVERY
-        else "async-core-interleaved-indeed-yield-v5"
+        else "async-core-interleaved-indeed-yield-v6"
     )
     payload["candidate_search_anchor_templates"] = len(EXPERIMENTAL_ANCHORS)
     payload["candidate_search_async_core_anchor_templates"] = len(ASYNC_CORE_ANCHORS)
@@ -329,16 +364,16 @@ def stamp_yield_metadata() -> None:
     payload["candidate_search_source_recovery_trigger_reason"] = _SOURCE_RECOVERY_TRIGGER_REASON
     payload["candidate_search_source_bias_method"] = "keyword-plus-exact-remote"
     payload["candidate_search_source_bias_term"] = INDEED_SOURCE_BIAS_TERM
-    if _ACTIVE_SOURCE_RECOVERY:
-        payload["candidate_search_anchor_min_per_daily_window"] = 0
-        payload["candidate_search_indeed_bias_min_per_daily_window"] = base.DEEP_REQUESTS
-        payload["candidate_search_ordinary_anchor_min_per_daily_window"] = 0
-        payload["candidate_search_source_targeted_min_per_daily_window"] = base.DEEP_REQUESTS
-    else:
-        payload["candidate_search_anchor_min_per_daily_window"] = 3
-        payload["candidate_search_indeed_bias_min_per_daily_window"] = 1
-        payload["candidate_search_ordinary_anchor_min_per_daily_window"] = 1
-        payload["candidate_search_source_targeted_min_per_daily_window"] = 1
+
+    effective = effective_request_limit(payload)
+    minima = search_window_minima(_ACTIVE_SOURCE_RECOVERY, effective)
+    payload["candidate_search_effective_daily_limit"] = effective
+    payload["candidate_search_effective_window_paced"] = effective < base.DEEP_REQUESTS
+    payload["candidate_search_anchor_min_per_daily_window"] = minima["anchors"]
+    payload["candidate_search_indeed_bias_min_per_daily_window"] = minima["indeed_bias"]
+    payload["candidate_search_ordinary_anchor_min_per_daily_window"] = minima["ordinary"]
+    payload["candidate_search_source_targeted_min_per_daily_window"] = minima["source_targeted"]
+
     payload.update(yield_snapshot())
     acquisition.OUT.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
