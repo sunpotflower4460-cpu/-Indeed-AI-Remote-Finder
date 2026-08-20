@@ -20,30 +20,45 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
     def setUp(self):
         mod.reset_yield_telemetry()
 
-    def test_experiment_keeps_ordinary_anchors_and_adds_four_indeed_variants(self):
-        ordinary = set(mod.base.ANCHOR_QUERY_PROFILES)
-        experimental = set(mod.EXPERIMENTAL_ANCHORS)
-        self.assertTrue(ordinary.issubset(experimental))
-        biased = [(name, query) for name, query in mod.INDEED_BIAS_ANCHORS]
-        self.assertEqual(len(biased), 4)
-        for name, query in biased:
+    def test_async_core_and_indeed_anchor_templates_are_short_and_task_focused(self):
+        self.assertGreaterEqual(len(mod.ASYNC_CORE_ANCHORS), 8)
+        self.assertEqual(len(mod.INDEED_BIAS_ANCHORS), 4)
+        all_names = [name for name, _ in mod.EXPERIMENTAL_ANCHORS]
+        self.assertEqual(len(all_names), len(set(all_names)))
+
+        core_text = " ".join(query for _, query in mod.ASYNC_CORE_ANCHORS)
+        for term in ("データ入力", "アノテーション", "AI評価", "OCR", "データラベリング"):
+            self.assertIn(term, core_text)
+        self.assertNotIn("翻訳", core_text)
+        self.assertNotIn("ローカライズ", core_text)
+
+        for name, query in mod.ASYNC_CORE_ANCHORS:
+            self.assertNotIn(" OR ", query, name)
+            self.assertLessEqual(len(query), 40, name)
+        for name, query in mod.INDEED_BIAS_ANCHORS:
             self.assertIn("Indeed", query, name)
             self.assertNotIn(" OR ", query, name)
             self.assertLessEqual(len(query), 40, name)
 
-    def test_every_daily_window_has_ordinary_and_indeed_probe(self):
+    def test_every_daily_window_has_three_anchors_and_both_anchor_classes(self):
         profiles = mod.PRODUCTION_QUERY_PROFILES
         size = len(profiles)
         self.assertGreaterEqual(size, mod.base.DEEP_REQUESTS)
         for start in range(size):
             window = [profiles[(start + offset) % size][0] for offset in range(mod.base.DEEP_REQUESTS)]
+            anchors = [name for name in window if name.startswith("anchor_")]
+            self.assertGreaterEqual(
+                len(anchors),
+                3,
+                f"fewer than three async anchors start={start} window={window}",
+            )
             self.assertTrue(
                 any(name.startswith("anchor_indeed_") for name in window),
                 f"missing Indeed probe start={start} window={window}",
             )
             self.assertTrue(
-                any(name.startswith("anchor_") and not name.startswith("anchor_indeed_") for name in window),
-                f"missing ordinary anchor start={start} window={window}",
+                any(name.startswith("anchor_core_") for name in window),
+                f"missing ordinary async-core anchor start={start} window={window}",
             )
 
     def test_rotation_keeps_same_seven_request_budget(self):
@@ -63,11 +78,13 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
         }
         mod.observe_job(job, "anchor_indeed_data_08")
         got = mod.yield_snapshot()
-        self.assertEqual(got["candidate_yield_telemetry_version"], 2)
+        self.assertEqual(got["candidate_yield_telemetry_version"], 3)
         self.assertEqual(got["candidate_yield_jobs_seen"], 1)
         self.assertEqual(got["candidate_jobs_with_apply_options"], 1)
         self.assertEqual(got["candidate_jobs_with_indeed_apply"], 1)
+        self.assertEqual(got["candidate_deterministic_gate_accepted"], 0)
         self.assertEqual(got["candidate_indeed_apply_rate_pct"], 100.0)
+        self.assertEqual(got["candidate_deterministic_accept_rate_pct"], 0.0)
         self.assertEqual(got["candidate_apply_source_counts"]["Indeed"], 1)
         serialized = json.dumps(got, ensure_ascii=False)
         self.assertNotIn("SECRET_ID", serialized)
