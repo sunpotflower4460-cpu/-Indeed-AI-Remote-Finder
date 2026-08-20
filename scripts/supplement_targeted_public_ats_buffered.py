@@ -19,6 +19,7 @@ import argparse
 import json
 from pathlib import Path
 
+import acquisition
 import supplement_official_ai_providers as direct
 import supplement_official_japan_depth as japan_depth
 import supplement_rws_trainai as rws
@@ -29,7 +30,7 @@ DEFAULT_FEED = ROOT / "data" / "jobs.json"
 VISIBLE_MINIMUM = 30
 POST_FINAL_STOCK_TARGET = 100
 PRE_FINAL_BUFFER_TARGET = 120
-BUFFER_POLICY_VERSION = 4
+BUFFER_POLICY_VERSION = 5
 
 
 def _load(path: Path | None) -> dict:
@@ -42,6 +43,24 @@ def _load(path: Path | None) -> dict:
         return {}
 
 
+def _rearm_quality_builder() -> None:
+    """Let each in-process source reinstall the strict builder around precision.
+
+    ``acquisition_precision.install()`` intentionally points ``build_row`` at its
+    trusted-apply implementation. The first supplemental source then wraps that
+    builder with ``acquisition_quality.configure_quality_policy()``. Because the
+    buffered refill runs several source modules in one Python process, a later
+    source used to call ``install()`` again, replace the quality wrapper, and see
+    the quality module's one-time configured flag. The result was valid-looking
+    rows without quality/autonomy stamps.
+
+    Re-arming the flag before every source keeps the intended order deterministic:
+    precision install -> strict quality wrapper -> source rows. Each source starts
+    from the trusted base builder, so this does not stack recursive wrappers.
+    """
+    acquisition._production_quality_policy_configured = False
+
+
 def top_up_with_buffer(
     payload: dict,
     previous_payload: dict | None = None,
@@ -52,6 +71,7 @@ def top_up_with_buffer(
     # Tests can supply direct_pages/japan_depth_pages/rws_posts to stay fully
     # offline. Production omits them and checks only the audited public pages and
     # documented public ATS endpoints.
+    _rearm_quality_builder()
     direct_pages_supplied = "direct_pages" in source_overrides
     direct_pages = source_overrides.pop("direct_pages", None)
     if direct_pages_supplied:
@@ -59,6 +79,7 @@ def top_up_with_buffer(
     else:
         payload = direct.supplement(payload, previous)
 
+    _rearm_quality_builder()
     depth_pages_supplied = "japan_depth_pages" in source_overrides
     depth_pages = source_overrides.pop("japan_depth_pages", None)
     if depth_pages_supplied:
@@ -66,6 +87,7 @@ def top_up_with_buffer(
     else:
         payload = japan_depth.supplement(payload, previous)
 
+    _rearm_quality_builder()
     rws_posts_supplied = "rws_posts" in source_overrides
     rws_posts = source_overrides.pop("rws_posts", None)
     if rws_posts_supplied:
@@ -73,6 +95,7 @@ def top_up_with_buffer(
     else:
         payload = rws.supplement(payload, previous)
 
+    _rearm_quality_builder()
     original_target = targeted.TARGET_POOL
     targeted.TARGET_POOL = PRE_FINAL_BUFFER_TARGET
     try:
@@ -87,6 +110,7 @@ def top_up_with_buffer(
     result["candidate_pre_final_buffer_target"] = PRE_FINAL_BUFFER_TARGET
     result["candidate_pre_final_buffer_ready"] = after >= PRE_FINAL_BUFFER_TARGET
     result["candidate_pre_final_buffer_uses_serpapi"] = False
+    result["candidate_quality_builder_rearmed_per_source"] = True
     # The 30-row field remains the product's hard visible-floor signal, not the
     # deeper stock target.
     result["candidate_targeted_public_ats_goal_30_ready"] = after >= VISIBLE_MINIMUM
