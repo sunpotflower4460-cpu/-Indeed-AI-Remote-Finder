@@ -9,20 +9,28 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
-VERSION = 2
+VERSION = 3
 
 
 def stamp(payload: dict) -> dict:
     now = datetime.now(timezone.utc).isoformat()
     payload["generated_at"] = now
-    # Keep the historical key name for backward-compatible UI/telemetry reads;
-    # the mode explicitly reflects that direct audited provider pages now join
-    # public ATS feeds in this zero-search-quota refresh.
+    # Keep the historical key name for backward-compatible UI/telemetry reads.
+    # v3 represents the expanded official-source stack: employer ATS, audited
+    # provider pages, the Japan-depth provider layer, and RWS TrainAI. None of
+    # these free refill layers uses SerpApi.
     payload["candidate_free_ats_refresh_version"] = VERSION
     payload["candidate_free_ats_refresh_at"] = now
     payload["candidate_free_ats_refresh_uses_serpapi"] = False
     payload["candidate_free_ats_refresh_mode"] = "official-sources-only"
     payload["candidate_free_official_refresh"] = True
+    payload["candidate_free_official_source_layers"] = [
+        "public-employer-ats",
+        "targeted-public-employer-ats",
+        "official-provider-page",
+        "official-provider-page-japan-depth",
+        "rws-trainai-lever",
+    ]
     payload["candidate_pool_size"] = len(
         [row for row in payload.get("jobs") or [] if isinstance(row, dict)]
     )
