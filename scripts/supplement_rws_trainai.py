@@ -22,8 +22,8 @@ import supplement_targeted_public_ats as targeted
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
-VERSION = 1
-STOCK_TARGET = 100
+VERSION = 2
+STOCK_TARGET = 120
 SITE = "rws"
 COMPANY = "RWS TrainAI"
 LOCATIONS = ("Tokyo", "Japan")
@@ -113,8 +113,9 @@ def supplement(
     payload["candidate_rws_trainai_pool_before"] = before
 
     if before >= STOCK_TARGET:
-        payload["candidate_rws_trainai_skipped"] = "pool-at-or-above-user-stock-target"
+        payload["candidate_rws_trainai_skipped"] = "pool-at-or-above-pre-final-target"
         payload["candidate_rws_trainai_pool_after"] = before
+        payload["candidate_rws_trainai_pre_final_ready"] = True
         return payload
 
     errors: list[str] = []
@@ -140,7 +141,7 @@ def supplement(
     result["candidate_rws_trainai_stats"] = stats
     result["candidate_rws_trainai_errors"] = errors
     result["candidate_rws_trainai_pool_after"] = after
-    result["candidate_rws_trainai_user_stock_ready"] = after >= STOCK_TARGET
+    result["candidate_rws_trainai_pre_final_ready"] = after >= STOCK_TARGET
     return result
 
 
