@@ -73,6 +73,7 @@ class ApplySourceTests(unittest.TestCase):
             ("https://www.alignerr.com/jobs/example-role", "Alignerr"),
             ("https://www.oneforma.com/projects/example-project/", "OneForma"),
             ("https://my.oneforma.com/Account/register", "OneForma"),
+            ("https://www.dataannotation.tech/japanese-jp", "DataAnnotation"),
             ("https://jobs.telusdigital.com/en_US/careers/PipelineDetail/abc/123", "TELUS Digital"),
         )
         for url, source in cases:
