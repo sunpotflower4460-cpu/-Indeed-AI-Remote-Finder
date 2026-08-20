@@ -52,7 +52,15 @@ class PreFinalSupplyBufferTests(unittest.TestCase):
         self.assertEqual(out["candidate_pre_final_buffer_target"], 120)
         self.assertEqual(out["candidate_visible_minimum"], 30)
         self.assertFalse(out["candidate_pre_final_buffer_uses_serpapi"])
-        self.assertEqual(out["candidate_pre_final_buffer_policy_version"], 4)
+        self.assertEqual(out["candidate_pre_final_buffer_policy_version"], 5)
+        self.assertTrue(out["candidate_quality_builder_rearmed_per_source"])
+
+        generated = [row for row in out["jobs"] if str(row.get("id", "")).startswith("buffer-welo-")]
+        self.assertTrue(generated)
+        for row in generated:
+            self.assertEqual(row.get("quality_policy_version"), 2)
+            self.assertEqual(row.get("quality_gate"), "async-ai-remote-v2")
+            self.assertEqual(row.get("autonomy_attention_risk"), "low")
 
     def test_pool_at_pre_final_target_skips_extra_source_work(self):
         existing = [{"id": f"existing-{i}", "tier": "review", "score": 80} for i in range(120)]
@@ -72,11 +80,14 @@ class PreFinalSupplyBufferTests(unittest.TestCase):
         self.assertTrue(out["candidate_pre_final_buffer_ready"])
         self.assertEqual(out["candidate_post_final_stock_target"], 100)
         self.assertEqual(out["candidate_pre_final_buffer_target"], 120)
+        self.assertTrue(out["candidate_quality_builder_rearmed_per_source"])
 
-    def test_wrapper_includes_japan_depth_layer(self):
+    def test_wrapper_includes_japan_depth_layer_and_rearms_quality_builder(self):
         source = (ROOT / "scripts/supplement_targeted_public_ats_buffered.py").read_text(encoding="utf-8")
         self.assertIn("supplement_official_japan_depth", source)
         self.assertIn("japan_depth_pages", source)
+        self.assertIn("_rearm_quality_builder()", source)
+        self.assertGreaterEqual(source.count("_rearm_quality_builder()"), 5)
 
     def test_workflow_uses_buffered_entrypoint(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
