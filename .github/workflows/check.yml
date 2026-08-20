@@ -20,7 +20,7 @@ jobs:
         run: python -m compileall -q scripts
       - name: Validate current feed
         run: |
-          python scripts/validate_feed.py
+          python scripts/validate_feed_trusted.py
           python scripts/validate_remote_feed.py
       - name: Validate manifest JSON
         run: python -m json.tool manifest.webmanifest > /dev/null
