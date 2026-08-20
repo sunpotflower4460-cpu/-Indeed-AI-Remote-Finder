@@ -75,7 +75,7 @@ class ProductionRemoteAcquisitionTests(unittest.TestCase):
         params = inspect.signature(mod.acquisition.serpapi_fetch).parameters
         self.assertIn("next_page_token", params)
 
-    def test_generated_serpapi_next_url_is_preferred_for_page_two(self):
+    def test_direct_adapter_uses_city_origin_without_deprecated_ltype(self):
         calls = []
         responses = [
             {
@@ -84,7 +84,7 @@ class ProductionRemoteAcquisitionTests(unittest.TestCase):
                     "next_page_token": "TOKEN123",
                     "next": (
                         "https://serpapi.com/search.json?engine=google_jobs&q=test"
-                        "&next_page_token=TOKEN123&uds=SERVER_FILTER&api_key=OLD_KEY"
+                        "&next_page_token=TOKEN123&uds=SERVER_FILTER&ltype=1&api_key=OLD_KEY"
                     ),
                 },
             },
@@ -100,7 +100,8 @@ class ProductionRemoteAcquisitionTests(unittest.TestCase):
             mod.acquisition.serpapi_fetch("test", "NEW_SECRET", next_page_token="TOKEN123")
 
         self.assertEqual(len(calls), 2)
-        self.assertIn("ltype=1", calls[0])
+        self.assertIn("location=Tokyo%2C+Japan", calls[0])
+        self.assertNotIn("ltype=1", calls[0])
         self.assertIn("uds=SERVER_FILTER", calls[1])
         self.assertIn("next_page_token=TOKEN123", calls[1])
         self.assertNotIn("ltype=1", calls[1])
@@ -206,7 +207,7 @@ class ProductionRemoteAcquisitionTests(unittest.TestCase):
             [],
         )
 
-    def test_structured_work_from_home_is_review_evidence_not_high_proof(self):
+    def test_search_origin_is_not_remote_evidence(self):
         row = mod.acquisition.build_row(
             job(
                 "データ入力と転記、Excelでのデータ整理を担当します。",
@@ -215,12 +216,7 @@ class ProductionRemoteAcquisitionTests(unittest.TestCase):
             "structured_data",
             {},
         )
-        self.assertIsNotNone(row)
-        self.assertEqual(row["tier"], "review")
-        self.assertTrue(row["remote_search_only"])
-        self.assertIn("在宅要確認", row["tags"])
-        self.assertEqual(row["autonomy_attention_risk"], "low")
-        self.assertTrue(any("本文要確認" in reason for reason in row["remote_reasons"]))
+        self.assertIsNone(row)
 
     def test_explicit_full_remote_review_does_not_need_warning_label(self):
         row = mod.acquisition.build_row(
