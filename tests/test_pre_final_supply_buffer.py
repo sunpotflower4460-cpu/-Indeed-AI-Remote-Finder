@@ -39,6 +39,8 @@ class PreFinalSupplyBufferTests(unittest.TestCase):
             {"jobs": existing},
             {},
             direct_pages={},
+            oneforma_index_pages={},
+            oneforma_detail_pages={},
             japan_depth_pages={},
             rws_posts=[],
             welo_posts=[welo(i) for i in range(20)],
@@ -52,8 +54,9 @@ class PreFinalSupplyBufferTests(unittest.TestCase):
         self.assertEqual(out["candidate_pre_final_buffer_target"], 120)
         self.assertEqual(out["candidate_visible_minimum"], 30)
         self.assertFalse(out["candidate_pre_final_buffer_uses_serpapi"])
-        self.assertEqual(out["candidate_pre_final_buffer_policy_version"], 5)
+        self.assertEqual(out["candidate_pre_final_buffer_policy_version"], 6)
         self.assertTrue(out["candidate_quality_builder_rearmed_per_source"])
+        self.assertTrue(out["candidate_oneforma_catalog_in_buffer"])
 
         generated = [row for row in out["jobs"] if row.get("ats_provider") == "Welo Global"]
         self.assertTrue(generated)
@@ -68,6 +71,8 @@ class PreFinalSupplyBufferTests(unittest.TestCase):
             {"jobs": existing},
             {},
             direct_pages={},
+            oneforma_index_pages={},
+            oneforma_detail_pages={},
             japan_depth_pages={},
             rws_posts=[],
             welo_posts=[],
@@ -82,12 +87,14 @@ class PreFinalSupplyBufferTests(unittest.TestCase):
         self.assertEqual(out["candidate_pre_final_buffer_target"], 120)
         self.assertTrue(out["candidate_quality_builder_rearmed_per_source"])
 
-    def test_wrapper_includes_japan_depth_layer_and_rearms_quality_builder(self):
+    def test_wrapper_includes_catalog_and_japan_depth_layers_and_rearms_quality_builder(self):
         source = (ROOT / "scripts/supplement_targeted_public_ats_buffered.py").read_text(encoding="utf-8")
+        self.assertIn("supplement_oneforma_catalog", source)
+        self.assertIn("oneforma_index_pages", source)
         self.assertIn("supplement_official_japan_depth", source)
         self.assertIn("japan_depth_pages", source)
         self.assertIn("_rearm_quality_builder()", source)
-        self.assertGreaterEqual(source.count("_rearm_quality_builder()"), 5)
+        self.assertGreaterEqual(source.count("_rearm_quality_builder()"), 6)
 
     def test_workflow_uses_buffered_entrypoint(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
