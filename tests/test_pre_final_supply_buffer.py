@@ -55,7 +55,7 @@ class PreFinalSupplyBufferTests(unittest.TestCase):
         self.assertEqual(out["candidate_pre_final_buffer_policy_version"], 5)
         self.assertTrue(out["candidate_quality_builder_rearmed_per_source"])
 
-        generated = [row for row in out["jobs"] if str(row.get("id", "")).startswith("buffer-welo-")]
+        generated = [row for row in out["jobs"] if row.get("ats_provider") == "Welo Global"]
         self.assertTrue(generated)
         for row in generated:
             self.assertEqual(row.get("quality_policy_version"), 2)
