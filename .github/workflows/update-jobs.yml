@@ -65,6 +65,9 @@ jobs:
       - name: Deduplicate and maintain rolling candidate pool
         if: always()
         run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
+      - name: Enforce Japan compatibility, identity independence, and semantic dedupe
+        if: always()
+        run: python scripts/apply_candidate_integrity_gate.py
       - name: Optional LLM second-opinion audit
         id: llm_audit
         continue-on-error: true
@@ -208,6 +211,7 @@ jobs:
         run: |
           python scripts/validate_feed_trusted.py
           python scripts/validate_remote_feed.py
+          python scripts/validate_candidate_integrity.py
       - name: Commit refreshed feed
         run: |
           git config user.name "github-actions[bot]"
