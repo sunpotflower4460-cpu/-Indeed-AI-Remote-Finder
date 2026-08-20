@@ -23,9 +23,10 @@ jobs:
         run: |
           mkdir -p _site/data
           cp index.html app.js sw.js manifest.webmanifest icon.svg _site/
-          # Production app.js also includes the no-secret, static-feed low-stock
-          # refresher. It never dispatches Actions or calls SerpApi.
-          cat refill.js >> _site/app.js
+          # Production app.js also includes the no-secret static-feed refresher
+          # and source-ID/action continuity layer. Neither dispatches Actions nor
+          # calls SerpApi or authenticated APIs from the browser.
+          cat refill.js continuity.js >> _site/app.js
           cp data/jobs.json _site/data/jobs.json
       - uses: actions/upload-pages-artifact@v4
         with:
