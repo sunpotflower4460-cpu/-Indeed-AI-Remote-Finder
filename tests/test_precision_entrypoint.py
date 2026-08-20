@@ -13,7 +13,7 @@ class PrecisionEntrypointTests(unittest.TestCase):
     def test_precision_wrapper_keeps_existing_supply_pipeline_as_underlying_engine(self):
         wrapper = (ROOT / "scripts/acquisition_precision.py").read_text(encoding="utf-8")
         self.assertIn("import acquisition_supply_yield as supply", wrapper)
-        self.assertIn("import profile_precision_v3 as profile_precision", wrapper)
+        self.assertIn("import profile_precision_v4 as profile_precision", wrapper)
         self.assertIn("profiles = _ORIGINAL_SELECT(previous_payload)", wrapper)
         self.assertIn("profile_precision.order_profiles", wrapper)
         self.assertIn("profile_precision.learning_metadata", wrapper)
