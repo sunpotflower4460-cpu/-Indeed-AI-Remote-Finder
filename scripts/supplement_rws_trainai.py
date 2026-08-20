@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import urllib.parse
+from copy import deepcopy
 from pathlib import Path
 
 import supplement_public_ats as base
@@ -64,10 +65,29 @@ def _fetch_rws_japan() -> tuple[list[dict], dict[str, int]]:
     return list(by_key.values()), stats
 
 
+def _normalize_tokyo_as_japan(post: dict) -> dict:
+    """Preserve RWS data while making the unambiguous Tokyo→Japan relation explicit."""
+    normalized = deepcopy(post)
+    categories = normalized.get("categories")
+    if not isinstance(categories, dict):
+        return normalized
+    location = base._clean(categories.get("location"))
+    if location.lower() in {"tokyo", "東京"}:
+        categories["location"] = "Tokyo, Japan"
+    all_locations = categories.get("allLocations")
+    if isinstance(all_locations, list):
+        categories["allLocations"] = [
+            "Tokyo, Japan" if base._clean(value).lower() in {"tokyo", "東京"} else value
+            for value in all_locations
+        ]
+    normalized["categories"] = categories
+    return normalized
+
+
 def _map(posts: list[dict]) -> list[dict]:
     mapped: list[dict] = []
     for post in posts:
-        row = base._map_lever(post, SITE, COMPANY)
+        row = base._map_lever(_normalize_tokyo_as_japan(post), SITE, COMPANY)
         if not row:
             continue
         row["_target_category"] = row.pop(
