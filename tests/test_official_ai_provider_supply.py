@@ -21,6 +21,11 @@ ONEFORMA_TEXT = (
     "Complete data annotation and evaluation tasks, labeling, classification, "
     "search relevance evaluation and structured AI response quality review."
 )
+TELUS_TEXT = (
+    "Quality Assurance Rater - Japanese (Japan). Japan remote. "
+    "Evaluate search results and AI-generated content, conduct research and fact-checking, "
+    "apply quality guidelines, rate relevance, and provide structured written feedback."
+)
 
 
 class OfficialAIProviderSupplyTests(unittest.TestCase):
@@ -46,6 +51,25 @@ class OfficialAIProviderSupplyTests(unittest.TestCase):
         self.assertEqual(row["apply_source"], "Outlier")
         self.assertEqual(row["apply_source_kind"], "trusted-provider")
 
+    def test_telus_japan_quality_rater_is_a_trusted_current_direct_source(self):
+        spec = next(x for x in mod.SOURCES if x.key == "telus-qa-rater-japanese-japan")
+        self.assertEqual(spec.provider, "TELUS Digital")
+        self.assertTrue(spec.url.startswith("https://jobs.telusdigital.com/jobs/"))
+        self.assertTrue(mod._provider_host_ok(spec.provider, spec.url))
+        self.assertTrue(mod._live_text(spec, TELUS_TEXT))
+        out = mod.supplement(
+            {"jobs": []},
+            {},
+            fetched_pages={"telus-qa-rater-japanese-japan": TELUS_TEXT},
+        )
+        rows = [row for row in out["jobs"] if row.get("official_provider") == "TELUS Digital"]
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row["quality_gate"], "async-ai-remote-v2")
+        self.assertEqual(row["autonomy_attention_risk"], "low")
+        self.assertEqual(row["apply_source"], "TELUS Digital")
+        self.assertEqual(row["apply_source_kind"], "trusted-provider")
+
     def test_oneforma_requires_current_japan_remote_open_signals(self):
         spec = next(x for x in mod.SOURCES if x.key == "oneforma-intent-japan")
         self.assertTrue(mod._live_text(spec, ONEFORMA_TEXT))
@@ -56,6 +80,7 @@ class OfficialAIProviderSupplyTests(unittest.TestCase):
         spec = next(x for x in mod.SOURCES if x.key == "oneforma-intent-japan")
         self.assertFalse(mod._live_text(spec, ONEFORMA_TEXT + " You must record your voice."))
         self.assertFalse(mod._live_text(spec, ONEFORMA_TEXT + " Join a live video call."))
+        self.assertFalse(mod._live_text(spec, ONEFORMA_TEXT + " First-person video data collection."))
 
     def test_multiple_live_official_pages_remain_distinct_jobs(self):
         pages = {
