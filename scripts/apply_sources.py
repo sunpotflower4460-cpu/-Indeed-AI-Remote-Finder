@@ -55,6 +55,7 @@ TRUSTED_PROVIDER_HOSTS: tuple[tuple[str, str], ...] = (
     ("outlier.ai", "Outlier"),
     ("alignerr.com", "Alignerr"),
     ("oneforma.com", "OneForma"),
+    ("dataannotation.tech", "DataAnnotation"),
     ("jobs.telusdigital.com", "TELUS Digital"),
 )
 
