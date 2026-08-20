@@ -26,18 +26,24 @@ import acquisition_quality
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
-VERSION = 1
+VERSION = 2
 STOCK_TARGET = 120
 MAX_INDEX_BYTES = 2_000_000
 MAX_PAGE_BYTES = 2_000_000
 MAX_DESCRIPTION_CHARS = 12_000
-MAX_DISCOVERED_PAGES = 24
+MAX_DISCOVERED_PAGES = 30
 
+# OneForma's current public project surface lives under /projects/. Start with
+# the later pages because they currently contain several Japan-eligible judging,
+# annotation and translation roles, then cover the root/type archives for churn.
 INDEX_URLS = (
-    "https://www.oneforma.com/jobs/?sort=newest&t=annotation",
-    "https://www.oneforma.com/jobs/?sort=newest&t=translation",
-    "https://www.oneforma.com/jobs/type/judging/",
-    "https://www.oneforma.com/jobs/type/transcription/",
+    "https://www.oneforma.com/projects/page/2/",
+    "https://www.oneforma.com/projects/page/3/",
+    "https://www.oneforma.com/projects/",
+    "https://www.oneforma.com/projects/type/annotation/",
+    "https://www.oneforma.com/projects/type/judging/",
+    "https://www.oneforma.com/projects/type/transcription/",
+    "https://www.oneforma.com/projects/type/translation/",
 )
 
 # Only recurring digital task families. Generic data-collection projects are
@@ -93,7 +99,7 @@ def _fetch_html(url: str, limit: int) -> tuple[str, str]:
     request = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "AI-Remote-Finder/10.1",
+            "User-Agent": "AI-Remote-Finder/10.2",
             "Accept": "text/html,application/xhtml+xml",
         },
     )
@@ -114,6 +120,23 @@ def _page_text(raw: str) -> str:
     return re.sub(r"\s+", " ", html.unescape(value)).strip()
 
 
+def _project_text(raw: str) -> str:
+    """Return the primary project copy, excluding unrelated recommendation cards.
+
+    OneForma project pages include a "Similar projects" rail. Scanning that rail
+    for blockers can falsely reject a safe annotation job simply because a
+    separate self-video collection project is recommended below it.
+    """
+    text = _page_text(raw)
+    lower = text.lower()
+    cut = len(text)
+    for marker in ("similar projects", "equal opportunity at oneforma"):
+        index = lower.find(marker)
+        if index > 0:
+            cut = min(cut, index)
+    return text[:cut].strip()
+
+
 def _title(raw: str) -> str:
     match = re.search(r"(?is)<h1[^>]*>(.*?)</h1>", raw)
     if not match:
@@ -131,9 +154,18 @@ def _normalize_url(base: str, href: str) -> str | None:
         return None
     path = parsed.path.rstrip("/") + "/"
     lower_path = path.lower()
-    if not (lower_path.startswith("/jobs/") or lower_path.startswith("/projects/")):
+    if not lower_path.startswith("/projects/"):
         return None
-    if lower_path in {"/jobs/", "/projects/"} or lower_path.startswith("/jobs/type/"):
+    if lower_path == "/projects/" or any(
+        lower_path.startswith(prefix)
+        for prefix in (
+            "/projects/page/",
+            "/projects/type/",
+            "/projects/tag/",
+            "/projects/domain/",
+            "/projects/category/",
+        )
+    ):
         return None
     return urllib.parse.urlunparse(("https", parsed.netloc, path, "", "", ""))
 
@@ -169,6 +201,9 @@ def _japan_eligible(text: str) -> bool:
             "available in",
             "japanese - japan",
             "japanese (japan)",
+            "japanese (japan)-",
+            "japanese (japan) -",
+            "japan (japanese)",
             "based in japan",
             "reside in japan",
         )
@@ -282,7 +317,7 @@ def supplement(
         except Exception as exc:
             errors.append(f"{urllib.parse.urlparse(url).path}:{type(exc).__name__}")
             continue
-        text = _page_text(raw)
+        text = _project_text(raw)
         if not _live_candidate(text):
             continue
         live += 1
