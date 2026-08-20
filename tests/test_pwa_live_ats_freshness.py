@@ -23,8 +23,8 @@ class PWALiveATSFreshnessTests(unittest.TestCase):
         self.assertIn("rows.slice(0,state.displayLimit)", self.app)
         self.assertIn("available>=DEFAULT_VISIBLE?'・30件表示可能':'・30件表示ライン未達'", self.app)
 
-    def test_cache_version_bumped_for_new_freshness_semantics(self):
-        self.assertIn("const LOCAL_CACHE_KEY='candidateCacheV6'", self.app)
+    def test_existing_quality_safe_cache_contract_is_preserved(self):
+        self.assertIn("const LOCAL_CACHE_KEY='candidateCacheV5'", self.app)
 
 
 if __name__ == "__main__":
