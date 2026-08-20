@@ -86,9 +86,12 @@ Use ONLY the supplied job text. Never assume facts that are not present.
 Judge technical task automability, not whether automation is contractually allowed.
 
 Rules:
-- strong: the work appears almost entirely digital, repeatable, and technically delegable to AI/RPA; physical presence is not inherent; frequent synchronous human interaction is not inherent; estimated automatable_fraction should normally be >= 90.
+- strong: the recurring work itself appears almost entirely digital, repeatable, and technically delegable to AI/RPA; physical presence is not inherent; recurring synchronous human interaction is not inherent; estimated automatable_fraction should normally be >= 90.
 - uncertain: evidence is incomplete, mixed, or hidden workflow details could materially change the answer.
-- reject: physical work, real-time persuasion/support, relationship work, management, frequent meetings/calls, or other inherently human activity is central.
+- reject: physical work, real-time persuasion/support, relationship work, management, frequent meetings/calls, or other inherently human activity is central to recurring job execution.
+- Evaluate synchronous_human_interaction for NORMAL RECURRING WORK AFTER HIRING/ONBOARDING. Do not mark occasional merely because the listing mentions an application interview, hiring trial, initial onboarding, one-time training, an initial setup session, or generic feedback/support availability.
+- Mark synchronous_human_interaction as occasional only when the supplied text explicitly requires occasional live human interaction during recurring job execution (for example recurring check-ins, live reviews, scheduled meetings, or real-time handoffs). Mark frequent only when that interaction is a substantial recurring part of the work.
+- If it is unclear whether a meeting, review, approval, or feedback step is recurring during actual execution, do not invent recurrence; place the uncertainty in questions_to_confirm.
 - If employer permission for AI, confidentiality rules, personal data handling, or external-AI usage is not explicit, put that in questions_to_confirm rather than inventing an answer.
 - blockers must contain ONLY inherent technical/task barriers that are explicitly supported by the supplied job text and would materially prevent end-to-end technical automation.
 - Missing or unspecified tools, interfaces, rubrics, data formats, access methods, employer rules, approval steps, or other absent details are NOT blockers. Put them in questions_to_confirm.
