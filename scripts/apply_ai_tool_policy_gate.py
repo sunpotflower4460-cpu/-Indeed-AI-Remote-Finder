@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Reject candidates that explicitly prohibit AI/external-AI assistance.
+"""Reject candidates that explicitly prohibit AI or unattended automation.
 
-Technical automability is not equivalent to employer permission. This gate is
-narrow by design: it rejects only explicit prohibition language found in the
-listing text. When permission is not stated, the candidate remains eligible but
-is stamped as requiring confirmation before any AI-assisted execution.
+Technical automability is not equivalent to employer/platform permission. This
+gate is narrow by design: it rejects only explicit prohibition language found
+in the listing text. That includes generative-AI bans and explicit requirements
+to avoid bots, scripts or technological automation. When permission is not
+stated, the candidate remains eligible but is stamped as requiring confirmation
+before any AI-assisted execution.
 """
 from __future__ import annotations
 
@@ -15,14 +17,24 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
+# Retain v1 for client/feed compatibility; the policy is strictly stronger, not
+# a relaxation, and old stamped rows are reprocessed by this final gate.
 AI_TOOL_POLICY_GATE_VERSION = 1
 
 PROHIBITED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("jp-generative-ai-ban", re.compile(r"(?:生成\s*ai|ai\s*ツール|chatgpt|外部\s*ai)[^。\n]{0,24}(?:使用|利用)[^。\n]{0,16}(?:禁止|不可|認められません|認めない)", re.I)),
     ("jp-no-ai-assistance", re.compile(r"(?:生成\s*ai|ai\s*ツール|chatgpt|外部\s*ai)[^。\n]{0,18}(?:を)?(?:使わない|使用しない|利用しない|使わず|使用せず|利用せず)", re.I)),
+    ("jp-automation-ban", re.compile(r"(?:bot|ボット|script|スクリプト|自動化ツール|自動処理)[^。\n]{0,24}(?:使用|利用)[^。\n]{0,16}(?:禁止|不可|認められません|認めない)", re.I)),
     ("en-ai-tools-prohibited", re.compile(r"(?:use of\s+)?(?:generative\s+ai|ai\s+tools?|chatgpt|external\s+ai)[^.\n]{0,28}(?:prohibited|forbidden|not\s+allowed|not\s+permitted)", re.I)),
     ("en-no-ai-assistance", re.compile(r"(?:without|no)\s+(?:generative\s+)?ai\s+(?:assistance|tools?|help)", re.I)),
     ("en-do-not-use-ai", re.compile(r"(?:do\s+not|must\s+not|cannot|can't)\s+use\s+(?:generative\s+)?ai(?:\s+tools?)?", re.I)),
+    ("en-automation-prohibited", re.compile(r"(?:bots?|scripts?|technological\s+automation|automation\s+tools?)[^.\n]{0,36}(?:prohibited|forbidden|not\s+allowed|not\s+permitted)", re.I)),
+    ("en-do-not-use-automation", re.compile(r"(?:do\s+not|must\s+not|cannot|can't)\s+use\s+(?:bots?|scripts?|automation|automated\s+tools?)", re.I)),
+    ("en-without-automation", re.compile(r"without[^.\n]{0,90}(?:technological\s+automation|bots?|scripts?|automated\s+tools?)", re.I)),
+    # Some AI-training platforms phrase the restriction as a content rule rather
+    # than naming the tool itself (for example, contributors must avoid generated
+    # content). Treat an explicit contributor-facing rule as equivalent.
+    ("en-generated-content-ban", re.compile(r"(?:avoid|refrain\s+from|must\s+not|do\s+not)[^.\n]{0,24}(?:using\s+)?(?:ai[-\s]?generated|generated)\s+content", re.I)),
 )
 
 ALLOWED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -64,7 +76,7 @@ def apply(payload: dict) -> dict:
         status, signal = policy_signal(row)
         if status == "prohibited":
             dropped += 1
-            key = signal or "explicit-ai-tool-ban"
+            key = signal or "explicit-ai-or-automation-ban"
             reasons[key] = reasons.get(key, 0) + 1
             continue
         row["ai_tool_policy_gate_version"] = AI_TOOL_POLICY_GATE_VERSION
@@ -80,6 +92,7 @@ def apply(payload: dict) -> dict:
     payload["jobs"] = kept
     payload["candidate_ai_tool_policy_gate_version"] = AI_TOOL_POLICY_GATE_VERSION
     payload["candidate_rejects_explicit_ai_tool_bans"] = True
+    payload["candidate_rejects_explicit_automation_bans"] = True
     payload["candidate_ai_tool_policy_dropped"] = dropped
     payload["candidate_ai_tool_policy_drop_reasons"] = reasons
     payload["candidate_ai_tool_policy_explicitly_allowed"] = allowed
@@ -105,7 +118,7 @@ def main() -> None:
     result = apply(payload)
     args.feed.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(
-        "AI tool policy gate kept "
+        "AI/automation policy gate kept "
         f"{len(result.get('jobs', []))} jobs; dropped {result.get('candidate_ai_tool_policy_dropped', 0)}"
     )
 
