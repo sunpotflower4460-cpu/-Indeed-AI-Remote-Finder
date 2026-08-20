@@ -4,7 +4,8 @@
 - Drop rows that explicitly contradict unconditional full-remote work.
 - Collapse duplicate postings with the same normalized company/title.
 - Keep only current-policy, full-listing/presence-screened missing jobs for up to
-  the 30-day freshness window.
+  a 14-day verification window; older unrediscovered listings are not surfaced.
+- Reject reserve rows whose stored listing text explicitly bans AI assistance.
 - Rank live/new rows ahead of carried reserve rows so the app changes day to day.
 - Keep at most 150 ranked candidates in the server-side pool, leaving surplus
   inventory above the user's 100-unapplied-candidate target.
@@ -19,9 +20,11 @@ import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import apply_ai_tool_policy_gate
+
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
-CARRYOVER_MAX = timedelta(days=30)
+CARRYOVER_MAX = timedelta(days=14)
 PUBLISHED_MAX = timedelta(days=30)
 DISPLAY_TARGET = 30
 POOL_LIMIT = 150
@@ -169,9 +172,6 @@ def reserve_row_is_quality_gated(row: dict) -> bool:
         return False
     if row.get("quality_gate") != QUALITY_GATE:
         return False
-    # v2 predates the full-listing/presence rollout. Requiring these stamps
-    # prevents an older v2 row with a truncated snippet from bypassing checks
-    # that are now mandatory for newly acquired candidates.
     if row.get("full_listing_presence_screened") is not True:
         return False
     if int(row.get("presence_gate_version") or 0) != PRESENCE_GATE_VERSION:
@@ -181,6 +181,9 @@ def reserve_row_is_quality_gated(row: dict) -> bool:
     if row.get("remote_search_only") is True:
         return False
     if has_remote_contradiction(row):
+        return False
+    status, _ = apply_ai_tool_policy_gate.policy_signal(row)
+    if status == "prohibited":
         return False
     if row.get("tier") == "review":
         if int(row.get("automation_confidence") or 0) < REVIEW_AUTOMATION_MIN:
@@ -224,13 +227,16 @@ def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> 
         row["tier"] = "review"
         row["carryover"] = True
         row["pool_reserve"] = True
+        row["verification_status"] = "reserve-not-rediscovered"
+        row["verification_age_days"] = days_missing
+        row["last_verified_at"] = row.get("last_seen")
         row["carryover_reason"] = (
-            "最新スキャンでは未再検出。30日以内かつ現行の全文・在席品質ゲート確認済みの予備候補として保持"
+            "最新スキャンでは未再検出。14日以内かつ現行の全文・在席・AI利用ポリシー品質ゲート確認済みの予備候補として保持"
         )
         row["freshness_confidence"] = min(
-            int(row.get("freshness_confidence") or 0), max(24, 60 - days_missing * 2)
+            int(row.get("freshness_confidence") or 0), max(28, 66 - days_missing * 3)
         )
-        row["score"] = min(int(row.get("score") or 0), max(40, 74 - days_missing * 2))
+        row["score"] = min(int(row.get("score") or 0), max(42, 76 - days_missing * 3))
         carried.append(row)
     return carried
 
@@ -255,6 +261,13 @@ def process(current_payload: dict, previous_payload: dict | None = None) -> dict
     previous_ids = {str(row.get("id") or "") for row in previous}
     current, contradiction_dropped = drop_remote_contradictions(current)
     current, removed = dedupe_rows(current)
+    for row in current:
+        row["verification_status"] = "live-search-hit"
+        row["verification_age_days"] = 0
+        row["last_verified_at"] = row.get("last_seen") or generated.isoformat()
+        row.pop("carryover", None)
+        row.pop("pool_reserve", None)
+        row.pop("carryover_reason", None)
     live_ids = {str(row.get("id") or "") for row in current}
     carried = carryover_rows(current, previous, generated)
     combined, removed_after_carry = dedupe_rows(current + carried)
@@ -279,6 +292,8 @@ def process(current_payload: dict, previous_payload: dict | None = None) -> dict
     current_payload["remote_contradiction_dropped"] = contradiction_dropped
     current_payload["carryover_jobs"] = sum(1 for row in visible if row.get("carryover"))
     current_payload["candidate_reserve_max_days"] = int(CARRYOVER_MAX.days)
+    current_payload["candidate_verification_status_version"] = 1
+    current_payload["candidate_requires_recent_rediscovery"] = True
     current_payload["pool_under_display_target"] = len(visible) < int(
         current_payload.get("candidate_display_target") or DISPLAY_TARGET
     )
