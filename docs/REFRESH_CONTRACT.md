@@ -8,10 +8,18 @@ The production feed is intentionally separated from pull-request validation.
 
 - the daily scheduled run;
 - an explicit `workflow_dispatch`;
-- a trusted `main` push touching production scripts/workflow files;
-- the post-merge dispatcher, which dispatches the already-reviewed workflow on `main`.
+- a trusted `main` push touching production scripts or `update-jobs.yml`.
 
-The dispatcher never checks out or executes pull-request code and never receives the SerpApi or OpenAI secrets.
+A merged pull request that changes candidate-pipeline scripts creates a normal
+`main` push, so that push is the **single automatic post-merge refresh path**.
+There is intentionally no second merged-PR dispatcher: running both paths was
+proven in production to consume SerpApi requests twice for the same merge even
+though the stale-feed commit guard correctly prevented the second run from
+publishing over newer data.
+
+Runs remain serialized by the `update-job-candidates` concurrency group. If main
+moves while a refresh is generating data, that run must skip its stale feed
+commit rather than rebase old-policy output onto newer code.
 
 ## Candidate quantity
 
@@ -46,6 +54,14 @@ The measured acquisition wrapper keeps the existing search budget while comparin
 - bounded apply/via source counts.
 
 Telemetry never persists the SerpApi key, OpenAI key, raw account response, or apply-option URLs.
+
+## Request-budget behavior
+
+The hard monthly SerpApi cap remains authoritative. In addition, acquisition
+paces the remaining allowance across the remaining UTC calendar days when extra
+manual or code-change refreshes have pushed usage ahead of the normal once-daily
+cadence. Pacing can only lower a run's request count; it never relaxes candidate
+quality or increase the hard monthly cap.
 
 ## Failure behavior
 
