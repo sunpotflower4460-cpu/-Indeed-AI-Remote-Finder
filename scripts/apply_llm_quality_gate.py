@@ -188,7 +188,6 @@ def llm_reject_reason(row: dict) -> str | None:
         return "confirmed-occasional-sync"
     if confidence >= 80 and human == "medium":
         return "confirmed-medium-human-dependency"
-    # A reviewed job below 75% end-to-end automation is too weak for this feed.
     if confidence >= 80 and automatable < 75:
         return "confirmed-low-automation"
     blocker_text = " ".join(blockers).lower()
@@ -250,6 +249,12 @@ def apply(payload: dict) -> dict:
     )
     payload["remote_search_only_jobs"] = sum(
         1 for row in kept if isinstance(row, dict) and row.get("remote_search_only")
+    )
+    payload["llm_reviewed_jobs"] = sum(
+        1 for row in kept if isinstance(row, dict) and isinstance(row.get("llm_review"), dict)
+    )
+    payload["llm_strict_jobs"] = sum(
+        1 for row in kept if isinstance(row, dict) and row.get("llm_strict_pass") is True
     )
     target = int(payload.get("candidate_display_target") or 30)
     payload["pool_under_display_target"] = len(kept) < target
