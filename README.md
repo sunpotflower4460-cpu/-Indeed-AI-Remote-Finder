@@ -68,6 +68,8 @@ LLMは固定JSON形式で、主に次を返します。
 
 LLMが明確な不一致を確認した候補は最終公開前に除外します。たとえば、物理出社、頻繁な同期対応、中〜高い人間依存、高確信度で75%未満のend-to-end自動化、人間在席を示すブロッカーなどです。
 
+`review` tierの候補でも、**現行v2の決定論的品質・全文presence screen・presence gateを保ったままLLM strict passまで通過した場合**は、PWA上で「◎ LLM二重審査通過」として表示・絞り込みできます。ただし決定論的な `tier` 自体を `high` へ昇格させるわけではありません。
+
 LLMが利用できないことだけを理由に、決定論的に通過した候補を削除することはありません。
 
 ## 候補数の考え方
@@ -88,8 +90,10 @@ LLMが利用できないことだけを理由に、決定論的に通過した�
 - SerpApi Google Jobs APIを利用
 - 日本向け、既定検索起点は `Tokyo, Japan`
 - 通常アンカー + Indeed寄りアンカー + 多数のタスク別検索をローテーション
-- 候補が少ない時の深掘りは**1日7検索**
-- 7 × 31日 = 217検索として、既定の月220検索安全上限内に収める設計
+- 候補が少ない時の深掘り上限は**1回7検索**
+- 通常の1日1回運用なら 7 × 31日 = 217検索として、既定の月220検索安全上限内に収まる設計
+- 手動更新やコード変更後の追加更新で月間使用量が通常ペースを上回った場合は、残り月間枠を残りUTC日数へ配分し、**実効検索数を7未満へ自動ペーシング**する
+- ペーシングは検索回数を減らすだけで、公開品質基準や月間ハード上限を緩めない
 - SerpApi Account APIの利用量も確認し、プロバイダ側の残量が少ない時は追加消費を止める
 - 取得失敗時はlast-known-good feedを消さない
 
@@ -113,7 +117,7 @@ LLMが利用できないことだけを理由に、決定論的に通過した�
 10. feed validator + remote validator
 11. 検証を通った `data/jobs.json` のみcommit
 
-PRマージ後は、候補パイプラインに関係する変更だった場合だけ、trusted main-branch refresh dispatcherが本番更新を起動します。
+本番更新の自動トリガーは、定期実行に加えて、候補パイプラインの `scripts/**` または `.github/workflows/update-jobs.yml` を変更する**trusted `main` push**です。関連PRをマージすると通常のmain pushが発生するため、これが唯一の自動post-merge refresh経路です。二重にAPI予算を消費しないため、別のmerged-PR dispatcherは使用しません。
 
 詳しくは [`docs/REFRESH_CONTRACT.md`](docs/REFRESH_CONTRACT.md) を参照してください。
 
@@ -208,5 +212,4 @@ validatorは、たとえば次を確認します。
 - `tests/` — 回帰テスト
 - `.github/workflows/update-jobs.yml` — 本番更新
 - `.github/workflows/check.yml` — PR/main検証
-- `.github/workflows/refresh-after-merge.yml` — 関連PRマージ後のtrusted refresh
 - `.github/workflows/pages.yml` — GitHub Pages公開
