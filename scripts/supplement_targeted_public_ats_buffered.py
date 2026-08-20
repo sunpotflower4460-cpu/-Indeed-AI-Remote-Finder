@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Keep a safety margin above the PWA's 30-candidate minimum.
+"""Keep deep stock above the PWA's 30-candidate visible minimum.
 
-The underlying targeted ATS supplement deliberately does not relax any quality
-rule. This wrapper changes only *when* that supplement is allowed to stop:
-instead of stopping as soon as the pre-final pool reaches 30, continue topping
-up while it is below 45. Recent production showed that deterministic candidates
-can still be removed by the LLM/presence gate, so a pre-final buffer makes the
-user-facing 30-row queue more resilient without accepting weaker jobs.
+The free ATS supplements deliberately do not relax any quality rule. This
+wrapper changes only *when* acquisition is allowed to stop: RWS TrainAI is
+checked first, then the existing Welo/LILT/Prolific targeted supplement keeps
+topping up while the pre-final pool is below the 100-row user stock target.
+Final LLM/presence and AI-use-policy vetoes still run afterwards, so the deeper
+buffer absorbs user actions and downstream quality drops without accepting
+weaker jobs.
 """
 from __future__ import annotations
 
@@ -14,13 +15,14 @@ import argparse
 import json
 from pathlib import Path
 
+import supplement_rws_trainai as rws
 import supplement_targeted_public_ats as targeted
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
 VISIBLE_MINIMUM = 30
-PRE_FINAL_BUFFER_TARGET = 45
-BUFFER_POLICY_VERSION = 1
+PRE_FINAL_BUFFER_TARGET = 100
+BUFFER_POLICY_VERSION = 2
 
 
 def _load(path: Path | None) -> dict:
@@ -38,10 +40,20 @@ def top_up_with_buffer(
     previous_payload: dict | None = None,
     **source_overrides,
 ) -> dict:
+    previous = previous_payload or {}
+    # Tests may provide rws_posts=[] to avoid network access. Production omits
+    # it and uses the documented RWS Lever endpoint.
+    rws_posts_supplied = "rws_posts" in source_overrides
+    rws_posts = source_overrides.pop("rws_posts", None)
+    if rws_posts_supplied:
+        payload = rws.supplement(payload, previous, posts=rws_posts)
+    else:
+        payload = rws.supplement(payload, previous)
+
     original_target = targeted.TARGET_POOL
     targeted.TARGET_POOL = PRE_FINAL_BUFFER_TARGET
     try:
-        result = targeted.top_up(payload, previous_payload or {}, **source_overrides)
+        result = targeted.top_up(payload, previous, **source_overrides)
     finally:
         targeted.TARGET_POOL = original_target
 
@@ -50,8 +62,9 @@ def top_up_with_buffer(
     result["candidate_visible_minimum"] = VISIBLE_MINIMUM
     result["candidate_pre_final_buffer_target"] = PRE_FINAL_BUFFER_TARGET
     result["candidate_pre_final_buffer_ready"] = after >= PRE_FINAL_BUFFER_TARGET
+    result["candidate_pre_final_buffer_uses_serpapi"] = False
     # Keep the original field semantically honest: it means the 30-row product
-    # minimum, not the stricter internal buffer threshold.
+    # minimum, not the deeper internal stock target.
     result["candidate_targeted_public_ats_goal_30_ready"] = after >= VISIBLE_MINIMUM
     if result.get("candidate_targeted_public_ats_skipped") == "pool-at-or-above-30":
         result["candidate_targeted_public_ats_skipped"] = "pool-at-or-above-buffer-target"
@@ -73,7 +86,7 @@ def main() -> None:
         f"before={result.get('candidate_targeted_public_ats_pool_before')} "
         f"after={result.get('candidate_targeted_public_ats_pool_after')} "
         f"min30={result.get('candidate_targeted_public_ats_goal_30_ready')} "
-        f"buffer45={result.get('candidate_pre_final_buffer_ready')}"
+        f"buffer100={result.get('candidate_pre_final_buffer_ready')}"
     )
 
 
