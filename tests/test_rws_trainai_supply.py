@@ -19,9 +19,10 @@ def rws_japanese(index: int = 1) -> dict:
         "workplaceType": "remote",
         "categories": {"location": "Tokyo", "allLocations": ["Tokyo"]},
         "descriptionPlain": (
-            "Work from home on flexible Japanese AI data projects. Evaluate and annotate data, "
-            "perform pairwise comparisons, label model responses, check relevance and quality, "
-            "and submit structured ratings independently online. Japanese fluency required."
+            "Work from home on flexible Japanese AI data projects. Data collection, evaluation, "
+            "annotation and labeling are core tasks. Perform pairwise comparisons, rate model "
+            "responses, check relevance and quality, and submit structured ratings independently "
+            "online. Japanese fluency required."
         ),
         "applyUrl": f"https://jobs.lever.co/rws/rws-jp-{index}",
     }
