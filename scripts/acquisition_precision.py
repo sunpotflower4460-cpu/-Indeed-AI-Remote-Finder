@@ -6,8 +6,9 @@ provider budget guard, and telemetry remain in acquisition_supply_yield.py.
 This wrapper only reorders the already-approved search profiles using bounded,
 privacy-safe historical aggregate outcomes, including whether deterministic
 candidates actually survive the downstream final quality gates. Scarce paced
-windows are also diversified across task families so equivalent anchor/task
-variants cannot consume the whole request window.
+windows are diversified across task families, and a guarded champion slot may
+prioritize an exact proven profile without repeatedly spending requests on the
+same rediscovered listing.
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ import json
 
 import acquisition
 import acquisition_supply_yield as supply
-import profile_precision_v3 as profile_precision
+import profile_precision_v4 as profile_precision
 
 
 _ORIGINAL_SELECT = supply.select_query_profiles
