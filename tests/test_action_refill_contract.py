@@ -11,6 +11,7 @@ class ActionRefillContractTests(unittest.TestCase):
         cls.integrity = (ROOT / "integrity.js").read_text(encoding="utf-8")
         cls.refill = (ROOT / "refill.js").read_text(encoding="utf-8")
         cls.continuity = (ROOT / "continuity.js").read_text(encoding="utf-8")
+        cls.ux = (ROOT / "ux.js").read_text(encoding="utf-8")
         cls.pages = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
 
     def test_existing_queue_replaces_actioned_row_immediately(self):
@@ -40,12 +41,12 @@ class ActionRefillContractTests(unittest.TestCase):
         self.assertIn("const FOREGROUND_RECHECK_MS=5*60_000", self.refill)
         self.assertIn("window.setInterval", self.refill)
 
-    def test_pages_bundles_integrity_refill_and_continuity_after_core_app(self):
+    def test_pages_bundles_all_browser_layers_after_core_app(self):
         self.assertIn("cp index.html app.js sw.js manifest.webmanifest icon.svg _site/", self.pages)
-        self.assertIn("cat integrity.js refill.js continuity.js >> _site/app.js", self.pages)
+        self.assertIn("cat integrity.js refill.js continuity.js ux.js >> _site/app.js", self.pages)
 
     def test_browser_layers_have_no_authenticated_or_search_api_calls(self):
-        for source in (self.integrity, self.refill, self.continuity):
+        for source in (self.integrity, self.refill, self.continuity, self.ux):
             lower = source.lower()
             self.assertNotIn("serpapi.com", lower)
             self.assertNotIn("api.github.com", lower)
