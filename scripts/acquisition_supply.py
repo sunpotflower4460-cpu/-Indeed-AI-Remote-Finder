@@ -3,30 +3,32 @@
 
 The strict publication policy lives in acquisition_remote.py plus the final
 quality layer in acquisition_quality.py. This module changes only *where* we
-look and how many first-page searches we spend as the rolling stock grows.
+look and the pool-based upper bound on first-page searches as rolling stock grows.
 
 Discovery intentionally uses a broader remote vocabulary (在宅勤務 / 在宅ワーク /
 リモートワーク / remote) so good jobs are not lost before scoring. Publication
 remains strict: acquisition_quality requires unconditional explicit full-remote
 evidence in the listing itself and rejects partial/hybrid or human-attention-heavy work.
 
-The default deep cadence is seven searches/day. With the 220-request monthly
-safety cap this can run throughout a 31-day month (217 requests) instead of
-burning the allowance early.
+The nominal deep ceiling is seven searches per run. Under a normal once-daily
+cadence that is at most 217 requests in a 31-day month. The acquisition layer's
+remaining-month pacing and provider guards may lower the effective request count
+when extra refreshes have consumed allowance; they never increase this pool-based
+limit or relax publication quality.
 
-To avoid an entire daily run landing on niche themes that have no Indeed apply
-option, short natural-language anchor searches are interleaved through the
-rotating profile list. The anchors deliberately avoid large nested OR expressions
-because broad, simple job-search phrases are more robust discovery inputs. Every
-seven-profile window contains at least two anchors while the remaining requests
-continue to explore narrower task themes. Quantity never changes the publication
-threshold.
+To avoid a nominal daily window landing entirely on niche themes that have no
+Indeed apply option, short natural-language anchor searches are interleaved
+through the rotating profile list. The anchors deliberately avoid large nested
+OR expressions because broad, simple job-search phrases are more robust discovery
+inputs. Every nominal seven-profile window contains at least two anchors while
+the remaining requests continue to explore narrower task themes. Quantity never
+changes the publication threshold.
 
-Request cadence:
+Pool-based request ceilings before monthly/provider pacing:
 - 0..19 candidates: 7 searches/run
 - 20..49 candidates: 6 searches/run
-- 50..99 candidates: 4 searches/run
-- 100 candidates: 2 searches/run
+- 50..149 candidates: 4 searches/run
+- 150+ candidates: 2 searches/run
 """
 from __future__ import annotations
 
