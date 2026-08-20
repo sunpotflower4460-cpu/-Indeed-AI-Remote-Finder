@@ -58,7 +58,7 @@ class SimplifiedUXContractTests(unittest.TestCase):
         self.assertIn("partnerAppId:''", self.indeed_config)
         self.assertIn("placementId:''", self.indeed_config)
         self.assertIn("https://plugins.indeed.com/publisher-plugin/main.js", self.indeed_official)
-        self.assertIn("data.indeedPluginType='job-search'", self.indeed_official)
+        self.assertIn("dataset.indeedPluginType='job-search'", self.indeed_official)
         self.assertIn("Indeed公式検索", self.indeed_official)
         self.assertIn("!configured()||!indeedMode", self.indeed_official)
 
