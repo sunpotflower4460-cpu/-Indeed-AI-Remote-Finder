@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
-MAX_JOBS = 100
+MAX_JOBS = 150
 MAX_LLM_REVIEWS_PER_RUN = 8
 MAX_LLM_PAID_ATTEMPTS_PER_MONTH = 700
 BUDGET_MODEL = "gpt-5.6-luna"
