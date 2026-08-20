@@ -44,20 +44,22 @@ def _load(path: Path | None) -> dict:
 
 
 def _rearm_quality_builder() -> None:
-    """Let each in-process source reinstall the strict builder around precision.
+    """Let each in-process source reinstall remote + strict quality wrappers.
 
     ``acquisition_precision.install()`` intentionally points ``build_row`` at its
     trusted-apply implementation. The first supplemental source then wraps that
-    builder with ``acquisition_quality.configure_quality_policy()``. Because the
-    buffered refill runs several source modules in one Python process, a later
-    source used to call ``install()`` again, replace the quality wrapper, and see
-    the quality module's one-time configured flag. The result was valid-looking
-    rows without quality/autonomy stamps.
+    builder with the production remote/autonomy policy and strict quality policy.
+    Because the buffered refill runs several source modules in one Python process,
+    a later source used to call ``install()`` again, replace ``build_row``, and
+    then see both one-time configured flags. The result was valid-looking rows
+    without autonomy and quality stamps.
 
-    Re-arming the flag before every source keeps the intended order deterministic:
-    precision install -> strict quality wrapper -> source rows. Each source starts
-    from the trusted base builder, so this does not stack recursive wrappers.
+    Re-arming both flags before every source keeps the intended order deterministic:
+    precision install -> remote/autonomy wrapper -> strict quality wrapper -> rows.
+    Each source starts from the trusted base builder, so this does not stack
+    recursive build-row wrappers.
     """
+    acquisition._production_remote_policy_configured = False
     acquisition._production_quality_policy_configured = False
 
 
