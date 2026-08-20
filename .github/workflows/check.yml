@@ -31,6 +31,7 @@ jobs:
           python scripts/validate_candidate_integrity.py
           python - <<'PY'
           import json
+          from collections import Counter
           from pathlib import Path
           d=json.loads(Path('data/jobs.json').read_text(encoding='utf-8'))
           print('PROBE_FINAL_POOL', len(d.get('jobs') or []))
@@ -40,6 +41,12 @@ jobs:
               'candidate_direct_official_deterministic_accepted',
               'candidate_direct_official_accepted_by_provider',
               'candidate_direct_official_errors',
+              'candidate_oneforma_catalog_discovered',
+              'candidate_oneforma_catalog_checked',
+              'candidate_oneforma_catalog_live',
+              'candidate_oneforma_catalog_deterministic_accepted',
+              'candidate_oneforma_catalog_errors',
+              'candidate_oneforma_catalog_pool_after',
               'candidate_official_japan_depth_checked',
               'candidate_official_japan_depth_live',
               'candidate_official_japan_depth_deterministic_accepted',
@@ -61,6 +68,10 @@ jobs:
               'candidate_ai_tool_policy_dropped',
           ):
               print(key, json.dumps(d.get(key), ensure_ascii=False))
+          statuses=Counter(str(row.get('japan_eligibility_status') or 'missing') for row in d.get('jobs') or [])
+          providers=Counter(str(row.get('company') or 'unknown') for row in d.get('jobs') or [])
+          print('japan_eligibility_status_counts', json.dumps(statuses, ensure_ascii=False))
+          print('top_final_companies', json.dumps(providers.most_common(12), ensure_ascii=False))
           PY
       - name: Validate current feed
         run: |
