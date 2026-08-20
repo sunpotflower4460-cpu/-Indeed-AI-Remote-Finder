@@ -60,6 +60,14 @@ class LlmReviewTests(unittest.TestCase):
         self.assertEqual(body["max_output_tokens"], 900)
         self.assertNotIn("freshness_confidence", body["input"])
 
+    def test_sync_policy_scores_recurring_work_not_hiring_or_onboarding(self):
+        instructions = mod.INSTRUCTIONS.lower()
+        self.assertIn("normal recurring work after hiring/onboarding", instructions)
+        self.assertIn("application interview", instructions)
+        self.assertIn("one-time training", instructions)
+        self.assertIn("recurring job execution", instructions)
+        self.assertIn("do not invent recurrence", instructions)
+
     def test_input_hash_changes_with_material_text(self):
         a = mod.input_hash(job(snippet="データ入力と転記"))
         b = mod.input_hash(job(snippet="電話営業と顧客対応"))
