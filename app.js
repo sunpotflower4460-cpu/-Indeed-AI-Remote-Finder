@@ -2,7 +2,7 @@ const $=s=>document.querySelector(s);
 const DEFAULT_VISIBLE=30;
 const DAILY_TARGET=10;
 const USER_STOCK_TARGET=100;
-const LOCAL_POOL_LIMIT=250;
+const LOCAL_POOL_LIMIT=150;
 const LOCAL_CACHE_KEY='candidateCacheV4';
 const QUALITY_POLICY_VERSION=2;
 const QUALITY_GATE='async-ai-remote-v2';
@@ -10,6 +10,7 @@ const PRESENCE_GATE_VERSION=1;
 const REVIEW_AUTOMATION_MIN=64;
 const REVIEW_HUMAN_RISK_MAX=18;
 const REVIEW_AUTOMATION_SIGNAL_MIN=2;
+const LLM_PRESENCE_TERMS=['本人待機','人間の待機','在席','カメラ','webcam','画面共有','本人確認','離席不可','human standby','human presence','at the desk','at the computer','attendance check','presence monitoring'];
 
 function loadSet(key){
   try{const v=JSON.parse(localStorage.getItem(key)||'[]');return new Set(Array.isArray(v)?v.map(String):[])}catch{return new Set()}
@@ -60,6 +61,8 @@ function llmQualityRejected(j){
   const confidence=Number(r.confidence||0),automatable=Number(r.automatable_fraction||0),blockers=Array.isArray(r.blockers)?r.blockers.filter(Boolean):[];
   if(r.verdict==='reject'||r.physical_presence_required===true||r.synchronous_human_interaction==='frequent'||r.human_dependency==='high')return true;
   if(confidence>=80&&(r.synchronous_human_interaction==='occasional'||r.human_dependency==='medium'||automatable<75))return true;
+  const blockerText=blockers.join(' ').toLowerCase();
+  if(confidence>=75&&LLM_PRESENCE_TERMS.some(term=>blockerText.includes(term.toLowerCase())))return true;
   return confidence>=85&&blockers.length>0&&automatable<90;
 }
 function qualityEligible(j,policyActive=true){

@@ -12,8 +12,10 @@ Production recommendations are not a generic remote-job list. A published candid
 - A fixed working schedule, an always-on software login/session, automated monitoring, or a fast machine-response SLA by itself is **not** a human-presence blocker. Software/RPA can technically remain online and respond unattended. Rejection requires evidence that the person themselves must remain present or be personally available.
 - Explicit negations such as カメラ常時ON不要 / 在席確認なし / no webcam requirement are scrubbed before the presence test so they do not create false rejections.
 - REVIEW candidates require `automation_confidence >= 64`, `human_dependency_risk <= 18`, and at least two distinct automation signals.
-- Quality rows are stamped with `quality_policy_version=2` and `quality_gate=async-ai-remote-v2`. Older rows cannot re-enter the reserve pool until a fresh scan evaluates them under v2.
-- Rows that survive the final presence gate are additionally stamped with `presence_gate_version=1` and `continuous_presence_risk=low`.
+- Quality rows are stamped with `quality_policy_version=2` and `quality_gate=async-ai-remote-v2`.
+- Rows that pass acquisition-time full-listing attendance screening are stamped with `full_listing_presence_screened=true`.
+- Rows that survive the final presence gate are stamped with `presence_gate_version=1` and `continuous_presence_risk=low`.
+- A missing job may re-enter the server reserve only if it still satisfies the current v2 quality contract **and** retains the full-listing and final presence-gate stamps above. A pre-presence v2 row cannot silently re-enter through carryover.
 - The provider Work From Home classification is never used as proof of full remote. Discovery may use broad remote wording, but publication requires the listing text itself to pass the full-remote gate.
 
 ## LLM second opinion
@@ -25,7 +27,7 @@ Production recommendations are not a generic remote-job list. A published candid
 - An LLM-reviewed candidate with confidence >=80 and estimated end-to-end `automatable_fraction < 75` is too weak for this feed and is vetoed.
 - LLM blockers explicitly describing human attendance, webcam/camera requirements, presence monitoring, desk-side waiting, attendance checks, or equivalent human-presence constraints are vetoed even if the nominal automation percentage is high.
 - Missing LLM coverage never removes a deterministic candidate.
-- Up to 2,400 characters of listing text are retained for the LLM audit so decisions are not based on a 640-character excerpt alone.
+- Up to **6,000 characters** of listing text are retained for the LLM audit so decisions are not based on the short visual card excerpt alone.
 
 ## Quantity and API budget policy
 
@@ -33,12 +35,25 @@ The user-facing goal is to keep at least 100 unapplied recommendations available
 
 Discovery uses broad task-focused anchor searches interleaved with many narrower rotating task profiles. This improves the chance of finding Indeed-backed candidates every day without turning the feed into a generic remote-job list. Only rows that pass the same publication gates enter the rolling pool.
 
-The deep-search cadence is seven SerpApi requests per daily run. Seven requests × 31 days = 217, which fits inside the repository's 220-request monthly safety cap and avoids exhausting search budget early in the month. Quality-gated candidates may remain as reserve candidates for up to 30 days, while fresh/live candidates rank ahead of reserves.
+The deep-search cadence is seven SerpApi requests per daily run. Seven requests × 31 days = 217, which fits inside the repository's 220-request monthly safety cap and avoids exhausting search budget early in the month. Provider-reported usage is also used as a stricter runtime ceiling when available. Quality-gated candidates may remain as reserve candidates for up to 30 days, while fresh/live candidates rank ahead of reserves.
 
 ## Client cache policy
 
-The PWA uses `candidateCacheV3`. Quality-policy v2 already rejects pre-v2 candidates locally. When presence gate v1 is deployed, `index.html` performs a one-time purge of the existing `candidateCacheV3` before `app.js` loads, so pre-presence local reserve rows do not silently survive the rollout. The cache is then rebuilt only from the post-gate server feed and newly retained candidates.
+The PWA uses `candidateCacheV4`. A cached row is accepted only when it still satisfies the current quality policy, current presence gate, freshness bounds, and client-side LLM veto rules. Server rows replace cached rows with the same ID.
+
+The presence-gate rollout included a one-time purge of the older `candidateCacheV3` in `index.html` before `app.js` loads. New local reserve rows are therefore rebuilt only from candidates carrying the current server quality/presence evidence.
+
+## Refresh/publication contract
+
+Production refresh is performed from trusted `main`, not from pull-request code with production secrets. Relevant merges dispatch a main-branch refresh. Acquisition/provider failures preserve the last-known-good feed rather than writing an empty replacement as if it were fresh.
+
+The final published JSON must pass both:
+
+- `scripts/validate_feed.py`
+- `scripts/validate_remote_feed.py`
+
+The general validator allows at most 150 rows, matching the server reserve limit, and verifies that LLM metadata describes the rows that actually remain after final vetoes.
 
 ## Safety boundary
 
-Technical AI substitutability does not imply that an employer permits generative AI use or that confidential/personal information may be sent to external AI services. Those employment and data-handling rules still require confirmation before automation is used in real work.
+Technical AI substitutability does not imply that an employer permits generative AI use or that confidential/personal information may be sent to external AI services. It also does not establish that an employer permits the worker's duties to be delegated to unattended automation. Those employment and data-handling rules still require confirmation before automation is used in real work.

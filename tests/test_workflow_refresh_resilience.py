@@ -38,6 +38,15 @@ class RefreshResilienceWorkflowTests(unittest.TestCase):
         self.assertIn("if: always()", postprocess_block)
         self.assertIn("postprocess_feed.py", postprocess_block)
 
+    def test_refresh_never_rebases_stale_generated_data_onto_newer_main(self):
+        workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
+        commit_block = workflow[workflow.index("- name: Commit refreshed feed"):]
+        self.assertIn("git fetch origin main", commit_block)
+        self.assertIn('"$(git rev-parse HEAD)" != "$(git rev-parse origin/main)"', commit_block)
+        self.assertIn("skipping stale generated-feed commit", commit_block)
+        self.assertIn("git push origin HEAD:main", commit_block)
+        self.assertNotIn("git pull --rebase", commit_block)
+
 
 if __name__ == "__main__":
     unittest.main()

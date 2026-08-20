@@ -27,9 +27,12 @@ def row(jid, *, tier="high", last_seen=None, published=None, snippet="", company
         "human_dependency_risk": 0,
         "automation_reasons": ["アノテーション", "分類"],
         "autonomy_attention_risk": "low",
-        "autonomy_policy_version": 1,
+        "autonomy_policy_version": 2,
         "quality_policy_version": 2,
         "quality_gate": "async-ai-remote-v2",
+        "full_listing_presence_screened": True,
+        "presence_gate_version": 1,
+        "continuous_presence_risk": "low",
         "remote_search_only": False,
         "last_seen": (last_seen or now).isoformat(),
         "first_seen": now.isoformat(),
@@ -60,7 +63,7 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual(len(kept), 1)
         self.assertEqual(dropped, 0)
 
-    def test_v2_quality_job_can_be_carried_for_twenty_days(self):
+    def test_current_quality_job_can_be_carried_for_twenty_days(self):
         now = datetime.now(timezone.utc)
         item = row("a", last_seen=now - timedelta(days=20))
         item["search_published_at"] = None
@@ -75,6 +78,17 @@ class PostprocessTests(unittest.TestCase):
         item["quality_policy_version"] = 1
         item["quality_gate"] = "async-ai-remote"
         self.assertEqual(mod.carryover_rows([], [item], now), [])
+
+    def test_pre_full_listing_presence_job_never_reenters_reserve(self):
+        now = datetime.now(timezone.utc)
+        for field, value in (
+            ("full_listing_presence_screened", False),
+            ("presence_gate_version", 0),
+            ("continuous_presence_risk", None),
+        ):
+            item = row(f"old-{field}", last_seen=now - timedelta(days=2))
+            item[field] = value
+            self.assertEqual(mod.carryover_rows([], [item], now), [], field)
 
     def test_weak_or_single_signal_review_never_reenters(self):
         now = datetime.now(timezone.utc)

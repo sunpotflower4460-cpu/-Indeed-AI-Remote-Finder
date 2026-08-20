@@ -152,13 +152,20 @@ class LlmQualityGateTests(unittest.TestCase):
             "carryover": True,
             "remote_search_only": False,
         }
-        payload = {"candidate_display_target": 100, "jobs": [bad, presence, good]}
+        payload = {
+            "candidate_display_target": 100,
+            "llm_reviewed_jobs": 1,
+            "llm_strict_jobs": 0,
+            "jobs": [bad, presence, good],
+        }
         got = mod.apply(payload)
         self.assertEqual([x["id"] for x in got["jobs"]], ["b"])
         self.assertEqual(got["candidate_pool_size"], 1)
         self.assertEqual(got["quality_gate_dropped"], 2)
         self.assertEqual(got["llm_quality_dropped"], 1)
         self.assertEqual(got["presence_quality_dropped"], 1)
+        self.assertEqual(got["llm_reviewed_jobs"], 0)
+        self.assertEqual(got["llm_strict_jobs"], 0)
         self.assertEqual(got["quality_gate_drop_reasons"]["verdict-reject"], 1)
         self.assertEqual(got["quality_gate_drop_reasons"]["continuous-human-presence"], 1)
         self.assertEqual(got["llm_quality_drop_reasons"], {"verdict-reject": 1})
