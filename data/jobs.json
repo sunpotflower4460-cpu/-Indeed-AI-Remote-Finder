@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-20T03:30:00.874641+00:00",
+  "generated_at": "2026-08-20T03:34:00.729393+00:00",
   "query_success": 7,
   "query_total": 7,
-  "raw_jobs": 28,
-  "indeed_apply_jobs": 6,
+  "raw_jobs": 0,
+  "indeed_apply_jobs": 0,
   "malformed_jobs": 0,
   "errors": [],
   "method": "serpapi-google-jobs-adaptive-indeed-apply-only",
@@ -18,9 +18,9 @@
   "serpapi_budget_month": "2026-08",
   "serpapi_requests_run": 7,
   "serpapi_paginated_requests_run": 0,
-  "serpapi_requests_month": 148,
+  "serpapi_requests_month": 151,
   "serpapi_monthly_request_cap": 220,
-  "serpapi_rotation_cursor": 75,
+  "serpapi_rotation_cursor": 2,
   "jobs": [],
   "candidate_server_pool_target": 150,
   "candidate_user_display_target": 100,
@@ -37,151 +37,47 @@
   "candidate_rich_listing_excerpt_max": 6000,
   "candidate_full_listing_presence_screened": true,
   "candidate_quality_gate_telemetry_version": 1,
-  "candidate_quality_evaluated_jobs": 28,
+  "candidate_quality_evaluated_jobs": 0,
   "candidate_quality_pre_llm_accepted": 0,
-  "candidate_quality_rejected_jobs": 28,
-  "candidate_quality_rejection_counts": {
-    "no-indeed-apply": 22,
-    "partial-or-conditional-remote": 3,
-    "missing-explicit-full-remote": 2,
-    "synchronous-human-attention": 1
-  },
-  "candidate_quality_rejection_by_profile": [
-    {
-      "profile": "anchor_core_ai_rater_36",
-      "evaluated": 10,
-      "accepted": 0,
-      "rejected": 10,
-      "reasons": {
-        "no-indeed-apply": 9,
-        "synchronous-human-attention": 1
-      }
-    },
-    {
-      "profile": "localization_qa",
-      "evaluated": 10,
-      "accepted": 0,
-      "rejected": 10,
-      "reasons": {
-        "no-indeed-apply": 9,
-        "partial-or-conditional-remote": 1
-      }
-    },
-    {
-      "profile": "translation_review",
-      "evaluated": 4,
-      "accepted": 0,
-      "rejected": 4,
-      "reasons": {
-        "partial-or-conditional-remote": 2,
-        "no-indeed-apply": 2
-      }
-    },
-    {
-      "profile": "anchor_core_annotation_34",
-      "evaluated": 2,
-      "accepted": 0,
-      "rejected": 2,
-      "reasons": {
-        "no-indeed-apply": 2
-      }
-    },
-    {
-      "profile": "anchor_indeed_annotation_35",
-      "evaluated": 2,
-      "accepted": 0,
-      "rejected": 2,
-      "reasons": {
-        "missing-explicit-full-remote": 2
-      }
-    }
-  ],
-  "candidate_search_strategy": "async-core-interleaved-indeed-yield-v3",
-  "candidate_search_profile_count": 144,
+  "candidate_quality_rejected_jobs": 0,
+  "candidate_quality_rejection_counts": {},
+  "candidate_quality_rejection_by_profile": [],
+  "candidate_search_strategy": "indeed-site-source-recovery-v1",
+  "candidate_search_profile_count": 16,
   "candidate_search_anchor_templates": 12,
   "candidate_search_daily_deep_limit": 7,
   "candidate_search_pagination_expected": false,
   "candidate_search_budget_monthly_safe_at_31_days": true,
   "candidate_search_async_core_anchor_templates": 8,
   "candidate_search_indeed_bias_anchor_templates": 4,
-  "candidate_search_anchor_min_per_daily_window": 3,
-  "candidate_search_indeed_bias_min_per_daily_window": 1,
-  "candidate_search_ordinary_anchor_min_per_daily_window": 1,
-  "candidate_yield_telemetry_version": 3,
-  "candidate_yield_jobs_seen": 28,
-  "candidate_jobs_with_apply_options": 28,
-  "candidate_jobs_with_indeed_apply": 6,
+  "candidate_search_source_recovery_version": 1,
+  "candidate_search_source_recovery_active": true,
+  "candidate_search_source_recovery_trigger_ratio_pct": 78.6,
+  "candidate_search_source_recovery_ratio_threshold_pct": 50.0,
+  "candidate_search_source_recovery_min_evaluated": 10,
+  "candidate_search_source_recovery_pool_ceiling": 30,
+  "candidate_search_site_operator": "site:jp.indeed.com",
+  "candidate_search_anchor_min_per_daily_window": 0,
+  "candidate_search_indeed_bias_min_per_daily_window": 7,
+  "candidate_search_ordinary_anchor_min_per_daily_window": 0,
+  "candidate_search_source_targeted_min_per_daily_window": 7,
+  "candidate_yield_telemetry_version": 4,
+  "candidate_yield_jobs_seen": 0,
+  "candidate_jobs_with_apply_options": 0,
+  "candidate_jobs_with_indeed_apply": 0,
   "candidate_deterministic_gate_accepted": 0,
-  "candidate_apply_options_coverage_pct": 100.0,
-  "candidate_indeed_apply_rate_pct": 21.4,
+  "candidate_apply_options_coverage_pct": 0.0,
+  "candidate_indeed_apply_rate_pct": 0.0,
   "candidate_deterministic_accept_rate_pct": 0.0,
-  "candidate_apply_source_counts": {
-    "Indeed": 6,
-    "OpenWork": 6,
-    "NINJA": 4,
-    "Daijob.com": 3,
-    "リクナビNEXT": 2,
-    "タウンワーク": 2,
-    "はたらいく": 2,
-    "レバテックキャリア": 2,
-    "パソナキャリア": 2,
-    "エン派遣": 1
-  },
-  "candidate_via_source_counts": {
-    "OpenWork": 6,
-    "Indeed": 5,
-    "NINJA": 4,
-    "Daijob.com": 3,
-    "レバテックキャリア": 2,
-    "パソナキャリア": 2,
-    "エン派遣": 1,
-    "リクナビ派遣": 1,
-    "Legal Job Board": 1,
-    "フリーランスボード": 1
-  },
-  "candidate_search_profile_yield": [
-    {
-      "profile": "translation_review",
-      "seen": 4,
-      "apply_options": 4,
-      "indeed_apply": 2,
-      "accepted": 0
-    },
-    {
-      "profile": "anchor_indeed_annotation_35",
-      "seen": 2,
-      "apply_options": 2,
-      "indeed_apply": 2,
-      "accepted": 0
-    },
-    {
-      "profile": "anchor_core_ai_rater_36",
-      "seen": 10,
-      "apply_options": 10,
-      "indeed_apply": 1,
-      "accepted": 0
-    },
-    {
-      "profile": "localization_qa",
-      "seen": 10,
-      "apply_options": 10,
-      "indeed_apply": 1,
-      "accepted": 0
-    },
-    {
-      "profile": "anchor_core_annotation_34",
-      "seen": 2,
-      "apply_options": 2,
-      "indeed_apply": 0,
-      "accepted": 0
-    }
-  ],
-  "serpapi_guard_checked_at": "2026-08-20T03:30:19.464792+00:00",
+  "candidate_apply_source_counts": {},
+  "candidate_via_source_counts": {},
+  "candidate_search_profile_yield": [],
+  "serpapi_guard_checked_at": "2026-08-20T03:35:06.195058+00:00",
   "serpapi_guard_status": "ready",
-  "serpapi_safe_request_headroom": 108,
-  "serpapi_provider_month_usage": 142,
+  "serpapi_safe_request_headroom": 99,
+  "serpapi_provider_month_usage": 151,
   "candidate_refresh_pipeline_version": 2,
-  "candidate_refresh_attempted_at": "2026-08-20T03:30:19.700204+00:00",
+  "candidate_refresh_attempted_at": "2026-08-20T03:35:06.328492+00:00",
   "candidate_acquisition_step_outcome": "success",
   "candidate_acquisition_outcome": "success",
   "candidate_refresh_preserved_previous_feed": false,
