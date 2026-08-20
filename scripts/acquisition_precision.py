@@ -10,6 +10,11 @@ searches, switches critically low stock to focused AI-evaluation discovery, and
 broadens only the application destination from Indeed to bounded audited boards,
 ATS hosts and selected official provider career hosts.
 
+When the previous run found exact Indeed viewjob URLs through the public web
+index, the newest indexed title is inserted exactly at the next rotation cursor.
+That makes one structured Google Jobs query start from a real Indeed result while
+all normal quality and destination validation remains in force.
+
 Publication quality is not relaxed: every candidate still has to pass the same
 full-remote, autonomy, presence, deterministic, LLM and AI-use-policy gates.
 """
@@ -17,6 +22,7 @@ from __future__ import annotations
 
 from collections import Counter
 import json
+import re
 
 import acquisition
 import acquisition_quality
@@ -45,11 +51,47 @@ def _nonnegative_int(value: object) -> int:
         return 0
 
 
+def _indeed_index_seed_profile(previous_payload: dict | None) -> tuple[str, str] | None:
+    if not isinstance(previous_payload, dict):
+        return None
+    seeds = previous_payload.get("candidate_indeed_index_seeds") or []
+    if not isinstance(seeds, list):
+        return None
+    for seed in seeds:
+        if not isinstance(seed, dict):
+            continue
+        title = re.sub(r"\s+", " ", str(seed.get("title") or "")).strip()
+        jk = re.sub(r"[^A-Za-z0-9_-]", "", str(seed.get("jk") or ""))[:12]
+        if len(title) < 4 or not jk:
+            continue
+        return f"indeed_index_seed_{jk}", f'"{title[:180]}" Indeed'
+    return None
+
+
+def _insert_at_next_rotation(
+    profiles: list[tuple[str, str]],
+    seed: tuple[str, str] | None,
+    previous_payload: dict | None,
+) -> list[tuple[str, str]]:
+    if not seed:
+        return profiles
+    rows = [item for item in profiles if item[0] != seed[0]]
+    cursor = _nonnegative_int((previous_payload or {}).get("serpapi_rotation_cursor"))
+    target = cursor % (len(rows) + 1)
+    rows.insert(target, seed)
+    return rows
+
+
 def adaptive_select_query_profiles(previous_payload: dict | None) -> list[tuple[str, str]]:
     global _PLANNED_ACTUAL_PROFILES
     profiles = _ORIGINAL_SELECT(previous_payload)
     profiles = profile_precision.augment_profiles(profiles, previous_payload)
     ordered = profile_precision.order_profiles(profiles, previous_payload)
+    ordered = _insert_at_next_rotation(
+        ordered,
+        _indeed_index_seed_profile(previous_payload),
+        previous_payload,
+    )
     _PLANNED_ACTUAL_PROFILES = profile_precision.actual_order(ordered, previous_payload)
     return ordered
 
