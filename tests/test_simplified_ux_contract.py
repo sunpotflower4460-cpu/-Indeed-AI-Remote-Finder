@@ -8,6 +8,7 @@ class SimplifiedUXContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ux = (ROOT / "ux.js").read_text(encoding="utf-8")
+        cls.source_tabs = (ROOT / "source-tabs.js").read_text(encoding="utf-8")
         cls.pages = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
         cls.check = (ROOT / ".github/workflows/check.yml").read_text(encoding="utf-8")
 
@@ -15,7 +16,6 @@ class SimplifiedUXContractTests(unittest.TestCase):
         for needle in (
             "AI在宅求人ナビ",
             "今日見るべき求人だけ、分かりやすく",
-            "英語の原文や細かな判定は「詳しく見る」に収納",
             "AI評価",
             "文章・翻訳",
             "データ作業",
@@ -37,19 +37,28 @@ class SimplifiedUXContractTests(unittest.TestCase):
         self.assertIn("function jobDetails(job)", self.ux)
         self.assertNotIn('class="snippet"', self.ux)
 
-    def test_indeed_is_primary_and_exact_listing_is_used_when_verified(self):
-        self.assertIn("function directIndeedUrl(job)", self.ux)
-        self.assertIn("/viewjob", self.ux)
-        self.assertIn("job?.apply_source_kind==='indeed'?job?.url:''", self.ux)
-        self.assertIn("Indeedで求人を見る", self.ux)
-        self.assertIn("Indeedで同じ求人を探す", self.ux)
-        self.assertIn("https://jp.indeed.com/jobs", self.ux)
-        self.assertIn("会社名＋求人名の検索結果", self.ux)
-        self.assertIn("公式求人", self.ux)
+    def test_indeed_and_other_sources_are_separate(self):
+        self.assertIn("let sourceMode='indeed'", self.source_tabs)
+        self.assertIn("function isVerifiedIndeed(job)", self.source_tabs)
+        self.assertIn("sourceMode==='indeed'?isVerifiedIndeed(job):!isVerifiedIndeed(job)", self.source_tabs)
+        self.assertIn("Indeed ${counts.indeed}件", self.source_tabs)
+        self.assertIn("その他の求人サイト ${counts.other}件", self.source_tabs)
+        self.assertIn("掲載元：${label}", self.source_tabs)
+        self.assertIn("${label}で求人を見る →", self.source_tabs)
+        self.assertIn("現在、Indeed掲載を確認できた候補はありません。", self.source_tabs)
 
-    def test_ux_layer_is_last_in_pages_bundle_and_syntax_checked(self):
-        self.assertIn("cat integrity.js refill.js continuity.js ux.js >> _site/app.js", self.pages)
+    def test_verified_indeed_requires_exact_viewjob_url(self):
+        for needle in ("apply_source_kind", "/viewjob", "searchParams.get('jk')"):
+            self.assertIn(needle, self.source_tabs)
+        self.assertNotIn("Indeedで同じ求人を探す", self.source_tabs)
+
+    def test_source_tabs_are_last_in_pages_bundle_and_syntax_checked(self):
+        self.assertIn(
+            "cat integrity.js refill.js continuity.js ux.js source-tabs.js >> _site/app.js",
+            self.pages,
+        )
         self.assertIn("node --check ux.js", self.check)
+        self.assertIn("node --check source-tabs.js", self.check)
 
 
 if __name__ == "__main__":
