@@ -9,6 +9,7 @@ class ActionRefillContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = (ROOT / "app.js").read_text(encoding="utf-8")
         cls.refill = (ROOT / "refill.js").read_text(encoding="utf-8")
+        cls.continuity = (ROOT / "continuity.js").read_text(encoding="utf-8")
         cls.pages = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
 
     def test_existing_queue_replaces_actioned_row_immediately(self):
@@ -38,9 +39,16 @@ class ActionRefillContractTests(unittest.TestCase):
         self.assertIn("const FOREGROUND_RECHECK_MS=5*60_000", self.refill)
         self.assertIn("window.setInterval", self.refill)
 
-    def test_pages_bundles_refill_after_core_app(self):
+    def test_pages_bundles_refill_and_continuity_after_core_app(self):
         self.assertIn("cp index.html app.js sw.js manifest.webmanifest icon.svg _site/", self.pages)
-        self.assertIn("cat refill.js >> _site/app.js", self.pages)
+        self.assertIn("cat refill.js continuity.js >> _site/app.js", self.pages)
+
+    def test_continuity_layer_has_no_authenticated_or_search_api_calls(self):
+        lower = self.continuity.lower()
+        self.assertNotIn("serpapi.com", lower)
+        self.assertNotIn("api.github.com", lower)
+        self.assertNotIn("authorization:", lower)
+        self.assertNotIn("github_token", lower)
 
 
 if __name__ == "__main__":
