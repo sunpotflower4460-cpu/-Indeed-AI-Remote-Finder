@@ -44,10 +44,14 @@
 <script>
 (()=>{
   try{
-    // Server-side policy and freshness are authoritative. Do not let an older
-    // browser-only reserve resurrect a row that the latest feed has removed.
+    const migration='presenceGateCacheMigrationV1';
+    if(localStorage.getItem(migration)!=='1'){
+      localStorage.removeItem('candidateCacheV3');
+      localStorage.setItem(migration,'1');
+    }
+    // Server-side AI-policy and freshness are authoritative. V4 is only a
+    // browser reserve, so clear it before app.js can merge stale candidates.
     localStorage.removeItem('candidateCacheV4');
-    localStorage.removeItem('candidateCacheV3');
   }catch{}
 })();
 </script>
