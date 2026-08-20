@@ -15,10 +15,12 @@ Normal mode:
 Source-recovery mode:
 - activate only when the previous low-stock run evaluated enough jobs and at
   least half were rejected solely because there was no Indeed apply path;
-- use Google Jobs query operators to target ``site:jp.indeed.com`` and exact
+- use the empirically productive ``Indeed`` query term together with exact
   ``完全在宅`` / ``フルリモート`` phrases for all seven requests;
-- automatically fall back to normal exploration when that measured source
-  bottleneck is no longer present or the recovery run returns too little data.
+- if a recovery run returns too little data, back off for several runs instead
+  of oscillating between broad search and an empty recovery strategy;
+- automatically return to normal exploration when the measured source
+  bottleneck is no longer present.
 
 Every returned row still passes the same v2 full-remote/autonomy/presence gates
 and final LLM vetoes before publication.
@@ -32,12 +34,13 @@ import os
 import acquisition
 import acquisition_supply as base
 
-YIELD_TELEMETRY_VERSION = 4
-SOURCE_RECOVERY_VERSION = 1
+YIELD_TELEMETRY_VERSION = 5
+SOURCE_RECOVERY_VERSION = 2
 SOURCE_RECOVERY_MIN_EVALUATED = 10
 SOURCE_RECOVERY_NO_INDEED_RATIO = 0.50
 SOURCE_RECOVERY_POOL_CEILING = 30
-INDEED_SITE_OPERATOR = "site:jp.indeed.com"
+SOURCE_RECOVERY_COOLDOWN_RUNS = 3
+INDEED_SOURCE_BIAS_TERM = "Indeed"
 
 # These anchors intentionally avoid categories that commonly introduce recurring
 # human coordination (for example translation/localization project work). They
@@ -54,13 +57,14 @@ ASYNC_CORE_ANCHORS: list[tuple[str, str]] = [
     ("anchor_core_metadata", "フルリモート タグ付け データ整理"),
 ]
 
-# These are still useful in normal mode, but use the supported Google Jobs
-# `site:` operator instead of merely appending the word "Indeed".
+# Production telemetry showed that appending the word "Indeed" can strongly
+# bias Google Jobs toward rows with a canonical Indeed apply option, while the
+# stricter site:jp.indeed.com operator returned zero rows in the Japanese run.
 INDEED_BIAS_ANCHORS: list[tuple[str, str]] = [
-    ("anchor_indeed_data", '"完全在宅" "データ入力" site:jp.indeed.com'),
-    ("anchor_indeed_annotation", '"完全在宅" アノテーション site:jp.indeed.com'),
-    ("anchor_indeed_rater", '"フルリモート" "AI評価" site:jp.indeed.com'),
-    ("anchor_indeed_ocr", '"完全在宅" OCR site:jp.indeed.com'),
+    ("anchor_indeed_data", '"完全在宅" "データ入力" Indeed'),
+    ("anchor_indeed_annotation", '"完全在宅" アノテーション Indeed'),
+    ("anchor_indeed_rater", '"フルリモート" "AI評価" Indeed'),
+    ("anchor_indeed_ocr", '"完全在宅" OCR Indeed'),
 ]
 
 EXPERIMENTAL_ANCHORS: list[tuple[str, str]] = list(ASYNC_CORE_ANCHORS) + list(INDEED_BIAS_ANCHORS)
@@ -69,22 +73,22 @@ EXPERIMENTAL_ANCHORS: list[tuple[str, str]] = list(ASYNC_CORE_ANCHORS) + list(IN
 # The list is deliberately longer than one daily window so consecutive recovery
 # runs still explore different async task families.
 SOURCE_RECOVERY_QUERY_PROFILES: list[tuple[str, str]] = [
-    ("source_data_entry_home", '"完全在宅" "データ入力" site:jp.indeed.com'),
-    ("source_data_entry_remote", '"フルリモート" "データ入力" site:jp.indeed.com'),
-    ("source_annotation_home", '"完全在宅" アノテーション site:jp.indeed.com'),
-    ("source_annotation_remote", '"フルリモート" アノテーション site:jp.indeed.com'),
-    ("source_ai_rating_home", '"完全在宅" "AI評価" site:jp.indeed.com'),
-    ("source_ai_trainer_remote", '"フルリモート" "AIトレーナー" site:jp.indeed.com'),
-    ("source_ocr_home", '"完全在宅" OCR site:jp.indeed.com'),
-    ("source_labeling_remote", '"フルリモート" ラベリング site:jp.indeed.com'),
-    ("source_transcription_home", '"完全在宅" "文字起こし" site:jp.indeed.com'),
-    ("source_proofreading_home", '"完全在宅" 校正 site:jp.indeed.com'),
-    ("source_product_entry_home", '"完全在宅" "商品登録" site:jp.indeed.com'),
-    ("source_document_check_home", '"完全在宅" "書類チェック" site:jp.indeed.com'),
-    ("source_data_check_home", '"完全在宅" "データチェック" site:jp.indeed.com'),
-    ("source_metadata_remote", '"フルリモート" "タグ付け" site:jp.indeed.com'),
-    ("source_web_research_home", '"完全在宅" "Webリサーチ" site:jp.indeed.com'),
-    ("source_testing_home", '"完全在宅" "動作確認" site:jp.indeed.com'),
+    ("source_data_entry_home", '"完全在宅" "データ入力" Indeed'),
+    ("source_data_entry_remote", '"フルリモート" "データ入力" Indeed'),
+    ("source_annotation_home", '"完全在宅" アノテーション Indeed'),
+    ("source_annotation_remote", '"フルリモート" アノテーション Indeed'),
+    ("source_ai_rating_home", '"完全在宅" "AI評価" Indeed'),
+    ("source_ai_trainer_remote", '"フルリモート" "AIトレーナー" Indeed'),
+    ("source_ocr_home", '"完全在宅" OCR Indeed'),
+    ("source_labeling_remote", '"フルリモート" ラベリング Indeed'),
+    ("source_transcription_home", '"完全在宅" "文字起こし" Indeed'),
+    ("source_proofreading_home", '"完全在宅" 校正 Indeed'),
+    ("source_product_entry_home", '"完全在宅" "商品登録" Indeed'),
+    ("source_document_check_home", '"完全在宅" "書類チェック" Indeed'),
+    ("source_data_check_home", '"完全在宅" "データチェック" Indeed'),
+    ("source_metadata_remote", '"フルリモート" "タグ付け" Indeed'),
+    ("source_web_research_home", '"完全在宅" "Webリサーチ" Indeed'),
+    ("source_testing_home", '"完全在宅" "動作確認" Indeed'),
 ]
 
 _PROFILE_YIELD: dict[str, dict[str, int]] = {}
@@ -92,6 +96,8 @@ _APPLY_SOURCE_COUNTS: Counter[str] = Counter()
 _VIA_SOURCE_COUNTS: Counter[str] = Counter()
 _ACTIVE_SOURCE_RECOVERY = False
 _SOURCE_RECOVERY_TRIGGER_RATIO = 0.0
+_SOURCE_RECOVERY_COOLDOWN_REMAINING = 0
+_SOURCE_RECOVERY_TRIGGER_REASON = "none"
 
 
 def measured_rotation_profiles(tasks: list[tuple[str, str]]) -> list[tuple[str, str]]:
@@ -128,28 +134,70 @@ def _nonnegative_int(value: object) -> int:
         return 0
 
 
-def source_recovery_signal(payload: dict | None) -> tuple[bool, float]:
-    """Return whether the previous feed proves an Indeed-source bottleneck."""
+def _ratio_from_percent(value: object) -> float:
+    try:
+        return max(0.0, min(1.0, float(value or 0.0) / 100.0))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def source_recovery_decision(payload: dict | None) -> tuple[bool, float, int, str]:
+    """Choose recovery/fallback using only safe aggregate metadata."""
     if not isinstance(payload, dict):
-        return False, 0.0
+        return False, 0.0, 0, "no-telemetry"
+
     pool = _nonnegative_int(payload.get("candidate_pool_size"))
     evaluated = _nonnegative_int(payload.get("candidate_quality_evaluated_jobs"))
     counts = payload.get("candidate_quality_rejection_counts") or {}
     no_indeed = _nonnegative_int(counts.get("no-indeed-apply")) if isinstance(counts, dict) else 0
     ratio = (no_indeed / evaluated) if evaluated else 0.0
+    previous_active = payload.get("candidate_search_source_recovery_active") is True
+    previous_version = _nonnegative_int(payload.get("candidate_search_source_recovery_version"))
+    previous_cooldown = _nonnegative_int(
+        payload.get("candidate_search_source_recovery_cooldown_runs_remaining")
+    )
+
+    # If the immediately previous recovery strategy produced almost no rows,
+    # suppress repeated retries. The one exception is a strategy-version change:
+    # v2 intentionally replaces the empirically empty site:jp.indeed.com v1, so
+    # carry its known trigger ratio forward once and test the new method.
+    if previous_active and evaluated < SOURCE_RECOVERY_MIN_EVALUATED:
+        if previous_version < SOURCE_RECOVERY_VERSION:
+            historical_ratio = _ratio_from_percent(
+                payload.get("candidate_search_source_recovery_trigger_ratio_pct")
+            )
+            if pool < SOURCE_RECOVERY_POOL_CEILING and historical_ratio >= SOURCE_RECOVERY_NO_INDEED_RATIO:
+                return True, historical_ratio, 0, "strategy-upgrade-retry"
+        return False, ratio, SOURCE_RECOVERY_COOLDOWN_RUNS, "recovery-empty-backoff"
+
+    if previous_cooldown > 0:
+        return False, ratio, previous_cooldown - 1, "cooldown"
+
     active = bool(
         pool < SOURCE_RECOVERY_POOL_CEILING
         and evaluated >= SOURCE_RECOVERY_MIN_EVALUATED
         and ratio >= SOURCE_RECOVERY_NO_INDEED_RATIO
     )
+    return active, ratio, 0, "no-indeed-bottleneck" if active else "normal"
+
+
+def source_recovery_signal(payload: dict | None) -> tuple[bool, float]:
+    """Backward-compatible compact view used by tests/callers."""
+    active, ratio, _, _ = source_recovery_decision(payload)
     return active, ratio
 
 
 def select_query_profiles(previous_payload: dict | None) -> list[tuple[str, str]]:
-    global _ACTIVE_SOURCE_RECOVERY, _SOURCE_RECOVERY_TRIGGER_RATIO
-    active, ratio = source_recovery_signal(previous_payload)
+    global _ACTIVE_SOURCE_RECOVERY
+    global _SOURCE_RECOVERY_TRIGGER_RATIO
+    global _SOURCE_RECOVERY_COOLDOWN_REMAINING
+    global _SOURCE_RECOVERY_TRIGGER_REASON
+
+    active, ratio, cooldown, reason = source_recovery_decision(previous_payload)
     _ACTIVE_SOURCE_RECOVERY = active
     _SOURCE_RECOVERY_TRIGGER_RATIO = ratio
+    _SOURCE_RECOVERY_COOLDOWN_REMAINING = cooldown
+    _SOURCE_RECOVERY_TRIGGER_REASON = reason
     if active:
         return list(SOURCE_RECOVERY_QUERY_PROFILES)
     return list(PRODUCTION_QUERY_PROFILES)
@@ -257,9 +305,9 @@ def stamp_yield_metadata() -> None:
     if not payload:
         return
     payload["candidate_search_strategy"] = (
-        "indeed-site-source-recovery-v1"
+        "indeed-keyword-source-recovery-v2"
         if _ACTIVE_SOURCE_RECOVERY
-        else "async-core-interleaved-indeed-yield-v4"
+        else "async-core-interleaved-indeed-yield-v5"
     )
     payload["candidate_search_anchor_templates"] = len(EXPERIMENTAL_ANCHORS)
     payload["candidate_search_async_core_anchor_templates"] = len(ASYNC_CORE_ANCHORS)
@@ -274,7 +322,13 @@ def stamp_yield_metadata() -> None:
     )
     payload["candidate_search_source_recovery_min_evaluated"] = SOURCE_RECOVERY_MIN_EVALUATED
     payload["candidate_search_source_recovery_pool_ceiling"] = SOURCE_RECOVERY_POOL_CEILING
-    payload["candidate_search_site_operator"] = INDEED_SITE_OPERATOR
+    payload["candidate_search_source_recovery_cooldown_runs"] = SOURCE_RECOVERY_COOLDOWN_RUNS
+    payload["candidate_search_source_recovery_cooldown_runs_remaining"] = (
+        _SOURCE_RECOVERY_COOLDOWN_REMAINING
+    )
+    payload["candidate_search_source_recovery_trigger_reason"] = _SOURCE_RECOVERY_TRIGGER_REASON
+    payload["candidate_search_source_bias_method"] = "keyword-plus-exact-remote"
+    payload["candidate_search_source_bias_term"] = INDEED_SOURCE_BIAS_TERM
     if _ACTIVE_SOURCE_RECOVERY:
         payload["candidate_search_anchor_min_per_daily_window"] = 0
         payload["candidate_search_indeed_bias_min_per_daily_window"] = base.DEEP_REQUESTS
