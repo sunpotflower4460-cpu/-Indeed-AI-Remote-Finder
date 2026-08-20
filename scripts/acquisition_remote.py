@@ -445,9 +445,13 @@ def configure_provider_budget(api_key: str) -> int | None:
         current_month = acquisition.month_key()
 
         def provider_synced_request_count(payload: dict, month: str) -> int:
+            local_count = base_previous_request_count(payload, month)
             if month == current_month:
-                return exact_month_usage
-            return base_previous_request_count(payload, month)
+                # Account API usage can lag immediately after counted searches.
+                # Never let a stale provider sample roll the persisted monthly
+                # counter backwards; use whichever source reports more usage.
+                return max(local_count, exact_month_usage)
+            return local_count
 
         acquisition.previous_request_count = provider_synced_request_count
 
