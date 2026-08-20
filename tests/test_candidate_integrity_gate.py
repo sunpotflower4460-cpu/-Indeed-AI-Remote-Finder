@@ -51,6 +51,19 @@ class CandidateIntegrityGateTests(unittest.TestCase):
         self.assertIn("japan-explicit", statuses)
         self.assertIn("worldwide-explicit", statuses)
 
+    def test_rejects_generic_remote_without_explicit_japan_or_worldwide(self):
+        candidate = row(
+            "Japanese AI Trainer",
+            location="Remote",
+            snippet="Fully remote. Evaluate Japanese AI responses and provide structured quality feedback.",
+        )
+        out = mod.apply({"jobs": [candidate]})
+        self.assertEqual(out["jobs"], [])
+        self.assertEqual(
+            out["candidate_integrity_drop_reasons"].get("japan-eligibility-not-explicit"),
+            1,
+        )
+
     def test_rejects_own_voice_or_likeness_collection(self):
         candidate = row(
             "Japanese Multimodal Contributor",
@@ -87,21 +100,21 @@ class CandidateIntegrityGateTests(unittest.TestCase):
             row(
                 "Japanese - Fluent Speakers - AI Training - Chiba, Japan",
                 company="Prolific Academic Ltd",
-                location="Remote",
+                location="Japan (Remote)",
                 id="chiba",
                 freshness_confidence=70,
             ),
             row(
                 "Japanese - Fluent Speakers - AI Training - Hiroshima, Japan",
                 company="Prolific Academic Ltd",
-                location="Remote",
+                location="Japan (Remote)",
                 id="hiroshima",
                 freshness_confidence=80,
             ),
             row(
                 "Japanese - Fluent Speakers - AI Training - Japan",
                 company="Prolific Academic Ltd",
-                location="Remote",
+                location="Japan (Remote)",
                 id="japan",
                 freshness_confidence=90,
             ),
