@@ -186,7 +186,7 @@ class AcquisitionSupplyYieldTests(unittest.TestCase):
         }
         mod.observe_job(job, "anchor_indeed_data_08")
         got = mod.yield_snapshot()
-        self.assertEqual(got["candidate_yield_telemetry_version"], 5)
+        self.assertEqual(got["candidate_yield_telemetry_version"], 6)
         self.assertEqual(got["candidate_yield_jobs_seen"], 1)
         self.assertEqual(got["candidate_jobs_with_apply_options"], 1)
         self.assertEqual(got["candidate_jobs_with_indeed_apply"], 1)
