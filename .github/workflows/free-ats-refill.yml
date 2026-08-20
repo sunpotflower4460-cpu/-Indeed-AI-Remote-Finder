@@ -1,4 +1,4 @@
-name: Refill free ATS candidate stock
+name: Refill free official candidate stock
 on:
   workflow_dispatch:
   schedule:
@@ -21,7 +21,7 @@ jobs:
         run: python -m unittest discover -s tests -q
       - name: Preserve current validated feed
         run: cp data/jobs.json /tmp/previous-jobs.json
-      - name: Refill from official ATS toward 100-row stock
+      - name: Refill official sources toward 120-row pre-final buffer
         run: python scripts/supplement_targeted_public_ats_buffered.py --previous /tmp/previous-jobs.json
       - name: Deduplicate and maintain rolling candidate pool
         run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
@@ -41,10 +41,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
-            echo "main moved during free ATS refill; skipping stale feed commit."
+            echo "main moved during free official refill; skipping stale feed commit."
             exit 0
           fi
           git add data/jobs.json
           git diff --cached --quiet && exit 0
-          git commit -m "chore: refill free ATS candidate stock"
+          git commit -m "chore: refill free official candidate stock"
           git push origin HEAD:main
