@@ -61,7 +61,7 @@ def greenhouse_job(index: int, *, body_extra: str = "") -> dict:
 
 class PublicATSSupplementTests(unittest.TestCase):
     def test_multi_source_pipeline_can_hold_thirty_strict_rows_and_blocks_bad_media(self):
-        # Mapping safety can be checked without mutating the installed production builder.
+        # Mapping safety can be checked without mutating the production builder.
         self.assertIsNone(mod._map_ashby(ashby_job(900, remote=False), "lilt-production", "LILT"))
         voice = ashby_job(901, title="Japanese Voice Talent AI Trainer")
         voice["descriptionPlain"] = "Record your voice for AI training and join live video calls."
@@ -73,6 +73,13 @@ class PublicATSSupplementTests(unittest.TestCase):
                 "Meridial / Invisible Agency",
             )
         )
+
+        # Other unit tests deliberately monkey-patch the shared acquisition module.
+        # Restore the same clean process state used by the production workflow.
+        mod.acquisition._production_quality_policy_configured = False
+        mod.acquisition._production_remote_policy_configured = False
+        mod.acquisition.build_row = mod.acquisition_precision._ORIGINAL_ACQUISITION_BUILD_ROW
+        mod.acquisition.legacy.score_job = mod.acquisition_quality.GENERIC_SCORE_JOB
 
         sources = {
             "fetched_lever": {"weloglobal": [lever_job(1)]},
