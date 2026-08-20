@@ -39,6 +39,11 @@ jobs:
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: python scripts/acquisition_precision.py
+      - name: Supplement from public employer ATS feeds
+        id: public_ats
+        if: always()
+        continue-on-error: true
+        run: python scripts/supplement_public_ats.py --previous /tmp/previous-jobs.json
       - name: Stamp safe provider guard diagnostics
         if: always()
         env:
@@ -193,7 +198,7 @@ jobs:
         run: python scripts/apply_ai_tool_policy_gate.py
       - name: Validate generated feed
         run: |
-          python scripts/validate_feed.py
+          python scripts/validate_feed_trusted.py
           python scripts/validate_remote_feed.py
       - name: Commit refreshed feed
         run: |
