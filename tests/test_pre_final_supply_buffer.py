@@ -39,6 +39,7 @@ class PreFinalSupplyBufferTests(unittest.TestCase):
             {"jobs": existing},
             {},
             direct_pages={},
+            japan_depth_pages={},
             rws_posts=[],
             welo_posts=[welo(i) for i in range(20)],
             lilt_posts=[],
@@ -51,6 +52,7 @@ class PreFinalSupplyBufferTests(unittest.TestCase):
         self.assertEqual(out["candidate_pre_final_buffer_target"], 120)
         self.assertEqual(out["candidate_visible_minimum"], 30)
         self.assertFalse(out["candidate_pre_final_buffer_uses_serpapi"])
+        self.assertEqual(out["candidate_pre_final_buffer_policy_version"], 4)
 
     def test_pool_at_pre_final_target_skips_extra_source_work(self):
         existing = [{"id": f"existing-{i}", "tier": "review", "score": 80} for i in range(120)]
@@ -58,6 +60,7 @@ class PreFinalSupplyBufferTests(unittest.TestCase):
             {"jobs": existing},
             {},
             direct_pages={},
+            japan_depth_pages={},
             rws_posts=[],
             welo_posts=[],
             lilt_posts=[],
@@ -69,6 +72,11 @@ class PreFinalSupplyBufferTests(unittest.TestCase):
         self.assertTrue(out["candidate_pre_final_buffer_ready"])
         self.assertEqual(out["candidate_post_final_stock_target"], 100)
         self.assertEqual(out["candidate_pre_final_buffer_target"], 120)
+
+    def test_wrapper_includes_japan_depth_layer(self):
+        source = (ROOT / "scripts/supplement_targeted_public_ats_buffered.py").read_text(encoding="utf-8")
+        self.assertIn("supplement_official_japan_depth", source)
+        self.assertIn("japan_depth_pages", source)
 
     def test_workflow_uses_buffered_entrypoint(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
