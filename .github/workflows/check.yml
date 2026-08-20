@@ -8,7 +8,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -18,6 +18,50 @@ jobs:
         run: python -m unittest discover -s tests -q
       - name: Python syntax
         run: python -m compileall -q scripts
+      - name: Probe live official-source supply without secrets
+        run: |
+          cp data/jobs.json /tmp/probe-previous.json
+          python scripts/supplement_targeted_public_ats_buffered.py --previous /tmp/probe-previous.json
+          python scripts/postprocess_feed.py --previous /tmp/probe-previous.json
+          python scripts/apply_candidate_integrity_gate.py
+          python scripts/apply_llm_quality_gate.py
+          python scripts/apply_ai_tool_policy_gate.py
+          python scripts/validate_feed_trusted.py
+          python scripts/validate_remote_feed.py
+          python scripts/validate_candidate_integrity.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('data/jobs.json').read_text(encoding='utf-8'))
+          print('PROBE_FINAL_POOL', len(d.get('jobs') or []))
+          for key in (
+              'candidate_direct_official_checked',
+              'candidate_direct_official_live',
+              'candidate_direct_official_deterministic_accepted',
+              'candidate_direct_official_accepted_by_provider',
+              'candidate_direct_official_errors',
+              'candidate_official_japan_depth_checked',
+              'candidate_official_japan_depth_live',
+              'candidate_official_japan_depth_deterministic_accepted',
+              'candidate_official_japan_depth_accepted_by_provider',
+              'candidate_official_japan_depth_errors',
+              'candidate_rws_trainai_raw',
+              'candidate_rws_trainai_mapped',
+              'candidate_rws_trainai_deterministic_accepted',
+              'candidate_rws_trainai_errors',
+              'candidate_targeted_public_ats_mapped',
+              'candidate_targeted_public_ats_deterministic_accepted',
+              'candidate_targeted_public_ats_accepted_by_provider',
+              'candidate_targeted_public_ats_errors',
+              'candidate_targeted_public_ats_pool_after',
+              'candidate_pre_final_buffer_ready',
+              'candidate_integrity_dropped',
+              'candidate_integrity_drop_reasons',
+              'candidate_semantic_duplicates_dropped',
+              'candidate_ai_tool_policy_dropped',
+          ):
+              print(key, json.dumps(d.get(key), ensure_ascii=False))
+          PY
       - name: Validate current feed
         run: |
           python scripts/validate_feed_trusted.py
