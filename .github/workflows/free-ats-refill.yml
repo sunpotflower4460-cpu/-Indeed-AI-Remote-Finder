@@ -1,0 +1,50 @@
+name: Refill free ATS candidate stock
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: update-job-candidates
+  cancel-in-progress: false
+jobs:
+  refill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Run quality tests
+        run: python -m unittest discover -s tests -q
+      - name: Preserve current validated feed
+        run: cp data/jobs.json /tmp/previous-jobs.json
+      - name: Refill from official ATS toward 100-row stock
+        run: python scripts/supplement_targeted_public_ats_buffered.py --previous /tmp/previous-jobs.json
+      - name: Deduplicate and maintain rolling candidate pool
+        run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
+      - name: Re-apply final human-presence and cached LLM vetoes
+        run: python scripts/apply_llm_quality_gate.py
+      - name: Re-apply explicit AI-tool policy vetoes
+        run: python scripts/apply_ai_tool_policy_gate.py
+      - name: Stamp no-SerpApi refill metadata
+        run: python scripts/stamp_free_ats_refresh.py
+      - name: Validate generated feed
+        run: |
+          python scripts/validate_feed_trusted.py
+          python scripts/validate_remote_feed.py
+      - name: Commit only a current validated feed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "main moved during free ATS refill; skipping stale feed commit."
+            exit 0
+          fi
+          git add data/jobs.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: refill free ATS candidate stock"
+          git push origin HEAD:main
