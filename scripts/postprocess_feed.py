@@ -3,7 +3,8 @@
 
 - Drop rows that explicitly contradict unconditional full-remote work.
 - Collapse duplicate postings with the same normalized company/title.
-- Keep only v2 quality-screened missing jobs for up to the 30-day freshness window.
+- Keep only current-policy, full-listing/presence-screened missing jobs for up to
+  the 30-day freshness window.
 - Rank live/new rows ahead of carried reserve rows so the app changes day to day.
 - Keep at most 150 ranked candidates in the server-side pool, leaving surplus
   inventory above the user's 100-unapplied-candidate target.
@@ -26,6 +27,7 @@ DISPLAY_TARGET = 30
 POOL_LIMIT = 150
 QUALITY_POLICY_VERSION = 2
 QUALITY_GATE = "async-ai-remote-v2"
+PRESENCE_GATE_VERSION = 1
 REVIEW_AUTOMATION_MIN = 64
 REVIEW_HUMAN_RISK_MAX = 18
 REVIEW_AUTOMATION_SIGNAL_MIN = 2
@@ -160,11 +162,21 @@ def dedupe_rows(rows: list[dict]) -> tuple[list[dict], int]:
 
 
 def reserve_row_is_quality_gated(row: dict) -> bool:
+    """Only allow reserve rows that prove they passed every current server gate."""
     if row.get("autonomy_attention_risk") != "low":
         return False
     if int(row.get("quality_policy_version") or 0) != QUALITY_POLICY_VERSION:
         return False
     if row.get("quality_gate") != QUALITY_GATE:
+        return False
+    # v2 predates the full-listing/presence rollout. Requiring these stamps
+    # prevents an older v2 row with a truncated snippet from bypassing checks
+    # that are now mandatory for newly acquired candidates.
+    if row.get("full_listing_presence_screened") is not True:
+        return False
+    if int(row.get("presence_gate_version") or 0) != PRESENCE_GATE_VERSION:
+        return False
+    if row.get("continuous_presence_risk") != "low":
         return False
     if row.get("remote_search_only") is True:
         return False
@@ -212,7 +224,9 @@ def carryover_rows(current: list[dict], previous: list[dict], now: datetime) -> 
         row["tier"] = "review"
         row["carryover"] = True
         row["pool_reserve"] = True
-        row["carryover_reason"] = "最新スキャンでは未再検出。30日以内のv2品質確認済み予備候補として保持"
+        row["carryover_reason"] = (
+            "最新スキャンでは未再検出。30日以内かつ現行の全文・在席品質ゲート確認済みの予備候補として保持"
+        )
         row["freshness_confidence"] = min(
             int(row.get("freshness_confidence") or 0), max(24, 60 - days_missing * 2)
         )
