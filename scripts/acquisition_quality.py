@@ -19,9 +19,12 @@ Rules:
 6. Google's deprecated Work From Home filter never contributes to scoring.
 7. A richer listing excerpt is retained for LLM review while the UI still
    visually clamps the card text.
+8. Safe aggregate rejection telemetry records which gate rejects candidates,
+   without persisting titles, companies, descriptions, URLs, or secrets.
 """
 from __future__ import annotations
 
+from collections import Counter
 import json
 import re
 
@@ -31,6 +34,7 @@ import apply_llm_quality_gate
 
 QUALITY_POLICY_VERSION = 2
 QUALITY_GATE = "async-ai-remote-v2"
+QUALITY_TELEMETRY_VERSION = 1
 REVIEW_AUTOMATION_MIN = 64
 REVIEW_HUMAN_RISK_MAX = 18
 REVIEW_AUTOMATION_SIGNAL_MIN = 2
@@ -41,6 +45,13 @@ RICH_SNIPPET_MAX = 6000
 # never trusts provider WFH classification as proof of full remote.
 GENERIC_SCORE_JOB = acquisition.legacy.score_job
 GENERIC_SERPAPI_FETCH = acquisition.serpapi_fetch
+
+_QUALITY_REJECTION_COUNTS: Counter[str] = Counter()
+_QUALITY_PROFILE_EVALUATED: Counter[str] = Counter()
+_QUALITY_PROFILE_ACCEPTED: Counter[str] = Counter()
+_QUALITY_PROFILE_REJECTIONS: dict[str, Counter[str]] = {}
+_QUALITY_EVALUATED = 0
+_QUALITY_ACCEPTED = 0
 
 AUTOMATION_EQUIVALENTS: tuple[tuple[str, str], ...] = (
     ("データ抽出", "データ入力 転記"),
@@ -132,6 +143,64 @@ QUALITY_ATTENTION_NEGATIONS = (
 )
 
 
+def reset_quality_telemetry() -> None:
+    global _QUALITY_EVALUATED, _QUALITY_ACCEPTED
+    _QUALITY_REJECTION_COUNTS.clear()
+    _QUALITY_PROFILE_EVALUATED.clear()
+    _QUALITY_PROFILE_ACCEPTED.clear()
+    _QUALITY_PROFILE_REJECTIONS.clear()
+    _QUALITY_EVALUATED = 0
+    _QUALITY_ACCEPTED = 0
+
+
+def _profile_name(category: object) -> str:
+    return str(category or "unknown")[:80]
+
+
+def _record_quality_outcome(category: object, reason: str | None) -> None:
+    global _QUALITY_EVALUATED, _QUALITY_ACCEPTED
+    profile = _profile_name(category)
+    _QUALITY_EVALUATED += 1
+    _QUALITY_PROFILE_EVALUATED[profile] += 1
+    if reason is None:
+        _QUALITY_ACCEPTED += 1
+        _QUALITY_PROFILE_ACCEPTED[profile] += 1
+        return
+    _QUALITY_REJECTION_COUNTS[reason] += 1
+    _QUALITY_PROFILE_REJECTIONS.setdefault(profile, Counter())[reason] += 1
+
+
+def quality_telemetry_snapshot() -> dict:
+    profiles = []
+    for profile, evaluated in _QUALITY_PROFILE_EVALUATED.items():
+        accepted = int(_QUALITY_PROFILE_ACCEPTED.get(profile, 0))
+        reasons = _QUALITY_PROFILE_REJECTIONS.get(profile, Counter())
+        profiles.append(
+            {
+                "profile": profile,
+                "evaluated": int(evaluated),
+                "accepted": accepted,
+                "rejected": int(evaluated) - accepted,
+                "reasons": dict(reasons.most_common(6)),
+            }
+        )
+    profiles.sort(
+        key=lambda item: (
+            -int(item["accepted"]),
+            -int(item["evaluated"]),
+            str(item["profile"]),
+        )
+    )
+    return {
+        "candidate_quality_gate_telemetry_version": QUALITY_TELEMETRY_VERSION,
+        "candidate_quality_evaluated_jobs": _QUALITY_EVALUATED,
+        "candidate_quality_pre_llm_accepted": _QUALITY_ACCEPTED,
+        "candidate_quality_rejected_jobs": max(0, _QUALITY_EVALUATED - _QUALITY_ACCEPTED),
+        "candidate_quality_rejection_counts": dict(_QUALITY_REJECTION_COUNTS.most_common()),
+        "candidate_quality_rejection_by_profile": profiles[:12],
+    }
+
+
 def normalized_job_text(job: dict) -> str:
     return acquisition_remote.job_text(job)
 
@@ -190,14 +259,42 @@ def rich_listing_excerpt(job: dict) -> str:
     return text
 
 
+def review_row_quality_rejection(row: dict) -> str | None:
+    if int(row.get("automation_confidence") or 0) < REVIEW_AUTOMATION_MIN:
+        return "review-automation-below-floor"
+    if int(row.get("human_dependency_risk") or 0) > REVIEW_HUMAN_RISK_MAX:
+        return "review-human-risk-above-ceiling"
+    reasons = {
+        str(value or "").strip().lower()
+        for value in row.get("automation_reasons") or []
+        if str(value or "").strip()
+    }
+    if len(reasons) < REVIEW_AUTOMATION_SIGNAL_MIN:
+        return "review-insufficient-automation-signals"
+    return None
+
+
 def review_row_meets_quality(row: dict) -> bool:
-    reasons = [str(value or "").strip() for value in row.get("automation_reasons") or []]
-    unique_reasons = {value.lower() for value in reasons if value}
-    return bool(
-        int(row.get("automation_confidence") or 0) >= REVIEW_AUTOMATION_MIN
-        and int(row.get("human_dependency_risk") or 0) <= REVIEW_HUMAN_RISK_MAX
-        and len(unique_reasons) >= REVIEW_AUTOMATION_SIGNAL_MIN
-    )
+    return review_row_quality_rejection(row) is None
+
+
+def prefilter_rejection_reason(job: dict) -> str | None:
+    # Track the acquisition funnel in the same order users care about it:
+    # first there must be an Indeed destination, then the work must satisfy the
+    # strict remote/autonomy policy. Only coarse reason labels are persisted.
+    if not acquisition.legacy.find_indeed_apply(job):
+        return "no-indeed-apply"
+    if acquisition_remote.autonomy_blockers(job):
+        return "synchronous-human-attention"
+    if partial_remote_blockers(job):
+        return "partial-or-conditional-remote"
+    if quality_attention_blockers(job):
+        return "ongoing-human-coordination"
+    if human_presence_blocker(job):
+        return "continuous-human-presence"
+    if not explicit_full_remote_evidence(job):
+        return "missing-explicit-full-remote"
+    return None
 
 
 def quality_serpapi_fetch(query: str, api_key: str, next_page_token: str | None = None) -> dict:
@@ -231,26 +328,25 @@ def configure_quality_policy() -> None:
     base_build_row = acquisition.build_row
 
     def quality_build_row(job, category, previous):
-        # All of these checks see the full provider listing. In particular the
-        # human-presence gate runs before `snippet` is truncated for UI/LLM use.
-        if (
-            partial_remote_blockers(job)
-            or quality_attention_blockers(job)
-            or human_presence_blocker(job)
-        ):
-            return None
-        if not explicit_full_remote_evidence(job):
+        reason = prefilter_rejection_reason(job)
+        if reason:
+            _record_quality_outcome(category, reason)
             return None
 
         row = base_build_row(job, category, previous)
         if not row:
+            _record_quality_outcome(category, "score-below-candidate-floor")
             return None
         # Redundant with explicit_full_remote_evidence, but retain the legacy
         # marker as a defense against future build_row changes.
         if row.get("remote_search_only") is True:
+            _record_quality_outcome(category, "remote-search-only")
             return None
-        if row.get("tier") == "review" and not review_row_meets_quality(row):
-            return None
+        if row.get("tier") == "review":
+            reason = review_row_quality_rejection(row)
+            if reason:
+                _record_quality_outcome(category, reason)
+                return None
 
         richer = rich_listing_excerpt(job)
         if richer:
@@ -259,6 +355,7 @@ def configure_quality_policy() -> None:
         row["quality_policy_version"] = QUALITY_POLICY_VERSION
         row["quality_gate"] = QUALITY_GATE
         row["full_listing_presence_screened"] = True
+        _record_quality_outcome(category, None)
         return row
 
     acquisition.build_row = quality_build_row
@@ -279,6 +376,7 @@ def stamp_quality_metadata() -> None:
         payload["candidate_discovery_can_use_broad_remote_terms"] = True
         payload["candidate_rich_listing_excerpt_max"] = RICH_SNIPPET_MAX
         payload["candidate_full_listing_presence_screened"] = True
+        payload.update(quality_telemetry_snapshot())
         acquisition.OUT.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
