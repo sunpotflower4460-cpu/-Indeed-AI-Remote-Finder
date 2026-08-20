@@ -31,4 +31,5 @@ jobs:
           node --check integrity.js
           node --check refill.js
           node --check continuity.js
+          node --check ux.js
           node --check sw.js
