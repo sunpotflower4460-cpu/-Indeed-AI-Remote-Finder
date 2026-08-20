@@ -41,6 +41,7 @@ STEADY_REQUESTS = 2
 # for page 2 of productive themes. The monthly cap remains the final guard.
 MAX_REQUESTS_PER_RUN = 30
 DEFAULT_MONTHLY_REQUEST_CAP = 220
+DEFAULT_SEARCH_ORIGIN = "Tokyo, Japan"
 
 REMOTE_QUERY = (
     '("完全在宅" OR "フルリモート" OR "完全リモート" OR "100%リモート" '
@@ -133,6 +134,11 @@ def configured_monthly_cap() -> int:
         return DEFAULT_MONTHLY_REQUEST_CAP
 
 
+def configured_search_origin() -> str:
+    value = os.environ.get("SERPAPI_SEARCH_ORIGIN", "").strip()
+    return value[:120] if value else DEFAULT_SEARCH_ORIGIN
+
+
 def request_limit_for_pool(pool_size: int) -> int:
     if pool_size < DISPLAY_TARGET:
         return MAX_REQUESTS_PER_RUN
@@ -154,7 +160,7 @@ def serpapi_fetch(query: str, api_key: str, next_page_token: str | None = None) 
     params = {
         "engine": "google_jobs",
         "q": query,
-        "location": "Japan",
+        "location": configured_search_origin(),
         "hl": "ja",
         "gl": "jp",
         "api_key": api_key,
@@ -165,7 +171,7 @@ def serpapi_fetch(query: str, api_key: str, next_page_token: str | None = None) 
     url = "https://serpapi.com/search.json?" + urllib.parse.urlencode(params)
     request = urllib.request.Request(
         url,
-        headers={"User-Agent": "AI-Remote-Finder/6.3", "Accept": "application/json"},
+        headers={"User-Agent": "AI-Remote-Finder/7.0", "Accept": "application/json"},
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -383,6 +389,7 @@ def main() -> None:
         "errors": errors[:8],
         "method": "serpapi-google-jobs-adaptive-indeed-apply-only",
         "provider_configured": True,
+        "serpapi_search_origin": configured_search_origin(),
         "candidate_display_target": DISPLAY_TARGET,
         "candidate_daily_application_target": DAILY_APPLICATION_TARGET,
         "candidate_pool_target": POOL_TARGET,
