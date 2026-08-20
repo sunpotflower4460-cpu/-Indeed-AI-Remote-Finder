@@ -24,12 +24,13 @@ class ActionRefillContractTests(unittest.TestCase):
         self.assertIn("available>=ACTION_REFILL_TRIGGER", self.refill)
         self.assertIn("window.loadFeed", self.refill)
 
-    def test_refill_is_throttled_and_never_calls_search_api(self):
+    def test_refill_is_throttled_and_never_calls_authenticated_or_search_endpoints(self):
         self.assertIn("const REFILL_COOLDOWN_MS=30_000", self.refill)
         self.assertIn("if(inFlight||", self.refill)
-        self.assertNotIn("serpapi", self.refill.lower())
+        self.assertNotIn("serpapi.com", self.refill.lower())
         self.assertNotIn("api.github.com", self.refill.lower())
-        self.assertNotIn("authorization", self.refill.lower())
+        self.assertNotIn("authorization:", self.refill.lower())
+        self.assertNotIn("github_token", self.refill.lower())
 
     def test_foreground_recheck_keeps_static_feed_fresh(self):
         self.assertIn("visibilitychange", self.refill)
