@@ -1,162 +1,212 @@
 # AI Remote Finder
 
-**完全リモート × デジタル定型業務 × 新しい求人**を優先し、「技術的にAI/RPAへ大部分を寄せやすい」Indeed求人候補だけを先に確認するためのiPhone対応PWAです。
+**完全リモート × デジタル定型業務 × 新しい求人**を優先し、仕事内容を技術的にAI/RPAへ大きく寄せやすいIndeed求人候補だけを先に確認するためのiPhone対応PWAです。
 
-## 判定は2段階
+> このアプリが判定するのは「技術的な自動化適性」です。雇用主が生成AI・RPAの利用を許可していること、機密情報や個人情報を外部AIへ入力してよいこと、応募者本人の稼働を代替してよいことまでは求人票だけでは断定しません。応募後・業務開始前に必ず確認してください。
 
-### 1. 決定論的な厳格ゲート（常に有効）
+## 現在の品質方針
 
-候補は次の4軸を別々に判定します。
+候補は、広めに探してから**厳しく公開判定する**構成です。検索語に一般的な「在宅」「リモート」を含めることはありますが、それだけで掲載対象にはしません。
 
-1. **AI代替性** — データ入力、転記、アノテーション、分類、評価、文字起こし、校正、商品登録などの構造化しやすい作業
-2. **完全リモート確度** — 「完全在宅」「フルリモート」「100% remote」を強く評価し、出社・常駐・ハイブリッドを除外
-3. **新しさ** — 掲載から14日以内を高確度の必須条件にし、30日超は通常一覧から除外
-4. **人間依存リスク** — 営業、接客、電話、訪問、講師、会議、マネジメント、現場作業などを減点・除外
+公開候補には原則として次を要求します。
 
-**高確度**は4軸すべてを通過したものだけです。LLMが高評価でも、この厳格ゲートを通っていない求人を高確度へ昇格させることはありません。
+1. **Indeed個別求人URLが確認できること**
+   - Google Jobsの構造化データにある `apply_options` からIndeedの個別 `viewjob?jk=...` URLを確認します。
+   - Indeed求人ページそのものをbotで直接巡回する設計ではありません。
+2. **求人本文に無条件の完全リモート根拠があること**
+   - 「完全在宅」「フルリモート」「完全リモート」「100% remote」などを明示的に確認します。
+   - 一部在宅、ハイブリッド、月/週の出社、研修のみ出社、相談可、将来フルリモート等は除外します。
+3. **AI/RPAへ寄せやすい構造化作業であること**
+   - データ入力、転記、アノテーション、分類、評価、文字起こし、校正、商品登録、データ検証、OCR確認などを中心に評価します。
+4. **人間本人の同期対応・張り付きが本質ではないこと**
+   - 電話、常時チャット対応、会議、顧客折衝、進行管理、継続的な調整などを除外します。
+   - カメラ常時ON、Zoom/Teams常時接続、画面共有常時、PC前待機、在席確認、離席不可、ランダムな本人確認なども除外します。
+   - 一方、ソフトウェアの常時ログイン、自動監視、機械による高速応答だけなら、それ自体を人間張り付きとはみなしません。
+5. **鮮度が一定範囲内であること**
+   - 高確度は原則14日以内。
+   - 30日を超える求人は通常候補・予備候補から外します。
+
+品質契約の詳細は [`docs/QUALITY_POLICY.md`](docs/QUALITY_POLICY.md) を参照してください。
+
+## 2段階 + 最終ゲート
+
+### 1. 決定論的な厳格ゲート
+
+外部LLMが使えない時でも必ず動く一次判定です。
+
+- AI代替性
+- 完全リモート確度
+- 鮮度
+- 人間依存リスク
+- 部分/条件付きリモートの矛盾
+- 同期的人間対応
+- 全文ベースの人間在席要件
+
+`review` 候補にも、現在は次の最低条件を要求します。
+
+- `automation_confidence >= 64`
+- `human_dependency_risk <= 18`
+- 異なる自動化根拠が2つ以上
 
 ### 2. 任意のLLM二次審査
 
-`OPENAI_API_KEY` を設定すると、一次判定後の求人に対してOpenAI Responses APIを第二の審査官として使えます。
+`OPENAI_API_KEY` を設定すると、一次判定を通過した候補を第二の審査官として追加確認します。
 
-LLMはStructured Outputsで固定JSON形式にし、次を追加します。
+LLMは固定JSON形式で、主に次を返します。
 
-- 技術的に自動化できそうな割合（0〜100%）
+- 技術的に自動化できそうな割合
 - 判定の確信度
 - 人間依存の強さ
 - 物理的な出社・作業が本質的に必要か
-- 同期的な人とのやり取りが必要か
+- 同期的な人とのやり取りの頻度
 - データ機密性の注意度
-- **自動化レシピ**（実際にどうAI/RPAへ寄せるか）
+- 自動化レシピ
 - 技術的ブロッカー
-- **応募後に確認すべきこと**（AI利用可否、守秘義務、外部AIへのデータ投入可否など）
+- 応募後に確認すべきこと
 
-LLM側でも非常に厳しい条件を通ったものだけ `◎ 二重審査` に表示します。
+現在の共有LLM予算は、**1回の更新で最大8 paid attempts**です。高確度候補を先に監査し、余った同じ8回枠を `review` 候補に使用します。月間安全上限は現在700 attemptsです。
 
-二重審査通過条件は、概ね次のすべてです。
+LLMが明確な不一致を確認した候補は最終公開前に除外します。たとえば、物理出社、頻繁な同期対応、中〜高い人間依存、高確信度で75%未満のend-to-end自動化、人間在席を示すブロッカーなどです。
 
-- 決定論的判定が `high`
-- LLM verdict が `strong`
-- 技術代替率 90%以上
-- LLM確信度 80%以上
-- 人間依存 `low`
-- 物理作業なし
-- 同期的な人間対応 `none`
-- 明示的な技術ブロッカーなし
+LLMが利用できないことだけを理由に、決定論的に通過した候補を削除することはありません。
 
-**重要:** 二重審査は「雇用主がAI利用を許可している」という保証ではありません。技術的な代替可能性の二重チェックです。
+## 候補数の考え方
 
-## LLMコストを増やしにくい仕組み
+- **ユーザー向け未応募目標:** 100件
+- **サーバー側品質予備枠:** 最大150件
+- **端末表示:** 最初は30件ずつ
+- **1日の応募目安UI:** 10件
 
-求人ごとに入力内容のSHA-256ハッシュを保存します。
+150件は品質基準を緩めるための枠ではありません。応募済み・辞退済みが増えても100件を切りにくくするための余剰在庫です。
 
-- タイトル・概要・判定材料が同じ求人は、過去のLLM審査結果を再利用
-- 内容が変化した求人だけ再審査
-- 1回の更新で新規LLM審査は最大30件
-- `OPENAI_API_KEY` が無い場合はLLM処理をスキップし、通常の求人アプリとしてそのまま動作
-- APIキーはGitHub Actions Secretsだけで使用し、PWA/ブラウザへ埋め込みません
-- Responses API呼び出しは `store: false`
+最新スキャンで見つからなかった求人は、**現行の品質ポリシー・全文在席チェック・最終presence gateまで通過済みであることを証明できる候補だけ**、最大30日まで低順位の予備候補として保持できます。リンク先で募集継続を確認してから応募してください。
 
-モデルは環境変数 `OPENAI_MODEL` で差し替え可能です。現在のworkflow既定値は `gpt-5.6-luna` です。
+## データ取得と検索予算
 
-## データ取得
+本番更新の入口は `scripts/acquisition_supply_yield.py` です。
 
-Indeed求人ページをbotで直接巡回しません。自動更新の主経路は **SerpApi Google Jobs API** です。
+- SerpApi Google Jobs APIを利用
+- 日本向け、既定検索起点は `Tokyo, Japan`
+- 通常アンカー + Indeed寄りアンカー + 多数のタスク別検索をローテーション
+- 候補が少ない時の深掘りは**1日7検索**
+- 7 × 31日 = 217検索として、既定の月220検索安全上限内に収める設計
+- SerpApi Account APIの利用量も確認し、プロバイダ側の残量が少ない時は追加消費を止める
+- 取得失敗時はlast-known-good feedを消さない
 
-- Google Jobsの構造化求人を取得
-- `Working from home` フィルタを使用
-- `apply_options` に **Indeedの個別応募URL** が実在する求人だけ残す
-- そのうえで4軸スコアリング
-- 2検索を8時間ごとに実行
+検索は広めでも、公開基準は常に同じ厳格ゲートです。
 
-`SERPAPI_KEY` が未設定・一時障害の場合は、既存フィードを消さずに保持します。
+## 自動更新
+
+`.github/workflows/update-jobs.yml` の本番スケジュールは現在、**毎日 08:25 JST（23:25 UTC）**です。
+
+更新時は概ね次の順で処理します。
+
+1. 回帰テスト
+2. 前回feed保存
+3. SerpApi候補取得 + 安全な供給量テレメトリ
+4. provider / acquisition状態の安全な診断スタンプ
+5. 重複除去・予備候補統合
+6. LLM一次監査
+7. 余った同一予算でreview候補監査
+8. 公開用LLMエラー情報を安全化
+9. LLM / 人間在席の最終品質veto
+10. feed validator + remote validator
+11. 検証を通った `data/jobs.json` のみcommit
+
+PRマージ後は、候補パイプラインに関係する変更だった場合だけ、trusted main-branch refresh dispatcherが本番更新を起動します。
+
+詳しくは [`docs/REFRESH_CONTRACT.md`](docs/REFRESH_CONTRACT.md) を参照してください。
 
 ## 古い・不確かな求人を残しすぎない仕組み
 
-取得側と表示側の両方に鮮度ガードがあります。
-
-- 14日を超えた求人は、アプリ側でも **高確度 → 要確認** に自動降格
-- 30日を超えた求人は通常一覧から自動除外
-- 最新スキャンで見つからなかった求人は、直前まで見えていた場合でも **最大48時間だけ要確認として保持**
-- 48時間を超えて再検出されなければ削除
-- 同じ会社・同じ職種の重複掲載は1件へ圧縮し、統合件数を表示
-
-「厳しすぎて一度の取りこぼしで0件」と「昔の求人がいつまでも残る」の両方を避けるための設計です。
+- 高確度は14日以内を要求
+- 30日超は通常候補から除外
+- 予備候補も30日以内のみ
+- 予備候補へ戻せるのは、現行品質・全文presence screen・presence gateの証明が残るものだけ
+- 同じ会社・同じ職種は重複圧縮
+- ブラウザ側も品質ポリシーとpresence stampを再確認してからローカル予備へ入れる
+- PWAの求人JSONはnetwork-firstで取得し、通信失敗時だけキャッシュへフォールバック
 
 ## 主な機能
 
-- 高確度 / **◎ LLM二重審査** / 要確認 / 全候補 / ★保存 / ✓応募済み / 非表示
-- AI代替・完全在宅・新しさを別スコア表示
-- LLM技術代替率・確信度・人間依存の表示
-- 求人ごとの**自動化レシピ**
-- 求人ごとの**応募後確認事項**
-- 人間依存リスク表示
-- 総合 / 新しさ / AI代替 / LLM代替率の並べ替え
+- おすすめ候補 / 高確度 / ◎ LLM二重審査 / 次点候補
+- ★お気に入り / ✓応募済み / ×応募しない
+- AI代替・完全在宅・新しさの別スコア
+- LLM技術代替率・確信度・人間依存
+- 求人ごとの自動化レシピ
+- 応募後確認事項
+- 総合 / 新しさ / AI代替 / LLM代替率で並べ替え
 - キーワード絞り込み
-- iPhone内に保存・応募済み・非表示状態を保持
+- iPhoneのホーム画面に追加できるPWA
+- ローカルに応募・保存・辞退履歴を保持
 - ワンタップでIndeed個別求人へ移動
-- Indeedの「7日以内・日付順」検索へのショートカット
-- GitHub Actionsで8時間ごとの更新
-- 重複求人の自動圧縮
-- 一時的な検索取りこぼしへの48時間ガード
-- 生成フィードの自動品質検査
-- Python回帰テスト + JavaScript構文チェック
-- PWAキャッシュ更新対策
+- 生成feedの自動品質検査
+- Python回帰テスト + Python/JavaScript構文チェック
 
-## 自動求人更新を有効にする（1回だけ）
+## 自動求人更新を有効にする
 
-1. SerpApiでアカウントを作りAPI Keyをコピー
-2. このリポジトリの `Settings > Secrets and variables > Actions`
-3. `New repository secret`
-4. Nameを **`SERPAPI_KEY`**、SecretにAPI Keyを入れて保存
-5. `Actions > Update job candidates > Run workflow` を1回実行
+GitHubリポジトリの `Settings > Secrets and variables > Actions` に次を設定します。
 
-以後は8時間ごとに自動更新します。
+- `SERPAPI_KEY` — 本番候補取得に必要
+- `OPENAI_API_KEY` — LLM二次審査を使う場合のみ必要
 
-## LLM二次審査を有効にする（任意・1回だけ）
+設定後、`Actions > Update job candidates > Run workflow` を実行できます。以後は定期更新も動きます。
 
-同じ `Settings > Secrets and variables > Actions` で、もう1つRepository secretを作ります。
-
-- Name: **`OPENAI_API_KEY`**
-- Secret: OpenAI Platformで作成したAPI key
-
-保存後に `Actions > Update job candidates > Run workflow` を1回実行します。
-
-LLMキーが無くても決定論的な求人検索・判定・保存・応募管理はすべて利用できます。
+検索起点を実験的に変える場合は `SERPAPI_SEARCH_ORIGIN`、月間検索安全上限を変える場合は `SERPAPI_MONTHLY_REQUEST_CAP` を環境変数として利用できます。品質ゲートそのものを弱める設定ではありません。
 
 ## iPhoneに入れる
 
-1. `Settings > Pages > Build and deployment > Source` を **GitHub Actions** にする
+1. `Settings > Pages > Build and deployment > Source` をGitHub Actionsにする
 2. Pages URLをSafariで開く
 3. 共有 → **ホーム画面に追加**
 
-## 「AI代替」の意味
+## 品質検査
 
-ここで判定するのは**仕事内容が技術的に自動化しやすいか**です。雇用主が生成AI・自動化ツールの利用を許可していること、守秘義務上そのデータを外部AIへ投入してよいことまでは求人情報だけでは断定しません。応募後・業務開始前に確認してください。
+ローカル/CIで主に次を実行します。
 
-## 品質ガード
+```bash
+python -m unittest discover -s tests -q
+python -m compileall -q scripts
+python scripts/validate_feed.py
+python scripts/validate_remote_feed.py
+node --check app.js
+node --check sw.js
+```
 
-`python scripts/validate_feed.py` は、更新後の `data/jobs.json` に対して次を検査します。
+validatorは、たとえば次を確認します。
 
-- Indeed個別求人URLが `https://jp.indeed.com/viewjob?jk=...` の正規形か
-- ID重複がないか
-- 各スコアが0〜100か
-- 「高確度」がAI代替・完全在宅・人間依存リスク・14日以内の条件を本当に満たすか
-- LLM二次審査のJSON形式・スコア・enumが正しいか
-- `◎ 二重審査` がLLM厳格条件と一次高確度の両方を本当に満たすか
-- 掲載日時が未来になっていないか
-- 80件上限を超えていないか
+- canonical Indeed `viewjob?jk=...` URL
+- ID重複
+- スコア範囲
+- high/reviewの閾値整合
+- 掲載日時の未来値・鮮度
+- LLM JSONとstrict passの整合
+- LLM最終vetoが残っていないこと
+- 明示的な完全リモート根拠
+- 部分/ハイブリッド表現の混入
+- 人間在席要件の混入
+- presence gate stamp
+- **サーバー予備枠150件上限**
 
-検査に失敗した場合、その更新は保存されません。
+## 主要ファイル
 
-## ファイル
-
-- `scripts/fetch_jobs.py` — Google Jobs取得、Indeed応募URL確認、4軸判定、鮮度管理
-- `scripts/postprocess_feed.py` — 重複圧縮、48時間の短期キャリーオーバー
-- `scripts/llm_review.py` — 任意のOpenAI LLM二次審査、結果キャッシュ、自動化レシピ生成
-- `scripts/validate_feed.py` — 生成求人データとLLM結果の品質検査
-- `data/jobs.json` — 現在の候補フィード
+- `scripts/acquisition.py` — 適応型Google Jobs取得の基盤
+- `scripts/acquisition_remote.py` — リモート/人間同期リスクとprovider予算の保護層
+- `scripts/acquisition_quality.py` — 現行v2品質・全文presence判定
+- `scripts/acquisition_supply.py` — 多様な検索テーマと日次検索量
+- `scripts/acquisition_supply_yield.py` — 本番入口、Indeed供給量の安全な測定
+- `scripts/postprocess_feed.py` — 重複圧縮、現行ゲート通過済み予備候補の統合
+- `scripts/llm_review.py` — 高確度候補の任意LLM監査
+- `scripts/llm_review_quality.py` — 同一run予算の余りでreview候補を監査
+- `scripts/apply_llm_quality_gate.py` — LLM/人間在席の最終公開veto
+- `scripts/validate_feed.py` — 一般feed整合性検査
+- `scripts/validate_remote_feed.py` — 完全リモート/AI代替/presence品質検査
+- `scripts/stamp_provider_health.py` — 公開して安全なprovider診断
+- `scripts/stamp_refresh_outcome.py` — acquisition成否とlast-known-good保持状態
+- `data/jobs.json` — 現在の公開候補feed
 - `index.html`, `app.js`, `sw.js` — PWA
-- `tests/` — 判定・重複・鮮度・LLMガードの回帰テスト
-- `.github/workflows/update-jobs.yml` — 定期更新
-- `.github/workflows/pages.yml` — Pages公開
+- `tests/` — 回帰テスト
+- `.github/workflows/update-jobs.yml` — 本番更新
+- `.github/workflows/check.yml` — PR/main検証
+- `.github/workflows/refresh-after-merge.yml` — 関連PRマージ後のtrusted refresh
+- `.github/workflows/pages.yml` — GitHub Pages公開
