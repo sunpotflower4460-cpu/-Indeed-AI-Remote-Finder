@@ -13,7 +13,7 @@ class ProviderDiagnosticsWorkflowTests(unittest.TestCase):
 
     def test_safe_provider_health_is_stamped_after_acquisition(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
-        refresh = "run: python scripts/acquisition_supply_yield.py"
+        refresh = "run: python scripts/acquisition_precision.py"
         stamp = "run: python scripts/stamp_provider_health.py"
         postprocess = "run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json"
         self.assertIn(refresh, workflow)
@@ -21,6 +21,10 @@ class ProviderDiagnosticsWorkflowTests(unittest.TestCase):
         self.assertIn("SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}", workflow)
         self.assertLess(workflow.index(refresh), workflow.index(stamp))
         self.assertLess(workflow.index(stamp), workflow.index(postprocess))
+
+        wrapper = (ROOT / "scripts/acquisition_precision.py").read_text(encoding="utf-8")
+        self.assertIn("import acquisition_supply_yield as supply", wrapper)
+        self.assertIn("supply.main()", wrapper)
 
     def test_diagnostics_script_does_not_persist_raw_account_fields(self):
         script = (ROOT / "scripts/stamp_provider_health.py").read_text(encoding="utf-8")
