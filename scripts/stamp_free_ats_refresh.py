@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stamp metadata for a no-SerpApi public-ATS-only refresh."""
+"""Stamp metadata for a no-SerpApi official-source-only refresh."""
 from __future__ import annotations
 
 import argparse
@@ -9,16 +9,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEED = ROOT / "data" / "jobs.json"
-VERSION = 1
+VERSION = 2
 
 
 def stamp(payload: dict) -> dict:
     now = datetime.now(timezone.utc).isoformat()
     payload["generated_at"] = now
+    # Keep the historical key name for backward-compatible UI/telemetry reads;
+    # the mode explicitly reflects that direct audited provider pages now join
+    # public ATS feeds in this zero-search-quota refresh.
     payload["candidate_free_ats_refresh_version"] = VERSION
     payload["candidate_free_ats_refresh_at"] = now
     payload["candidate_free_ats_refresh_uses_serpapi"] = False
-    payload["candidate_free_ats_refresh_mode"] = "official-ats-only"
+    payload["candidate_free_ats_refresh_mode"] = "official-sources-only"
+    payload["candidate_free_official_refresh"] = True
     payload["candidate_pool_size"] = len(
         [row for row in payload.get("jobs") or [] if isinstance(row, dict)]
     )
@@ -33,7 +37,7 @@ def main() -> None:
     result = stamp(payload)
     args.feed.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(
-        f"free ATS refresh stamped; pool={result.get('candidate_pool_size')} "
+        f"free official-source refresh stamped; pool={result.get('candidate_pool_size')} "
         "serpapi=false"
     )
 
