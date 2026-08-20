@@ -69,6 +69,10 @@ class ApplySourceTests(unittest.TestCase):
     def test_verified_provider_application_hosts_are_allowed(self):
         cases = (
             ("https://app.outlier.ai/login?job_post_id=4505556005", "Outlier"),
+            ("https://outlier.ai/languages/ja-jp", "Outlier"),
+            ("https://www.alignerr.com/jobs/example-role", "Alignerr"),
+            ("https://www.oneforma.com/projects/example-project/", "OneForma"),
+            ("https://my.oneforma.com/Account/register", "OneForma"),
             ("https://jobs.telusdigital.com/en_US/careers/PipelineDetail/abc/123", "TELUS Digital"),
         )
         for url, source in cases:
