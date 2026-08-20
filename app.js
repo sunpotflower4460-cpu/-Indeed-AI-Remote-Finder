@@ -3,7 +3,7 @@ const DEFAULT_VISIBLE=30;
 const DAILY_TARGET=10;
 const USER_STOCK_TARGET=100;
 const LOCAL_POOL_LIMIT=150;
-const LOCAL_CACHE_KEY='candidateCacheV6';
+const LOCAL_CACHE_KEY='candidateCacheV5';
 const LOCAL_RESERVE_MAX_DAYS=14;
 const ATS_LIVE_MAX_DAYS=3;
 const QUALITY_POLICY_VERSION=2;
@@ -44,7 +44,7 @@ const state={
   applied:loadSet('appliedJobs'),appliedAt:loadMap('appliedAt'),meta:{}
 };
 
-function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]));}
+function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function parseDate(s){if(!s)return null;const d=new Date(s);return Number.isNaN(+d)?null:d;}
 function fmtDate(s){const d=parseDate(s);if(!d)return'不明';return new Intl.DateTimeFormat('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)}
 function ageDays(s){const d=parseDate(s);if(!d)return null;return Math.max(0,(Date.now()-d.getTime())/864e5);}
