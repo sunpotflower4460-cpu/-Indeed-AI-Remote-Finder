@@ -29,13 +29,16 @@ class IndeedWebIndexV2Tests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             mod.normalize_provider_payload({"error": "Invalid API key"})
 
-    def test_queries_cover_broad_remote_role_wording(self):
-        self.assertGreaterEqual(len(mod.SEARCH_PROFILES), 18)
+    def test_queries_cover_current_remote_ai_role_wording(self):
+        self.assertGreaterEqual(len(mod.SEARCH_PROFILES), 30)
         names={name for name,_ in mod.SEARCH_PROFILES}
         for expected in (
-            "ai-trainer","ai-evaluation","rater","annotation","data-entry",
-            "translation","proofreading","transcription","research","search-quality",
-            "content-review","telus-rater","dataannotation",
+            "ai-trainer","ai-evaluation","senior-rater","quality-assurance-rater",
+            "rater","annotation","data-labeling","ai-data","data-entry",
+            "translation","proofreading","bilingual-editor","transcription","research",
+            "fact-check","search-quality","content-review","chatbot-training",
+            "generative-ai-review","llm-evaluation","qa-testing","telus-rater",
+            "dataannotation",
         ):
             self.assertIn(expected,names)
         for name, query in mod.SEARCH_PROFILES:
@@ -49,20 +52,37 @@ class IndeedWebIndexV2Tests(unittest.TestCase):
         self.assertIn('"num": RESULTS_PER_QUERY',source)
         self.assertGreaterEqual(core.MAX_SEEDS,80)
 
-    def test_request_budget_uses_only_monthly_surplus(self):
+    def test_request_budget_reserves_one_structured_search_per_future_day(self):
+        self.assertEqual(core.BASELINE_REQUESTS_PER_DAY,1)
         payload = {
             "serpapi_requests_month": 220,
             "serpapi_monthly_request_cap": 245,
             "serpapi_month_days_remaining": 12,
         }
         budget, used, cap, surplus = mod.request_budget(payload)
-        self.assertEqual((used, cap, surplus), (220, 245, 3))
+        self.assertEqual((used, cap, surplus), (220, 245, 14))
         self.assertEqual(budget, 2)
 
-        no_surplus = dict(payload, serpapi_requests_month=223)
+        no_surplus = dict(payload, serpapi_requests_month=234)
         budget, _, _, surplus = mod.request_budget(no_surplus)
         self.assertEqual(surplus, 0)
         self.assertEqual(budget, 0)
+
+    def test_profile_coverage_is_persisted_in_payload(self):
+        source=path.read_text(encoding="utf-8")
+        for needle in (
+            "candidate_indeed_index_profile_last_attempt",
+            "candidate_indeed_index_profile_last_success",
+            "candidate_indeed_index_profile_coverage_count",
+            "candidate_indeed_index_unseen_profiles",
+        ):
+            self.assertIn(needle,source)
+
+    def test_truth_metadata_explicitly_says_indeed_body_is_not_fetched(self):
+        source=path.read_text(encoding="utf-8")
+        self.assertIn('candidate_indeed_page_body_directly_accessed',source)
+        self.assertIn('False',source)
+        self.assertIn('backend does not fetch Indeed job-page bodies',source)
 
     def test_search_uses_google_japan_without_indeed_backend_request(self):
         source = path.read_text(encoding="utf-8")
