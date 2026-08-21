@@ -13,11 +13,12 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "jobs.json"
 NOW = datetime.now(timezone.utc)
 SEED_TTL_DAYS = 14
-# Keep enough exact Indeed URLs to make the Indeed-first UI useful across a
-# two-week rotation without weakening any publication-quality gate.
 MAX_SEEDS = 80
 MATCH_THRESHOLD = 0.78
-BASELINE_REQUESTS_PER_DAY = 2
+# Structured Google Jobs acquisition is already paced to at least one request
+# while quota remains. Reserve that one daily request; any quota above it may be
+# spent on the Indeed-first exact-URL index search.
+BASELINE_REQUESTS_PER_DAY = 1
 SEED_VERIFICATION_LEVEL = "exact-url-public-index"
 PROMOTED_VERIFICATION_LEVEL = "exact-url-title-company-index-match"
 
