@@ -4,6 +4,9 @@ window.INDEED_PARTNER_CONFIG=Object.freeze({
   partnerAppId:'',
   placementId:'',
   searchLimit:20,
-  searchWhat:'完全在宅 OR フルリモート OR AI評価 OR アノテーション OR AIトレーナー',
-  searchWhere:'Japan'
+  // Keep the official-plugin query intentionally simple. The direct-search UI
+  // provides separate role presets instead of relying on undocumented Boolean
+  // query semantics.
+  searchWhat:'AI 在宅',
+  searchWhere:'日本'
 });
