@@ -82,7 +82,8 @@ class IndeedNearDirectTests(unittest.TestCase):
         ]
         self.assertEqual(index_mod.promote_matches(payload, seeds), 1)
         row = payload["jobs"][0]
-        self.assertEqual(row["id"], "old-id")
+        self.assertEqual(row["id"], "ABCDEF123456")
+        self.assertEqual(row["original_candidate_id"], "old-id")
         self.assertEqual(row["apply_source"], "Indeed")
         self.assertEqual(row["apply_source_kind"], "indeed")
         self.assertEqual(row["url"], "https://jp.indeed.com/viewjob?jk=ABCDEF123456")

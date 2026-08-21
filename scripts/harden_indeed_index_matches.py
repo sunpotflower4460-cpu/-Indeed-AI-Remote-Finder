@@ -56,8 +56,6 @@ def seed_by_jk(payload: dict) -> dict[str, dict]:
 
 def indexed_company_matches(row: dict, seed: dict | None) -> bool:
     company = usable_company(row.get("company"))
-    # A missing/generic company cannot provide disambiguation. In that rare
-    # case the preceding strict title score remains the available evidence.
     if not company:
         return True
     if not isinstance(seed, dict):
@@ -67,13 +65,13 @@ def indexed_company_matches(row: dict, seed: dict | None) -> bool:
 
 
 def revert_promotion(row: dict) -> bool:
+    original_id = str(row.get("original_candidate_id") or "").strip()
     original_url = str(row.get("original_apply_url") or "").strip()
     original_source = str(row.get("original_apply_source") or "").strip()
     original_kind = str(row.get("original_apply_source_kind") or "").strip()
+    if original_id:
+        row["id"] = original_id
     if not original_url or not original_kind:
-        # We would rather drop the Indeed classification than retain a doubtful
-        # claim. The later validators/postprocessor can decide whether the row's
-        # remaining destination is usable.
         row["apply_source_kind"] = original_kind or "unverified"
         row["apply_source"] = original_source or "Original source"
         if original_url:

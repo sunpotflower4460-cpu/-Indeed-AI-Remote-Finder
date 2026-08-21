@@ -11,10 +11,19 @@ on:
       - 'scripts/supplement_indeed_web_index_v2.py'
       - 'scripts/harden_indeed_index_matches.py'
       - 'scripts/validate_indeed_discovery_runtime.py'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - '.github/workflows/fast-indeed-refresh.yml'
+      - 'scripts/indeed_index_core.py'
+      - 'scripts/supplement_indeed_web_index.py'
+      - 'scripts/supplement_indeed_web_index_v2.py'
+      - 'scripts/harden_indeed_index_matches.py'
+      - 'scripts/validate_indeed_discovery_runtime.py'
 permissions:
   contents: write
 concurrency:
-  group: update-job-candidates
+  group: fast-indeed-refresh-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   refresh:
@@ -35,7 +44,13 @@ jobs:
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: python scripts/acquisition_precision.py
-      - name: Discover exact Indeed viewjob URLs
+      - name: Stamp acquisition outcome
+        env:
+          ACQUISITION_OUTCOME: ${{ steps.acquisition.outcome }}
+        run: python scripts/stamp_refresh_outcome.py
+      - name: Restore rolling screened candidate stock before Indeed matching
+        run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
+      - name: Discover exact Indeed viewjob URLs and match restored candidates
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: python scripts/supplement_indeed_web_index.py --previous /tmp/previous-jobs.json
@@ -43,25 +58,35 @@ jobs:
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: python scripts/stamp_provider_health.py
-      - name: Stamp acquisition outcome
-        env:
-          ACQUISITION_OUTCOME: ${{ steps.acquisition.outcome }}
-        run: python scripts/stamp_refresh_outcome.py
-      - name: Merge with rolling stock
-        run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
       - name: Enforce candidate integrity
         run: python scripts/apply_candidate_integrity_gate.py
       - name: Reuse existing LLM vetoes without new paid review calls
         run: python scripts/apply_llm_quality_gate.py
       - name: Enforce AI-tool policy
         run: python scripts/apply_ai_tool_policy_gate.py
+      - name: Restamp final source counts after all quality gates
+        run: python scripts/harden_indeed_index_matches.py
       - name: Validate publishable feed
         run: |
           python scripts/validate_feed_trusted.py
           python scripts/validate_remote_feed.py
           python scripts/validate_candidate_integrity.py
           python scripts/validate_indeed_discovery_runtime.py
+      - name: Report Indeed result
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('data/jobs.json').read_text(encoding='utf-8'))
+          print('Indeed refresh result:', {
+              'index_hits': data.get('candidate_indeed_index_hits_run'),
+              'promoted': data.get('candidate_indeed_index_promoted_run'),
+              'final_indeed': data.get('candidate_final_indeed_apply_jobs'),
+              'pool': data.get('candidate_pool_size'),
+          })
+          PY
       - name: Commit fresh feed
+        if: github.event_name != 'pull_request'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
