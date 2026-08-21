@@ -43,36 +43,42 @@ class SimplifiedUXContractTests(unittest.TestCase):
         self.assertIn("let sourceMode='indeed'", self.source_tabs)
         self.assertIn("function isVerifiedIndeed(job)", self.source_tabs)
         self.assertIn("sourceMode==='indeed'?isVerifiedIndeed(job):!isVerifiedIndeed(job)", self.source_tabs)
-        self.assertIn("Indeed本体・確認済み ${counts.indeed}件", self.source_tabs)
+        self.assertIn("Indeed：AI適性確認 ${counts.indeed}件", self.source_tabs)
         self.assertIn("その他の求人サイト ${counts.other}件", self.source_tabs)
         self.assertIn("掲載元：${label}", self.source_tabs)
         self.assertIn("${label}で求人を見る →", self.source_tabs)
         self.assertIn("これはIndeed全体が0件という意味ではありません。", self.source_tabs)
 
-    def test_verified_indeed_requires_exact_viewjob_url(self):
+    def test_verified_indeed_requires_exact_viewjob_url_and_discloses_body_status(self):
         for needle in ("apply_source_kind", "/viewjob", "searchParams.get('jk')"):
             self.assertIn(needle, self.source_tabs)
+        self.assertIn("Indeed実URL＋会社照合済み・Indeed本文は未自動取得", self.source_tabs)
         self.assertNotIn("Indeedで同じ求人を探す", self.source_tabs)
 
-    def test_indeed_live_search_is_visible_even_before_partner_approval(self):
+    def test_indeed_live_search_uses_query_remote_intent_not_fake_location(self):
         for needle in (
             "Indeed本体から探す",
             "Indeed本体で検索 →",
             "candidate_indeed_index_seeds",
-            "Indeed実URL発見済み",
+            "Indeed実URL確認",
             "https://jp.indeed.com/jobs",
-            "l','在宅",
+            "normalizeIndeedQuery",
+            "探索語カバレッジ",
+            "URL確認済み・本文未自動取得",
         ):
             self.assertIn(needle, self.indeed_official)
-        self.assertIn("DEFAULT_QUERY", self.indeed_official)
+        self.assertIn("url.searchParams.set('q',normalizeIndeedQuery(query))", self.indeed_official)
+        self.assertNotIn("url.searchParams.set('l','在宅')", self.indeed_official)
+        self.assertIn("DEFAULT_QUERY='AI 在宅'", self.indeed_official)
         self.assertIn("PRESETS", self.indeed_official)
 
     def test_official_plugin_is_ready_but_disabled_until_partner_ids_are_supplied(self):
         self.assertIn("partnerAppId:''", self.indeed_config)
         self.assertIn("placementId:''", self.indeed_config)
+        self.assertIn("searchWhat:'AI 在宅'", self.indeed_config)
         self.assertIn("https://plugins.indeed.com/publisher-plugin/main.js", self.indeed_official)
         self.assertIn("dataset.indeedPluginType='job-search'", self.indeed_official)
-        self.assertIn("Indeed公式検索（アプリ内）", self.indeed_official)
+        self.assertIn("Indeed公式ライブ検索（アプリ内）", self.indeed_official)
         self.assertIn("publisher?.classList.toggle('uxHidden',!configured())", self.indeed_official)
 
     def test_official_indeed_adapter_is_last_in_pages_bundle_and_syntax_checked(self):

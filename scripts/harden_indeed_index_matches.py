@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
-"""Fail closed on ambiguous Indeed web-index promotions.
+"""Fail closed on ambiguous Indeed public-index promotions.
 
-The preceding index supplement can only point an already screened candidate at
-an exact Indeed viewjob URL. This second pass tightens truthfulness further: when
-the structured candidate has a usable company name, that company must also be
-visible in the indexed Indeed title/snippet for the same jk. Otherwise the
-promotion is reverted to the original verified destination.
-
-It also refreshes public source-count metadata after promotions/reverts so the
-UI and the next Indeed-stock decision see the same truth.
+A promoted row means an exact Indeed URL was found in a public index and matched
+to a separately screened candidate. It does *not* mean the backend fetched the
+Indeed page body. Company evidence is required whenever the candidate has a
+usable company name; otherwise the promotion is reverted.
 """
 from __future__ import annotations
 
@@ -20,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "jobs.json"
-VERSION = 1
+VERSION = 2
 
 
 def normalize(value: object) -> str:
@@ -83,6 +79,10 @@ def revert_promotion(row: dict) -> bool:
     row["indeed_index_promotion_reverted"] = True
     row["indeed_index_revert_reason"] = "indexed-company-not-confirmed"
     row["indeed_index_hardening_version"] = VERSION
+    row["indeed_verification_level"] = "reverted-index-match"
+    row["indeed_exact_url_verified"] = False
+    row["indeed_page_body_verified"] = False
+    row["indeed_content_screening_basis"] = "original-source-only"
     return True
 
 
@@ -120,9 +120,19 @@ def process(payload: dict) -> dict:
             continue
         reviewed += 1
         jk = str(row.get("indeed_index_jk") or "").strip()
+        company_known = bool(usable_company(row.get("company")))
         if indexed_company_matches(row, seeds.get(jk)):
             row["indeed_index_hardening_version"] = VERSION
-            row["indeed_index_company_confirmed"] = bool(usable_company(row.get("company")))
+            row["indeed_index_company_confirmed"] = company_known
+            row["indeed_verification_level"] = (
+                "exact-url-title-company-index-match"
+                if company_known
+                else "exact-url-title-index-match"
+            )
+            row["indeed_exact_url_verified"] = True
+            row["indeed_page_body_verified"] = False
+            row["indeed_page_body_access_method"] = "not-accessed-without-partner-permission"
+            row["indeed_content_screening_basis"] = "separate-screened-source"
             kept += 1
         else:
             revert_promotion(row)

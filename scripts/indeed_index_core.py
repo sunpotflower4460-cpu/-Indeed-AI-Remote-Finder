@@ -13,11 +13,14 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "jobs.json"
 NOW = datetime.now(timezone.utc)
 SEED_TTL_DAYS = 14
-# Keep enough exact Indeed URLs to make the Indeed-first UI useful across a
-# two-week rotation without weakening any publication-quality gate.
 MAX_SEEDS = 80
 MATCH_THRESHOLD = 0.78
-BASELINE_REQUESTS_PER_DAY = 2
+# Structured Google Jobs acquisition is already paced to at least one request
+# while quota remains. Reserve that one daily request; any quota above it may be
+# spent on the Indeed-first exact-URL index search.
+BASELINE_REQUESTS_PER_DAY = 1
+SEED_VERIFICATION_LEVEL = "exact-url-public-index"
+PROMOTED_VERIFICATION_LEVEL = "exact-url-title-company-index-match"
 
 GENERIC_TITLE_TERMS = {
     "indeed", "job", "jobs", "remote", "japan", "japanese", "求人", "完全在宅",
@@ -121,6 +124,16 @@ def match_score(seed: dict, row: dict) -> float:
     return score
 
 
+def _stamp_seed_truth(seed: dict) -> dict:
+    seed = dict(seed)
+    seed["indeed_verification_level"] = SEED_VERIFICATION_LEVEL
+    seed["indeed_exact_url_verified"] = True
+    seed["indeed_page_body_verified"] = False
+    seed["indeed_page_body_access_method"] = "not-accessed-without-partner-permission"
+    seed["indeed_evidence_source"] = "google-public-index"
+    return seed
+
+
 def extract_seeds(payload: dict, profile: str) -> list[dict]:
     rows = payload.get("organic_results") or []
     if not isinstance(rows, list):
@@ -136,14 +149,14 @@ def extract_seeds(payload: dict, profile: str) -> list[dict]:
         title = clean_title(item.get("title"))
         if not title:
             continue
-        found[jk] = {
+        found[jk] = _stamp_seed_truth({
             "jk": jk,
             "url": url,
             "title": title[:240],
             "snippet": re.sub(r"\s+", " ", str(item.get("snippet") or "")).strip()[:420],
             "profile": profile,
             "last_seen": NOW.isoformat(),
-        }
+        })
     return list(found.values())
 
 
@@ -158,7 +171,7 @@ def merge_seeds(previous: list[dict], fresh: list[dict]) -> list[dict]:
         if not canonical or not seen or seen < cutoff:
             continue
         _, jk = canonical
-        copied = dict(item)
+        copied = _stamp_seed_truth(item)
         copied["jk"] = jk
         merged[jk] = copied
     for item in fresh:
@@ -166,7 +179,7 @@ def merge_seeds(previous: list[dict], fresh: list[dict]) -> list[dict]:
         if not jk:
             continue
         old = merged.get(jk) or {}
-        item = dict(item)
+        item = _stamp_seed_truth(item)
         item["first_seen"] = old.get("first_seen") or NOW.isoformat()
         merged[jk] = item
     values = sorted(
@@ -220,13 +233,20 @@ def promote_matches(payload: dict, seeds: list[dict]) -> int:
         row["apply_source"] = "Indeed"
         row["apply_source_kind"] = "indeed"
         row["source"] = (
-            "Google web index exact Indeed URL matched to an already screened "
-            "structured candidate"
+            "Google public index exact Indeed URL matched to an already screened "
+            "candidate from a separate source"
         )
-        row["indeed_index_match_version"] = 2
+        row["indeed_index_match_version"] = 3
         row["indeed_index_match_score"] = round(score, 3)
         row["indeed_index_jk"] = jk
         row["indeed_index_verified_at"] = NOW.isoformat()
+        row["indeed_index_seed_last_seen"] = seed.get("last_seen")
+        row["indeed_verification_level"] = PROMOTED_VERIFICATION_LEVEL
+        row["indeed_exact_url_verified"] = True
+        row["indeed_page_body_verified"] = False
+        row["indeed_page_body_access_method"] = "not-accessed-without-partner-permission"
+        row["indeed_evidence_source"] = "google-public-index"
+        row["indeed_content_screening_basis"] = "separate-screened-source"
         used_jk.add(jk)
         promoted += 1
     return promoted
