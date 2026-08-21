@@ -28,8 +28,9 @@ class IndeedIndexHardeningTests(unittest.TestCase):
             "original_apply_url": "https://jobs.example.com/rater",
             "original_apply_source": "Greenhouse",
             "original_apply_source_kind": "trusted-ats",
-            "indeed_index_match_version": 1,
+            "indeed_index_match_version": 3,
             "indeed_index_jk": "ABCDEF123456",
+            "indeed_page_body_verified": False,
         }
 
     def test_company_evidence_keeps_promotion_and_restamps_counts(self):
@@ -48,6 +49,10 @@ class IndeedIndexHardeningTests(unittest.TestCase):
         self.assertEqual(row["id"], "ABCDEF123456")
         self.assertEqual(row["apply_source_kind"], "indeed")
         self.assertTrue(row["indeed_index_company_confirmed"])
+        self.assertTrue(row["indeed_exact_url_verified"])
+        self.assertFalse(row["indeed_page_body_verified"])
+        self.assertEqual(row["indeed_verification_level"],"exact-url-title-company-index-match")
+        self.assertEqual(row["indeed_content_screening_basis"],"separate-screened-source")
         self.assertEqual(got["candidate_final_indeed_apply_jobs"], 1)
         self.assertEqual(got["candidate_indeed_index_hardening_kept"], 1)
 
@@ -69,6 +74,8 @@ class IndeedIndexHardeningTests(unittest.TestCase):
         self.assertEqual(row["apply_source"], "Greenhouse")
         self.assertEqual(row["apply_source_kind"], "trusted-ats")
         self.assertTrue(row["indeed_index_promotion_reverted"])
+        self.assertFalse(row["indeed_exact_url_verified"])
+        self.assertEqual(row["indeed_verification_level"],"reverted-index-match")
         self.assertEqual(got["candidate_final_indeed_apply_jobs"], 0)
         self.assertEqual(got["candidate_final_other_trusted_apply_jobs"], 1)
         self.assertEqual(got["candidate_indeed_index_hardening_reverted"], 1)
@@ -88,9 +95,11 @@ class IndeedIndexHardeningTests(unittest.TestCase):
             ],
         }
         got = mod.process(payload)
-        self.assertEqual(got["jobs"][0]["id"], "ABCDEF123456")
-        self.assertEqual(got["jobs"][0]["apply_source_kind"], "indeed")
-        self.assertFalse(got["jobs"][0]["indeed_index_company_confirmed"])
+        row=got["jobs"][0]
+        self.assertEqual(row["id"], "ABCDEF123456")
+        self.assertEqual(row["apply_source_kind"], "indeed")
+        self.assertFalse(row["indeed_index_company_confirmed"])
+        self.assertEqual(row["indeed_verification_level"],"exact-url-title-index-match")
 
     def test_workflow_health_stamp_applies_hardening_before_postprocess(self):
         stamp_source = (SCRIPTS / "stamp_provider_health.py").read_text(encoding="utf-8")
