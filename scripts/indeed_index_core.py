@@ -13,7 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "jobs.json"
 NOW = datetime.now(timezone.utc)
 SEED_TTL_DAYS = 14
-MAX_SEEDS = 24
+# Keep enough exact Indeed URLs to make the Indeed-first UI useful across a
+# two-week rotation without weakening any publication-quality gate.
+MAX_SEEDS = 80
 MATCH_THRESHOLD = 0.78
 BASELINE_REQUESTS_PER_DAY = 2
 
@@ -213,9 +215,6 @@ def promote_matches(payload: dict, seeds: list[dict]) -> int:
         row["original_apply_source_kind"] = row.get(
             "original_apply_source_kind"
         ) or row.get("apply_source_kind")
-        # Legacy feed validation and browser identity both treat the Indeed jk as
-        # the canonical ID for an Indeed viewjob destination. Keep URL and ID in
-        # lockstep when a screened row is promoted.
         row["id"] = jk
         row["url"] = url
         row["apply_source"] = "Indeed"
