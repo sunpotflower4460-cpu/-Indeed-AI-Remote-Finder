@@ -33,7 +33,7 @@ class IndeedNearDirectTests(unittest.TestCase):
         ):
             self.assertIsNone(index_mod.canonical_indeed_url(bad), bad)
 
-    def test_google_index_results_keep_only_real_indeed_viewjobs(self):
+    def test_google_index_results_keep_only_real_indeed_viewjobs_and_truth_stamp(self):
         seeds = index_mod.extract_seeds(
             {
                 "organic_results": [
@@ -55,9 +55,14 @@ class IndeedNearDirectTests(unittest.TestCase):
             "ai-evaluation",
         )
         self.assertEqual(len(seeds), 1)
-        self.assertEqual(seeds[0]["jk"], "ABCDEF123456")
-        self.assertEqual(seeds[0]["title"], "Japanese AI Rater")
-        self.assertEqual(seeds[0]["url"], "https://jp.indeed.com/viewjob?jk=ABCDEF123456")
+        seed=seeds[0]
+        self.assertEqual(seed["jk"], "ABCDEF123456")
+        self.assertEqual(seed["title"], "Japanese AI Rater")
+        self.assertEqual(seed["url"], "https://jp.indeed.com/viewjob?jk=ABCDEF123456")
+        self.assertTrue(seed["indeed_exact_url_verified"])
+        self.assertFalse(seed["indeed_page_body_verified"])
+        self.assertEqual(seed["indeed_verification_level"],"exact-url-public-index")
+        self.assertEqual(seed["indeed_evidence_source"],"google-public-index")
 
     def test_strong_structured_match_is_promoted_and_original_target_is_preserved(self):
         payload = {
@@ -78,6 +83,7 @@ class IndeedNearDirectTests(unittest.TestCase):
                 "url": "https://jp.indeed.com/viewjob?jk=ABCDEF123456",
                 "title": "Japanese AI Rater",
                 "snippet": "Example AI 完全在宅",
+                "last_seen":"2026-08-21T00:00:00+00:00",
             }
         ]
         self.assertEqual(index_mod.promote_matches(payload, seeds), 1)
@@ -89,6 +95,9 @@ class IndeedNearDirectTests(unittest.TestCase):
         self.assertEqual(row["url"], "https://jp.indeed.com/viewjob?jk=ABCDEF123456")
         self.assertEqual(row["original_apply_source"], "Greenhouse")
         self.assertEqual(row["original_apply_url"], "https://jobs.example.com/japanese-ai-rater")
+        self.assertTrue(row["indeed_exact_url_verified"])
+        self.assertFalse(row["indeed_page_body_verified"])
+        self.assertEqual(row["indeed_content_screening_basis"],"separate-screened-source")
         self.assertGreaterEqual(row["indeed_index_match_score"], index_mod.MATCH_THRESHOLD)
 
     def test_unrelated_index_hit_cannot_promote_candidate(self):
