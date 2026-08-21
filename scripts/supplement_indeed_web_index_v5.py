@@ -3,8 +3,9 @@
 
 This revision keeps the v4 truth model but improves yield per paid Google index
 request. It scans nested result/sitelink objects for additional Indeed job keys,
-puts broad high-yield query profiles first, and paces remaining monthly quota
-across the days left in the month.
+puts broad high-yield query profiles first, paces remaining monthly quota across
+the days left in the month, and raises the retained discovery capacity so a full
+profile rotation can accumulate without losing older-but-still-recent leads.
 
 No backend request is made to Indeed itself.
 """
@@ -18,7 +19,9 @@ from supplement_indeed_web_index_v2 import *  # noqa: F401,F403
 
 INDEX_VERSION = 5
 MAX_REQUESTS_PER_RUN = 2
-RESULTS_PER_QUERY = v4.RESULTS_PER_QUERY
+RESULTS_PER_QUERY = 100
+SEED_TTL_DAYS = 45
+MAX_SEEDS = 300
 
 BOOST_PROFILES: tuple[tuple[str, str], ...] = (
     (
@@ -113,8 +116,14 @@ def request_budget(payload: dict) -> tuple[int, int, int, int]:
 
 
 def install() -> None:
+    # Keep the v4 implementation as the execution engine but raise only the
+    # discovery capacity. Truth labels, promotion thresholds and direct-Indeed
+    # request policy remain unchanged.
+    core.SEED_TTL_DAYS = SEED_TTL_DAYS
+    core.MAX_SEEDS = MAX_SEEDS
     v4.INDEX_VERSION = INDEX_VERSION
     v4.MAX_REQUESTS_PER_RUN = MAX_REQUESTS_PER_RUN
+    v4.RESULTS_PER_QUERY = RESULTS_PER_QUERY
     v4.SEARCH_PROFILES = SEARCH_PROFILES
     v4.extract_seeds = extract_seeds
     v4.request_budget = request_budget
@@ -127,10 +136,13 @@ def main() -> None:
     if not payload:
         return
     payload["candidate_indeed_index_version"] = INDEX_VERSION
-    payload["candidate_indeed_index_yield_boost_version"] = 1
+    payload["candidate_indeed_index_yield_boost_version"] = 2
     payload["candidate_indeed_index_nested_result_links_scanned"] = True
     payload["candidate_indeed_index_high_yield_profile_count"] = len(BOOST_PROFILES)
     payload["candidate_indeed_index_quota_pacing"] = "remaining-quota-divided-by-days-left"
+    payload["candidate_indeed_index_seed_ttl_days"] = SEED_TTL_DAYS
+    payload["candidate_indeed_index_seed_capacity"] = MAX_SEEDS
+    payload["candidate_indeed_index_results_per_query"] = RESULTS_PER_QUERY
     core.write_payload(payload)
 
 
