@@ -17,15 +17,16 @@ class CandidateIntegrityWorkflowTests(unittest.TestCase):
             self.assertLess(gate, remote_validator)
             self.assertLess(gate, integrity_validator)
 
-    def test_pages_bundles_integrity_layer_before_cache_continuity_ux_source_tabs_and_official_indeed(self):
+    def test_pages_bundles_integrity_before_continuity_ux_source_and_presentation_layers(self):
         workflow = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
-        bundle = "cat integrity.js refill.js continuity.js ux.js source-tabs.js indeed-partner-config.js indeed-official.js >> _site/app.js"
+        bundle = "cat integrity.js refill.js continuity.js ux.js source-tabs.js indeed-partner-config.js indeed-official.js source-presentation.js >> _site/app.js"
         self.assertIn(bundle, workflow)
         self.assertLess(workflow.index("integrity.js"), workflow.index("continuity.js"))
         self.assertLess(workflow.index("continuity.js"), workflow.index("ux.js"))
         self.assertLess(workflow.index("ux.js"), workflow.index("source-tabs.js"))
         self.assertLess(workflow.index("source-tabs.js"), workflow.index("indeed-partner-config.js"))
         self.assertLess(workflow.index("indeed-partner-config.js"), workflow.index("indeed-official.js"))
+        self.assertLess(workflow.index("indeed-official.js"), workflow.index("source-presentation.js"))
 
     def test_pwa_integrity_layer_evicts_old_cache_and_requires_row_stamp(self):
         source = (ROOT / "integrity.js").read_text(encoding="utf-8")
@@ -53,6 +54,7 @@ class CandidateIntegrityWorkflowTests(unittest.TestCase):
             "source-tabs.js",
             "indeed-partner-config.js",
             "indeed-official.js",
+            "source-presentation.js",
             "sw.js",
         ):
             self.assertIn(f"node --check {filename}", workflow)

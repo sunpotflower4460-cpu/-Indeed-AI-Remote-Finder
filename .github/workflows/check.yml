@@ -35,4 +35,5 @@ jobs:
           node --check source-tabs.js
           node --check indeed-partner-config.js
           node --check indeed-official.js
+          node --check source-presentation.js
           node --check sw.js
