@@ -9,6 +9,7 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 index_path = SCRIPTS / "supplement_indeed_web_index.py"
+implementation_path = SCRIPTS / "supplement_indeed_web_index_v2.py"
 index_spec = importlib.util.spec_from_file_location("indeed_web_index_test", index_path)
 index_mod = importlib.util.module_from_spec(index_spec)
 sys.modules[index_spec.name] = index_mod
@@ -198,7 +199,7 @@ class IndeedNearDirectTests(unittest.TestCase):
                 direct += 1
         self.assertGreaterEqual(direct, 20)
         self.assertGreaterEqual(vjk, 6)
-        source = index_path.read_text(encoding="utf-8")
+        source = implementation_path.read_text(encoding="utf-8")
         self.assertIn('"engine": "google"', source)
         self.assertIn('"https://serpapi.com/search.json?"', source)
         self.assertIn('candidate_indeed_index_direct_indeed_requests', source)
