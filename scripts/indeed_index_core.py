@@ -13,11 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "jobs.json"
 NOW = datetime.now(timezone.utc)
 SEED_TTL_DAYS = 14
-MAX_SEEDS = 80
+MAX_SEEDS = 100
 MATCH_THRESHOLD = 0.78
-# Structured Google Jobs acquisition is already paced to at least one request
-# while quota remains. Reserve that one daily request; any quota above it may be
-# spent on the Indeed-first exact-URL index search.
 BASELINE_REQUESTS_PER_DAY = 1
 SEED_VERIFICATION_LEVEL = "exact-url-public-index"
 PROMOTED_VERIFICATION_LEVEL = "exact-url-title-company-index-match"
@@ -54,7 +51,12 @@ def parse_iso(value: object) -> datetime | None:
         return None
 
 
-def canonical_indeed_url(value: object) -> tuple[str, str] | None:
+def _valid_job_key(value: object) -> str:
+    key = str(value or "").strip()
+    return key if re.fullmatch(r"[A-Za-z0-9_-]{6,128}", key) else ""
+
+
+def _indeed_parsed(value: object) -> urllib.parse.ParseResult | None:
     try:
         parsed = urllib.parse.urlparse(str(value or ""))
     except Exception:
@@ -64,15 +66,47 @@ def canonical_indeed_url(value: object) -> tuple[str, str] | None:
         host == "indeed.com" or host.endswith(".indeed.com")
     ):
         return None
-    if "/viewjob" not in parsed.path.lower():
+    return parsed
+
+
+def canonical_indeed_url(value: object) -> tuple[str, str] | None:
+    """Accept only an explicit Indeed /viewjob?jk= URL."""
+    parsed = _indeed_parsed(value)
+    if not parsed or parsed.path.lower() != "/viewjob":
         return None
     params = urllib.parse.parse_qs(parsed.query)
-    jk = str((params.get("jk") or [""])[0]).strip()
-    if not re.fullmatch(r"[A-Za-z0-9_-]{6,128}", jk):
+    jk = _valid_job_key((params.get("jk") or [""])[0])
+    if not jk:
         return None
     return (
         f"https://jp.indeed.com/viewjob?jk={urllib.parse.quote(jk, safe='')}",
         jk,
+    )
+
+
+def indexed_indeed_reference(value: object) -> tuple[str, str, str] | None:
+    """Extract a concrete Indeed job key from a public-index URL.
+
+    Google may index either the direct `/viewjob?jk=...` page or an Indeed search
+    page with `?vjk=...`. A vjk is a concrete viewed-job key, but because the
+    backend does not contact Indeed to verify the derived direct URL, it remains
+    discovery-only evidence and cannot promote a screened candidate by itself.
+    """
+    canonical = canonical_indeed_url(value)
+    if canonical:
+        url, jk = canonical
+        return url, jk, "viewjob-jk"
+    parsed = _indeed_parsed(value)
+    if not parsed:
+        return None
+    params = urllib.parse.parse_qs(parsed.query)
+    vjk = _valid_job_key((params.get("vjk") or [""])[0])
+    if not vjk:
+        return None
+    return (
+        f"https://jp.indeed.com/viewjob?jk={urllib.parse.quote(vjk, safe='')}",
+        vjk,
+        "search-vjk",
     )
 
 
@@ -126,11 +160,21 @@ def match_score(seed: dict, row: dict) -> float:
 
 def _stamp_seed_truth(seed: dict) -> dict:
     seed = dict(seed)
-    seed["indeed_verification_level"] = SEED_VERIFICATION_LEVEL
-    seed["indeed_exact_url_verified"] = True
+    kind = str(seed.get("indeed_index_link_kind") or "viewjob-jk")
+    direct = kind == "viewjob-jk"
+    seed["indeed_index_link_kind"] = kind
+    seed["indeed_job_key_verified"] = True
+    seed["indeed_verification_level"] = (
+        SEED_VERIFICATION_LEVEL if direct else "job-key-public-index"
+    )
+    seed["indeed_exact_url_verified"] = direct
+    seed["indeed_canonical_url_derived_from_vjk"] = not direct
     seed["indeed_page_body_verified"] = False
     seed["indeed_page_body_access_method"] = "not-accessed-without-partner-permission"
-    seed["indeed_evidence_source"] = "google-public-index"
+    seed["indeed_evidence_source"] = (
+        "google-public-index" if direct else "google-public-index-indeed-search-vjk"
+    )
+    seed["indeed_promotion_eligible"] = direct
     return seed
 
 
@@ -142,20 +186,28 @@ def extract_seeds(payload: dict, profile: str) -> list[dict]:
     for item in rows:
         if not isinstance(item, dict):
             continue
-        canonical = canonical_indeed_url(item.get("link"))
-        if not canonical:
+        reference = indexed_indeed_reference(item.get("link"))
+        if not reference:
             continue
-        url, jk = canonical
-        title = clean_title(item.get("title"))
-        if not title:
-            continue
+        url, jk, link_kind = reference
+        indexed_title = clean_title(item.get("title"))
+        if link_kind == "viewjob-jk":
+            title = indexed_title
+            if not title:
+                continue
+        else:
+            # Search-page titles describe the query, not necessarily the selected
+            # vjk job. Never pretend that generic title is the job title.
+            title = f"Indeed求人ID確認（{profile}）"
         found[jk] = _stamp_seed_truth({
             "jk": jk,
             "url": url,
             "title": title[:240],
+            "indexed_page_title": indexed_title[:240],
             "snippet": re.sub(r"\s+", " ", str(item.get("snippet") or "")).strip()[:420],
             "profile": profile,
             "last_seen": NOW.isoformat(),
+            "indeed_index_link_kind": link_kind,
         })
     return list(found.values())
 
@@ -166,11 +218,11 @@ def merge_seeds(previous: list[dict], fresh: list[dict]) -> list[dict]:
     for item in previous:
         if not isinstance(item, dict):
             continue
-        canonical = canonical_indeed_url(item.get("url"))
+        reference = indexed_indeed_reference(item.get("url"))
         seen = parse_iso(item.get("last_seen"))
-        if not canonical or not seen or seen < cutoff:
+        if not reference or not seen or seen < cutoff:
             continue
-        _, jk = canonical
+        _, jk, _ = reference
         copied = _stamp_seed_truth(item)
         copied["jk"] = jk
         merged[jk] = copied
@@ -181,7 +233,17 @@ def merge_seeds(previous: list[dict], fresh: list[dict]) -> list[dict]:
         old = merged.get(jk) or {}
         item = _stamp_seed_truth(item)
         item["first_seen"] = old.get("first_seen") or NOW.isoformat()
-        merged[jk] = item
+        # Prefer stronger direct-viewjob evidence over search-vjk evidence for the
+        # same job key, while retaining the freshest seen timestamp.
+        if old and old.get("indeed_index_link_kind") == "viewjob-jk" and item.get("indeed_index_link_kind") != "viewjob-jk":
+            old = dict(old)
+            old["last_seen"] = item.get("last_seen") or old.get("last_seen")
+            old["profiles_seen"] = sorted(set((old.get("profiles_seen") or []) + [str(item.get("profile") or "")]) - {""})
+            merged[jk] = _stamp_seed_truth(old)
+        else:
+            prior_profiles = old.get("profiles_seen") or []
+            item["profiles_seen"] = sorted(set(prior_profiles + [str(item.get("profile") or "")]) - {""})
+            merged[jk] = item
     values = sorted(
         merged.values(),
         key=lambda item: parse_iso(item.get("last_seen"))
@@ -197,6 +259,10 @@ def promote_matches(payload: dict, seeds: list[dict]) -> int:
     jobs = payload.get("jobs") or []
     if not isinstance(jobs, list):
         return 0
+    eligible_seeds = [
+        seed for seed in seeds
+        if isinstance(seed, dict) and seed.get("indeed_promotion_eligible") is True
+    ]
     for row in jobs:
         if not isinstance(row, dict):
             continue
@@ -207,7 +273,7 @@ def promote_matches(payload: dict, seeds: list[dict]) -> int:
         ranked = sorted(
             (
                 (match_score(seed, row), seed)
-                for seed in seeds
+                for seed in eligible_seeds
                 if str(seed.get("jk") or "") not in used_jk
             ),
             key=lambda pair: pair[0],
@@ -236,7 +302,7 @@ def promote_matches(payload: dict, seeds: list[dict]) -> int:
             "Google public index exact Indeed URL matched to an already screened "
             "candidate from a separate source"
         )
-        row["indeed_index_match_version"] = 3
+        row["indeed_index_match_version"] = 4
         row["indeed_index_match_score"] = round(score, 3)
         row["indeed_index_jk"] = jk
         row["indeed_index_verified_at"] = NOW.isoformat()
