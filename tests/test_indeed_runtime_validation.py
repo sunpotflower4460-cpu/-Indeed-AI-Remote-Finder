@@ -20,14 +20,18 @@ spec.loader.exec_module(mod)
 class IndeedRuntimeValidationTests(unittest.TestCase):
     def base_payload(self):
         return {
-            "candidate_indeed_index_version": 2,
+            "candidate_indeed_index_version": 3,
             "candidate_indeed_index_method": (
-                "google-web-simple-rotating-site-index-to-exact-indeed-viewjob"
+                "google-web-rotating-public-index-to-exact-indeed-viewjob"
             ),
             "candidate_indeed_index_direct_indeed_requests": 0,
+            "candidate_indeed_page_body_directly_accessed": False,
             "candidate_indeed_index_budget_surplus_before_run": 2,
             "candidate_indeed_index_request_run": 1,
             "candidate_indeed_index_query_profiles": ["ai-trainer"],
+            "candidate_indeed_index_profile_count": 32,
+            "candidate_indeed_index_profile_last_attempt": {"ai-trainer":"2026-08-21T00:00:00+00:00"},
+            "candidate_indeed_index_profile_coverage_count": 1,
             "provider_configured": True,
         }
 
@@ -37,9 +41,21 @@ class IndeedRuntimeValidationTests(unittest.TestCase):
         payload["candidate_indeed_index_promoted_run"] = 0
         mod.validate(payload)
 
-    def test_stale_v1_telemetry_fails(self):
+    def test_stale_v2_telemetry_fails(self):
         payload = self.base_payload()
-        payload["candidate_indeed_index_version"] = 1
+        payload["candidate_indeed_index_version"] = 2
+        with self.assertRaises(RuntimeError):
+            mod.validate(payload)
+
+    def test_missing_page_body_disclosure_fails(self):
+        payload=self.base_payload()
+        payload.pop("candidate_indeed_page_body_directly_accessed")
+        with self.assertRaises(RuntimeError):
+            mod.validate(payload)
+
+    def test_inconsistent_profile_coverage_fails(self):
+        payload=self.base_payload()
+        payload["candidate_indeed_index_profile_coverage_count"]=2
         with self.assertRaises(RuntimeError):
             mod.validate(payload)
 
