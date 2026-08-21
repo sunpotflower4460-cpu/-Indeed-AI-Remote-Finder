@@ -4,7 +4,7 @@
 The production app must not claim an Indeed listing unless it has an exact
 `https://jp.indeed.com/viewjob?jk=...` destination. This v2 layer searches the
 public web index with short, human-like queries, never requests Indeed pages,
-and reuses the existing strict title/company hardening before publication.
+and reuses the strict title/company hardening before publication.
 
 Why this exists:
 - a Google/SerpApi no-result response must not abort the whole Indeed search;
@@ -21,7 +21,21 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-import supplement_indeed_web_index as legacy
+import indeed_index_core as legacy
+from indeed_index_core import (  # re-export for compatibility/tests
+    BASELINE_REQUESTS_PER_DAY,
+    MATCH_THRESHOLD,
+    canonical_indeed_url,
+    clean_title,
+    extract_seeds,
+    load_json,
+    match_score,
+    merge_seeds,
+    monthly_headroom,
+    promote_matches,
+    title_similarity,
+    write_payload,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "jobs.json"
@@ -91,9 +105,9 @@ def serpapi_search(query: str, api_key: str) -> dict:
 
 def request_budget(payload: dict) -> tuple[int, int, int, int]:
     """Spend only quota surplus after reserving the normal daily search floor."""
-    used, cap, days_left = legacy.monthly_headroom(payload)
+    used, cap, days_left = monthly_headroom(payload)
     remaining = max(0, cap - used)
-    protected_future = legacy.BASELINE_REQUESTS_PER_DAY * max(0, days_left - 1)
+    protected_future = BASELINE_REQUESTS_PER_DAY * max(0, days_left - 1)
     surplus = max(0, remaining - protected_future)
     budget = min(MAX_REQUESTS_PER_RUN, remaining, surplus)
     return budget, used, cap, surplus
@@ -105,11 +119,11 @@ def _previous_payload() -> dict:
         if len(sys.argv) >= 3 and sys.argv[1] == "--previous"
         else None
     )
-    return legacy.load_json(previous_path) if previous_path else {}
+    return load_json(previous_path) if previous_path else {}
 
 
 def main() -> None:
-    payload = legacy.load_json(OUT)
+    payload = load_json(OUT)
     if not payload:
         return
     previous = _previous_payload()
@@ -154,7 +168,7 @@ def main() -> None:
             successful += 1
             if result.get("_indeed_index_no_results"):
                 no_result_searches += 1
-            fresh.extend(legacy.extract_seeds(result, profile))
+            fresh.extend(extract_seeds(result, profile))
         except Exception as exc:
             errors.append(type(exc).__name__)
 
@@ -168,8 +182,8 @@ def main() -> None:
             fresh_by_jk[jk] = seed
     fresh = list(fresh_by_jk.values())
 
-    seeds = legacy.merge_seeds(old_seeds, fresh)
-    promoted = legacy.promote_matches(payload, seeds)
+    seeds = merge_seeds(old_seeds, fresh)
+    promoted = promote_matches(payload, seeds)
 
     payload["candidate_indeed_index_version"] = INDEX_VERSION
     payload["candidate_indeed_index_method"] = (
@@ -204,7 +218,7 @@ def main() -> None:
         payload["serpapi_requests_run"] = int(payload.get("serpapi_requests_run") or 0) + attempted
         payload["serpapi_monthly_requests_remaining_after_run"] = max(0, cap - used)
 
-    legacy.write_payload(payload)
+    write_payload(payload)
     print(
         "Indeed index v2: "
         f"attempted={attempted}, success={successful}, no_results={no_result_searches}, "
