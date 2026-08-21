@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-21T03:17:17.593735+00:00",
-  "query_success": 2,
-  "query_total": 2,
+  "generated_at": "2026-08-21T03:25:55.438907+00:00",
+  "query_success": 1,
+  "query_total": 1,
   "raw_jobs": 0,
   "indeed_apply_jobs": 0,
   "malformed_jobs": 0,
@@ -16,28 +16,28 @@
   "acquisition_mode": "replenish",
   "pool_before_refresh": 30,
   "serpapi_budget_month": "2026-08",
-  "serpapi_requests_run": 4,
+  "serpapi_requests_run": 1,
   "serpapi_paginated_requests_run": 0,
-  "serpapi_requests_month": 224,
+  "serpapi_requests_month": 225,
   "serpapi_monthly_request_cap": 245,
   "serpapi_monthly_pacing_version": 1,
   "serpapi_month_days_remaining": 11,
-  "serpapi_requests_month_before_run": 220,
-  "serpapi_monthly_requests_remaining_before_run": 25,
+  "serpapi_requests_month_before_run": 224,
+  "serpapi_monthly_requests_remaining_before_run": 21,
   "serpapi_pool_based_request_limit": 6,
-  "serpapi_monthly_paced_request_limit": 2,
-  "serpapi_effective_request_limit": 2,
+  "serpapi_monthly_paced_request_limit": 1,
+  "serpapi_effective_request_limit": 1,
   "serpapi_monthly_pacing_active": true,
-  "serpapi_monthly_requests_remaining_after_run": 21,
-  "serpapi_rotation_cursor": 10,
+  "serpapi_monthly_requests_remaining_after_run": 20,
+  "serpapi_rotation_cursor": 11,
   "jobs": [
     {
-      "id": "apply-209f6aed4845cef0bc2fa634",
+      "id": "0980f7c1e106c7d1",
       "title": "英日翻訳者 - AIトレーナー",
       "company": "DataAnnotation- JP",
       "location": "Japan (Remote)",
       "snippet": "Official provider page verified live. fully remote. フルリモート。 AIトレーナー AI評価 データ評価 品質評価 翻訳 ライティング ファクトチェック Earn Money Translating Japanese for AI | DataAnnotation ドメイン Coding Generalist Law Mathematics Medicine Physics Finance Accounting Bilingual Chemistry Biology / 私たちについて / よくある質問 Sign in Apply now Apply now 言語 / Japanese 日本語翻訳の在宅ワーク DataAnnotationに参加して、AIの未来を形作るグローバルな専門家コミュニティの一員になりませんか。フルフレックス、フルリモートワーク、好待遇 今すぐ応募 時給25ドルから 4.6 from 145 reviews ナオミ バイリンガル翻訳者 掲載実績 スタート給与 時給$25 報酬はこれまでのご経験とプロジェクトの内容によって異なります。 週払い 最低勤務時間なし 登録無料 今すぐ応募 募集中 AIトレーナー - 日本語 DataAnnotationのAIトレーナーとして、人工知能によって生成された回答をレビュー、評価、改善する仕事です。より正確で安全、かつ文脈に即したAIモデルを構築するには、あなたの専門知識と日本語力が不可欠です。 必須条件 大学の学位（学士号以上） ネイティブまたは上級レベルの英語力 優れた分析力と文章作成能力 柔軟なリモートワークが可能 歓迎条件 大学院の学位または専門分野 執筆、翻訳、またはコンテンツレビューの経験 複数の言語の知識 簡単3ステップで スタート ステップ1 数分で応募できます 職務経歴、話せる言語、専門分野をプロフィールに記入してください。 ステップ2 スキルや知識をアピールしてください あなたに合ったプロジェクトをご紹介することができます。 ステップ3 自分のペースで働き、稼ぐ 承認されると、タスクにいつでもアクセスできます。いつ、どれだけ働くかはあなた次第です。報酬は週払いです。 今すぐ応募 実際の仕事内容 回答を作成・修正する AIのプロンプトと回答を、意味、トーン、意図を維持しながら、ソース言語とターゲット言語間で変換します。 テキストの品質を評価する 翻訳の流暢さ、正確さ、専門用語について評価してください。意味や文化的ニュアンスが欠けている誤訳は報告してください。 慣用句や文脈をローカライズする 慣用句や文化的背景、地域差を考慮し、単なる翻訳ではない 自然な表現に整えます。 バイリンガル人材が専門性を活かして活躍できる環境です。 ローカライズされたインターフェース プラットフォームと作業手順は日本語でもご利用いただけます。言語の壁なく、ご自身の言語で作業してください。 日本語対応サポート 日本語を話せるメンバーがいます。 翻訳に時間を費やすことなく、 サポートを受けられます。 文化的背景 タスクを進める際には、慣用句、 文体、地域差、ニュアンスといった 文化的知識が重要になります。 個別の評価 選考では、基本的な文法力だけでなく、実践的な言語運用能力も評価されます。 あなたの専門性が、AIモデルを成長させる。 今すぐ応募 地域ごとの日本語表現の違い どの言語にも、地域による表現の違いがあります。AIモデルの開発には、地域ごとの自然な表現に精通した専門家が求められます。 法律およびコンプライアンス関連コンテンツ 契約書、規則、プライバシーポリシー。 モデル開発には、両言語の法律用語に精通した翻訳者が欠かせません。 慣用句と文化的背景 ユーモア、スラング、文化的な比喩表現。 直訳ではなくネイティブらしい自然な表現へ。 技術・科学翻訳 工学、研究、技術マニュアル。各分野で求められる正確な専門用語を用いて、専門的な資料を翻訳します。 医療・ヘルスケア翻訳 患者向け説明書や臨床データ、薬理情報。 高精度なAI生成医療コンテンツの安全性を確保します。 トーンと言葉遣い フォーマルな表現かカジュアルな表現か、 ビジネスシーン向けか会話調か、マーケティング用のトーンか。AIが表現しづらいトーンをあなたの感覚で整えてください。 みんなこの仕事を気に入っています。 長く続けている貢献者からのいくつかの投稿。 今すぐ応募 r/DataAnnotationTech u/NaToKy24 What I love most about DA: it's an actual meritocracy What I absolutely love about working at DA is the meritocracy. The higher the quality of your work, the higher the reward . ‍ Creating complex coding scenarios, doing deep analysis of models, and synthesizing results are all part of my daily routine, and I love it. View on Reddit ↗ r/DataAnnotationTech u/textartguy Belated Milestone Post Been working since March 2024. I honestly feel so lucky to have both found this job and to have been able to keep it for so long. ‍ I thought I might make a few grand max at the start. View on Reddit ↗ r/DataAnnotationTech u/Sharp-Sherbert-4194 100K! Hit 100k the other day! I do this full time. Not what I originally intended when I signed up, but I've managed so far. ‍ I started as a generalist but I have coding work too. View on Reddit ↗ r/DataAnnotationTech u/Emelody_cellobabe DA has seriously changed my life This work has opened up so many opportunities for me and is now enabling me to work full-time independently. I started as a generalist, then passed the coding eval and have more often than not had plenty of work. View on Reddit ↗ r/DataAnnotationTech u/E13AN0R Just hit 75k!! Started almost a year ago and have just hit this milestone :) I had just graduated from uni when I started doing this and it was a lifesaver whilst I was looking for graduate jobs. ‍ I'm based in the UK and I have a Master's degree in physics so I do a mix of specialist stem, coding, and sometimes generalist projects. View on Reddit ↗ r/DataAnnotationTech u/LeatherScience633 DA saved me, and I wish I could say thanks In just 2 months I have already paid off my debt that would have taken me around an year to pay back. I can also leave my extra jobs and actually focus on my passion instead. ‍ Working for them has been the best thing to happen to me so far. View on Reddit ↗ r/DataAnnotationTech u/CharacterBlood1495 Hit the 10k mark in one month : ) I have earned 10k in a month (my first month started at the end of April). I needed this and will definitely continue working with them. ‍ I plan to keep working and be able to pay for a masters maybe in the fall. View on Reddit ↗ r/DataAnnotationTech u/OhLemons Broke 130k this month! I love that I can switch between coding tasks and those with rubrics, and that the work is always changing, so it never gets boring. ‍ The taxes hurt, but it is worth it to help support the services like free healthcare here in Canada. View on Reddit ↗ r/DataAnnotationTech u/paranormalisnormal $40k - I Love You Data Annotation <3 Data Annotation has saved my ass financially and allowed me to help out my loved ones. Couldn't ask for a better job. ‍ I've been working about 2-3 hours a day, 5 days a week, for just over 2 years. View on Reddit ↗ r/DataAnnotationTech u/PossibilityNo1696 200k Club Treated DA as pretty much full time for the past 3 years and its been a god send for me. ‍ I've saved a huge amount of money working from home, managed to work on a part time masters degree, and also been able to spend more time on myself. View on Reddit ↗ r/DataAnnotationTech u/Responsible-Fly-3808 My personal experience with DA [CODING] In less than 2 months I've made a little over $20k, which honestly still feels surreal typing out. ‍ A lot of it feels like real engineering/problem-solving work — debugging code, evaluating implementations, reasoning about edge cases. View on Reddit ↗ r/DataAnnotationTech u/MCSquareGlobe Actually can help pay student debt now This made living as a grad student actually affordable. In 2 weeks I just over doubled what I normally make. ‍ Half of what I need to do in grad school is writing, so writing practice has been well needed. View on Reddit ↗ r/DataAnnotationTech u/physicsandwolves 100k club Thanks DAT, I've been able to live an awesome life because of this job. Traveled to 28 countries, built a wrap around deck for my mom, created a massive garden, and so much more! ‍ You can do it too, keep up the good work people! View on Reddit ↗ r/DataAnnotationTech u/neverenoughpepper Jumping on...",
-      "url": "https://www.dataannotation.tech/japanese-jp",
+      "url": "https://jp.indeed.com/viewjob?jk=0980f7c1e106c7d1",
       "tier": "review",
       "score": 76,
       "automation_confidence": 100,
@@ -76,10 +76,10 @@
       "first_seen": "2026-08-20T11:39:25.744287+00:00",
       "last_seen": "2026-08-20T23:45:56.954457+00:00",
       "seen_count": 6,
-      "source": "DataAnnotation official provider page; live URL verified",
+      "source": "Google web index exact Indeed URL matched to an already screened structured candidate",
       "via": "DataAnnotation",
-      "apply_source": "DataAnnotation",
-      "apply_source_kind": "trusted-provider",
+      "apply_source": "Indeed",
+      "apply_source_kind": "indeed",
       "trusted_apply_policy_version": 2,
       "autonomy_attention_risk": "low",
       "autonomy_policy_version": 2,
@@ -142,7 +142,17 @@
       "ai_tool_use_permission_confirm_required": true,
       "carryover": true,
       "pool_reserve": true,
-      "carryover_reason": "最新スキャンでは未再検出。14日以内かつ現行の全文・在席・AI利用ポリシー品質ゲート確認済みの予備候補として保持"
+      "carryover_reason": "最新スキャンでは未再検出。14日以内かつ現行の全文・在席・AI利用ポリシー品質ゲート確認済みの予備候補として保持",
+      "original_candidate_id": "apply-209f6aed4845cef0bc2fa634",
+      "original_apply_url": "https://www.dataannotation.tech/japanese-jp",
+      "original_apply_source": "DataAnnotation",
+      "original_apply_source_kind": "trusted-provider",
+      "indeed_index_match_version": 2,
+      "indeed_index_match_score": 1.0,
+      "indeed_index_jk": "0980f7c1e106c7d1",
+      "indeed_index_verified_at": "2026-08-21T03:25:56.159005+00:00",
+      "indeed_index_hardening_version": 1,
+      "indeed_index_company_confirmed": true
     },
     {
       "id": "apply-9f99deb450a41083497c1354",
@@ -2604,7 +2614,7 @@
   "candidate_quality_rejection_counts": {},
   "candidate_quality_rejection_by_profile": [],
   "candidate_search_strategy": "indeed-keyword-source-recovery-v2",
-  "candidate_search_profile_count": 24,
+  "candidate_search_profile_count": 25,
   "candidate_search_anchor_templates": 12,
   "candidate_search_daily_deep_limit": 7,
   "candidate_search_pagination_expected": false,
@@ -2622,12 +2632,12 @@
   "candidate_search_source_recovery_trigger_reason": "indeed-primary-stock-low:0/30",
   "candidate_search_source_bias_method": "keyword-plus-exact-remote",
   "candidate_search_source_bias_term": "Indeed",
-  "candidate_search_effective_daily_limit": 2,
+  "candidate_search_effective_daily_limit": 1,
   "candidate_search_effective_window_paced": true,
   "candidate_search_anchor_min_per_daily_window": 0,
-  "candidate_search_indeed_bias_min_per_daily_window": 2,
+  "candidate_search_indeed_bias_min_per_daily_window": 1,
   "candidate_search_ordinary_anchor_min_per_daily_window": 0,
-  "candidate_search_source_targeted_min_per_daily_window": 2,
+  "candidate_search_source_targeted_min_per_daily_window": 1,
   "candidate_yield_telemetry_version": 6,
   "candidate_yield_jobs_seen": 0,
   "candidate_jobs_with_apply_options": 0,
@@ -2640,17 +2650,7 @@
   "candidate_via_source_counts": {},
   "candidate_search_profile_yield": [
     {
-      "profile": "source_annotation_japanese_en_remote",
-      "seen": 0,
-      "apply_options": 0,
-      "indeed_apply": 0,
-      "accepted": 0,
-      "search_attempts": 1,
-      "successful_search_attempts": 1,
-      "zero_result_attempts": 1
-    },
-    {
-      "profile": "source_ai_rater_japanese_en_remote",
+      "profile": "indeed_index_seed_0980f7c1e106",
       "seen": 0,
       "apply_options": 0,
       "indeed_apply": 0,
@@ -2662,355 +2662,367 @@
   ],
   "candidate_search_attempt_telemetry_version": 1,
   "candidate_search_attempted_profiles": [
-    "source_annotation_japanese_en_remote",
-    "source_ai_rater_japanese_en_remote"
+    "indeed_index_seed_0980f7c1e106"
   ],
-  "candidate_search_first_page_attempts": 2,
+  "candidate_search_first_page_attempts": 1,
   "candidate_search_zero_result_profiles": [
-    "source_annotation_japanese_en_remote",
-    "source_ai_rater_japanese_en_remote"
+    "indeed_index_seed_0980f7c1e106"
   ],
-  "candidate_search_zero_result_profile_count": 2,
+  "candidate_search_zero_result_profile_count": 1,
   "candidate_search_failed_profiles": [],
   "candidate_search_failed_profile_count": 0,
   "candidate_search_profile_learning_version": 8,
   "candidate_search_profile_learning_active": true,
-  "candidate_search_profile_learning_through": "2026-08-21T01:59:14.138755+00:00",
+  "candidate_search_profile_learning_through": "2026-08-21T03:17:17.593735+00:00",
   "candidate_search_profile_learning": [
     {
       "profile": "source_ai_trainer_remote",
-      "seen": 9.788,
-      "indeed_apply": 4.315,
-      "accepted": 2.158,
-      "final_survivors": 0.485,
-      "hard_rejections": 3.754,
-      "no_indeed": 0.843,
-      "soft_rejections": 2.158,
-      "observed_runs": 2.158,
-      "post_gate_losses": 1.672,
-      "search_attempts": 1.877,
-      "precision_score": 69.9
+      "seen": 8.026,
+      "indeed_apply": 3.538,
+      "accepted": 1.77,
+      "final_survivors": 0.398,
+      "hard_rejections": 3.078,
+      "no_indeed": 0.691,
+      "soft_rejections": 1.77,
+      "observed_runs": 1.77,
+      "post_gate_losses": 1.371,
+      "search_attempts": 1.539,
+      "precision_score": 71.2
     },
     {
       "profile": "source_rescue_ai_rater_generated_jp",
-      "seen": 2.493,
-      "indeed_apply": 0.748,
-      "hard_rejections": 0.249,
-      "soft_rejections": 0.499,
-      "observed_runs": 0.249,
-      "search_attempts": 0.249,
-      "precision_score": 49.06
+      "seen": 2.044,
+      "indeed_apply": 0.613,
+      "hard_rejections": 0.204,
+      "soft_rejections": 0.409,
+      "observed_runs": 0.204,
+      "search_attempts": 0.204,
+      "precision_score": 49.13
     },
     {
       "profile": "source_rescue_ai_rater_japanese_nationwide",
+      "observed_runs": 0.249,
+      "search_attempts": 0.249,
+      "zero_result_attempts": 0.249,
+      "precision_score": 37.0
+    },
+    {
+      "profile": "source_rescue_ai_rater_llm_japanese",
       "observed_runs": 0.304,
       "search_attempts": 0.304,
       "zero_result_attempts": 0.304,
       "precision_score": 36.74
     },
     {
-      "profile": "source_rescue_ai_rater_llm_japanese",
+      "profile": "anchor_indeed_ai_rater_english",
       "observed_runs": 0.371,
       "search_attempts": 0.371,
       "zero_result_attempts": 0.371,
-      "precision_score": 36.42
-    },
-    {
-      "profile": "anchor_indeed_ai_rater_english",
-      "observed_runs": 0.452,
-      "search_attempts": 0.452,
-      "zero_result_attempts": 0.452,
-      "precision_score": 35.03
+      "precision_score": 35.42
     },
     {
       "profile": "source_ai_rating_home",
-      "seen": 1.635,
-      "observed_runs": 0.204,
-      "search_attempts": 0.204,
+      "seen": 1.341,
+      "observed_runs": 0.167,
+      "search_attempts": 0.167,
       "precision_score": 35.0
     },
     {
+      "profile": "source_ai_rater_japanese_en_remote",
+      "observed_runs": 1.0,
+      "search_attempts": 1.0,
+      "zero_result_attempts": 1.0,
+      "precision_score": 33.4
+    },
+    {
       "profile": "ai_rater",
-      "seen": 0.559,
-      "no_indeed": 0.559,
-      "observed_runs": 0.061,
-      "precision_score": 33.11
+      "seen": 0.458,
+      "no_indeed": 0.458,
+      "observed_runs": 0.05,
+      "precision_score": 33.23
     },
     {
       "profile": "anchor_core_ai_rater",
-      "seen": 0.622,
-      "indeed_apply": 0.061,
-      "hard_rejections": 0.061,
-      "no_indeed": 0.559,
-      "observed_runs": 0.061,
-      "precision_score": 31.6
+      "seen": 0.51,
+      "indeed_apply": 0.05,
+      "hard_rejections": 0.05,
+      "no_indeed": 0.458,
+      "observed_runs": 0.05,
+      "precision_score": 31.77
+    },
+    {
+      "profile": "source_annotation_remote",
+      "seen": 7.142,
+      "indeed_apply": 3.571,
+      "accepted": 0.714,
+      "hard_rejections": 4.159,
+      "no_indeed": 0.209,
+      "soft_rejections": 0.714,
+      "observed_runs": 0.714,
+      "post_gate_losses": 0.714,
+      "search_attempts": 0.672,
+      "precision_score": 31.09
     },
     {
       "profile": "anchor_core_annotation",
-      "seen": 1.103,
-      "observed_runs": 0.551,
-      "search_attempts": 0.551,
+      "seen": 0.904,
+      "observed_runs": 0.452,
+      "search_attempts": 0.452,
       "precision_score": 28.0
     },
     {
       "profile": "direct_official_oneforma-voice-assistant-annotation-japan",
-      "final_survivors": 3.043,
+      "final_survivors": 2.495,
       "precision_score": 28.0
     },
     {
       "profile": "official_japan_depth_dataannotation-japanese",
-      "final_survivors": 3.043,
+      "final_survivors": 2.495,
       "precision_score": 28.0
     },
     {
-      "profile": "source_annotation_remote",
-      "seen": 8.71,
-      "indeed_apply": 4.355,
-      "accepted": 0.871,
-      "hard_rejections": 5.072,
-      "no_indeed": 0.255,
-      "soft_rejections": 0.871,
-      "observed_runs": 0.871,
-      "post_gate_losses": 0.871,
-      "search_attempts": 0.82,
-      "precision_score": 27.86
-    },
-    {
       "profile": "source_rescue_annotation_jp",
-      "seen": 3.04,
-      "indeed_apply": 0.304,
-      "hard_rejections": 0.608,
-      "observed_runs": 0.304,
-      "search_attempts": 0.304,
-      "precision_score": 24.26
+      "seen": 2.493,
+      "indeed_apply": 0.249,
+      "hard_rejections": 0.499,
+      "observed_runs": 0.249,
+      "search_attempts": 0.249,
+      "precision_score": 24.59
     },
     {
       "profile": "anchor_indeed_ai_trainer_english",
-      "observed_runs": 0.551,
-      "search_attempts": 0.551,
-      "zero_result_attempts": 0.551,
-      "precision_score": 23.56
-    },
-    {
-      "profile": "source_rescue_annotation_japanese_nationwide",
-      "observed_runs": 0.62,
-      "search_attempts": 0.62,
-      "zero_result_attempts": 0.62,
-      "precision_score": 17.22
-    },
-    {
-      "profile": "anchor_indeed_annotation_english",
       "observed_runs": 0.452,
       "search_attempts": 0.452,
       "zero_result_attempts": 0.452,
-      "precision_score": 17.03
+      "precision_score": 24.03
+    },
+    {
+      "profile": "source_rescue_annotation_japanese_nationwide",
+      "observed_runs": 0.508,
+      "search_attempts": 0.508,
+      "zero_result_attempts": 0.508,
+      "precision_score": 17.76
+    },
+    {
+      "profile": "anchor_indeed_annotation_english",
+      "observed_runs": 0.371,
+      "search_attempts": 0.371,
+      "zero_result_attempts": 0.371,
+      "precision_score": 17.42
+    },
+    {
+      "profile": "source_annotation_japanese_en_remote",
+      "observed_runs": 1.0,
+      "search_attempts": 1.0,
+      "zero_result_attempts": 1.0,
+      "precision_score": 15.4
     },
     {
       "profile": "source_rescue_search_eval_japanese_nationwide",
-      "observed_runs": 0.304,
-      "search_attempts": 0.304,
-      "zero_result_attempts": 0.304,
-      "precision_score": 10.74
+      "observed_runs": 0.249,
+      "search_attempts": 0.249,
+      "zero_result_attempts": 0.249,
+      "precision_score": 11.0
     },
     {
       "profile": "source_rescue_search_eval_welo_japanese",
-      "observed_runs": 0.62,
-      "search_attempts": 0.62,
-      "zero_result_attempts": 0.62,
-      "precision_score": 9.22
+      "observed_runs": 0.508,
+      "search_attempts": 0.508,
+      "zero_result_attempts": 0.508,
+      "precision_score": 9.76
     },
     {
       "profile": "source_labeling_remote",
-      "seen": 1.545,
-      "indeed_apply": 0.505,
-      "hard_rejections": 0.308,
-      "no_indeed": 1.04,
-      "soft_rejections": 0.196,
-      "observed_runs": 0.155,
-      "precision_score": 5.35
+      "seen": 1.267,
+      "indeed_apply": 0.414,
+      "hard_rejections": 0.253,
+      "no_indeed": 0.853,
+      "soft_rejections": 0.161,
+      "observed_runs": 0.127,
+      "precision_score": 5.69
     },
     {
       "profile": "direct_official_alignerr-ai-language-japanese",
-      "final_survivors": 3.043,
+      "final_survivors": 2.495,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_alignerr-general-ai-trainer",
-      "final_survivors": 3.043,
+      "final_survivors": 2.495,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_alignerr-japanese-language-expert",
-      "final_survivors": 3.043,
+      "final_survivors": 2.495,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_alignerr-japanese-localization",
-      "final_survivors": 3.043,
+      "final_survivors": 2.495,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_oneforma-intent-japan",
-      "final_survivors": 3.043,
+      "final_survivors": 2.495,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_oneforma-maps-japan",
-      "final_survivors": 3.043,
+      "final_survivors": 2.495,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_oneforma-uhrs-japan",
-      "final_survivors": 3.043,
+      "final_survivors": 2.495,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_outlier-japanese",
-      "final_survivors": 3.043,
+      "final_survivors": 2.495,
       "precision_score": 0.0
     },
     {
       "profile": "oneforma_catalog",
-      "final_survivors": 12.175,
+      "final_survivors": 9.983,
       "precision_score": 0.0
     },
     {
       "profile": "public_ats_ashby_lilt-production",
-      "final_survivors": 25.405,
+      "final_survivors": 20.832,
       "precision_score": 0.0
     },
     {
       "profile": "public_ats_greenhouse_agency",
-      "final_survivors": 34.617,
+      "final_survivors": 28.386,
       "precision_score": 0.0
     },
     {
       "profile": "public_ats_lever_rws",
-      "final_survivors": 6.088,
+      "final_survivors": 4.992,
       "precision_score": 0.0
     },
     {
       "profile": "public_ats_lever_weloglobal",
-      "final_survivors": 16.207,
+      "final_survivors": 13.29,
       "precision_score": 0.0
     },
     {
       "profile": "targeted_ats_lilt_language_ops",
-      "final_survivors": 19.954,
+      "final_survivors": 16.362,
       "precision_score": 0.0
     },
     {
       "profile": "targeted_ats_prolific_japanese_ai",
-      "final_survivors": 12.344,
+      "final_survivors": 10.122,
       "precision_score": 0.0
     },
     {
       "profile": "source_ocr_home",
-      "seen": 0.758,
-      "indeed_apply": 0.227,
-      "hard_rejections": 0.227,
-      "no_indeed": 0.53,
-      "observed_runs": 0.075,
-      "precision_score": -2.6
+      "seen": 0.622,
+      "indeed_apply": 0.186,
+      "hard_rejections": 0.186,
+      "no_indeed": 0.435,
+      "observed_runs": 0.061,
+      "precision_score": -2.37
     },
     {
       "profile": "source_data_check_home",
-      "seen": 1.676,
-      "indeed_apply": 0.335,
-      "hard_rejections": 0.335,
-      "no_indeed": 1.341,
-      "observed_runs": 0.167,
-      "precision_score": -4.39
+      "seen": 1.374,
+      "indeed_apply": 0.275,
+      "hard_rejections": 0.275,
+      "no_indeed": 1.1,
+      "observed_runs": 0.137,
+      "precision_score": -3.97
     },
     {
       "profile": "direct_official_oneforma-podcast-transcription-japan",
-      "final_survivors": 3.043,
+      "final_survivors": 2.495,
       "precision_score": -6.0
     },
     {
       "profile": "source_annotation_home",
-      "seen": 2.69,
-      "indeed_apply": 1.345,
-      "hard_rejections": 2.69,
-      "observed_runs": 0.672,
-      "search_attempts": 0.672,
-      "precision_score": -9.65
+      "seen": 2.206,
+      "indeed_apply": 1.103,
+      "hard_rejections": 2.206,
+      "observed_runs": 0.551,
+      "search_attempts": 0.551,
+      "precision_score": -8.11
     },
     {
       "profile": "source_web_research_home",
-      "seen": 1.127,
-      "indeed_apply": 0.676,
-      "hard_rejections": 0.563,
-      "no_indeed": 0.451,
-      "soft_rejections": 0.112,
-      "observed_runs": 0.112,
-      "precision_score": -14.32
+      "seen": 0.924,
+      "indeed_apply": 0.554,
+      "hard_rejections": 0.462,
+      "no_indeed": 0.37,
+      "soft_rejections": 0.092,
+      "observed_runs": 0.092,
+      "precision_score": -13.98
     },
     {
       "profile": "source_proofreading_home",
-      "seen": 0.418,
-      "indeed_apply": 0.167,
-      "hard_rejections": 0.167,
-      "no_indeed": 0.25,
-      "observed_runs": 0.041,
-      "precision_score": -19.47
+      "seen": 0.343,
+      "indeed_apply": 0.137,
+      "hard_rejections": 0.137,
+      "no_indeed": 0.205,
+      "observed_runs": 0.034,
+      "precision_score": -19.38
     },
     {
       "profile": "source_data_entry_remote",
-      "seen": 0.51,
-      "indeed_apply": 0.51,
-      "hard_rejections": 0.408,
-      "soft_rejections": 0.102,
-      "observed_runs": 0.05,
-      "precision_score": -20.94
+      "seen": 0.418,
+      "indeed_apply": 0.418,
+      "hard_rejections": 0.335,
+      "soft_rejections": 0.084,
+      "observed_runs": 0.041,
+      "precision_score": -20.73
     },
     {
       "profile": "source_transcription_home",
-      "seen": 1.255,
-      "indeed_apply": 0.538,
-      "hard_rejections": 0.538,
-      "no_indeed": 0.717,
-      "observed_runs": 0.18,
-      "precision_score": -21.38
+      "seen": 1.029,
+      "indeed_apply": 0.441,
+      "hard_rejections": 0.441,
+      "no_indeed": 0.588,
+      "observed_runs": 0.148,
+      "precision_score": -21.0
     },
     {
       "profile": "source_testing_home",
-      "seen": 2.802,
-      "indeed_apply": 1.962,
-      "hard_rejections": 2.219,
-      "no_indeed": 0.227,
-      "soft_rejections": 0.356,
-      "observed_runs": 0.28,
-      "search_attempts": 0.204,
-      "precision_score": -32.95
+      "seen": 2.298,
+      "indeed_apply": 1.609,
+      "hard_rejections": 1.82,
+      "no_indeed": 0.186,
+      "soft_rejections": 0.292,
+      "observed_runs": 0.23,
+      "search_attempts": 0.167,
+      "precision_score": -31.8
     },
     {
       "profile": "source_product_entry_home",
-      "seen": 8.2,
-      "indeed_apply": 5.74,
-      "hard_rejections": 6.56,
-      "soft_rejections": 1.64,
-      "observed_runs": 0.82,
-      "search_attempts": 0.82,
-      "precision_score": -38.46
+      "seen": 6.724,
+      "indeed_apply": 4.707,
+      "hard_rejections": 5.379,
+      "soft_rejections": 1.345,
+      "observed_runs": 0.672,
+      "search_attempts": 0.672,
+      "precision_score": -35.08
     },
     {
       "profile": "source_document_check_home",
-      "seen": 2.044,
-      "indeed_apply": 0.613,
-      "hard_rejections": 2.044,
-      "observed_runs": 0.204,
-      "search_attempts": 0.204,
-      "precision_score": -43.35
+      "seen": 1.676,
+      "indeed_apply": 0.503,
+      "hard_rejections": 1.676,
+      "observed_runs": 0.167,
+      "search_attempts": 0.167,
+      "precision_score": -42.08
     },
     {
       "profile": "source_metadata_remote",
-      "seen": 10.924,
-      "hard_rejections": 9.0,
-      "no_indeed": 0.924,
-      "observed_runs": 1.092,
-      "search_attempts": 1.0,
-      "precision_score": -60.79
+      "seen": 8.958,
+      "hard_rejections": 7.38,
+      "no_indeed": 0.758,
+      "observed_runs": 0.895,
+      "search_attempts": 0.82,
+      "precision_score": -54.28
     }
   ],
   "candidate_search_precision_policy": "v8-critical-low-stock-focus+v7-zero-result+scarce-quality-floor+family-handoff",
@@ -3019,19 +3031,19 @@
   "candidate_search_precision_profile_count": 24,
   "candidate_search_precision_priority_profiles": [
     "source_ai_trainer_remote",
-    "source_ai_rater_japanese_en_remote",
     "source_ai_rater_translation_remote",
     "source_ai_trainer_japanese_en_remote",
     "source_ai_trainer_language_remote",
     "source_ai_rating_home",
+    "source_ai_rater_japanese_en_remote",
     "source_model_response_eval_remote",
-    "source_annotation_japanese_en_remote",
-    "source_prompt_eval_japanese_remote",
     "source_annotation_remote",
+    "source_prompt_eval_japanese_remote",
     "source_search_eval_japanese_remote",
+    "source_annotation_japanese_en_remote",
     "source_labeling_remote"
   ],
-  "candidate_search_precision_phase": 16,
+  "candidate_search_precision_phase": 17,
   "candidate_search_precision_post_gate_loss_penalty": 300.0,
   "candidate_search_precision_post_gate_loss_definition": "pre-llm-accepted-minus-final-live-survivors",
   "candidate_search_precision_family_diversity_window": 2,
@@ -3052,9 +3064,9 @@
   "candidate_search_precision_augmented_profile_count": 24,
   "candidate_search_precision_family_handoff_min_final_survivors": 0.5,
   "candidate_search_precision_family_handoff_min_profile_score": 12.0,
-  "candidate_search_precision_family_handoff_profile": "source_annotation_japanese_en_remote",
+  "candidate_search_precision_family_handoff_profile": "source_annotation_remote",
   "candidate_search_precision_family_handoff_family": "annotation",
-  "candidate_search_precision_family_handoff_score": 33.0,
+  "candidate_search_precision_family_handoff_score": 31.09,
   "candidate_search_precision_family_handoff_reason": "proven-family-query-rotation",
   "candidate_search_precision_family_handoff_behavior": "rotate-query-within-proven-family-before-unrelated-search",
   "candidate_search_precision_scarce_guard_active": true,
@@ -3062,33 +3074,23 @@
   "candidate_search_precision_scarce_guard_window": 2,
   "candidate_search_precision_scarce_slot_min_score": -5.0,
   "candidate_search_precision_scarce_replacement_min_score": 12.0,
-  "candidate_search_precision_scarce_replacements": [
-    {
-      "slot": 2,
-      "from_profile": "source_testing_home",
-      "from_score": -32.95,
-      "to_profile": "source_ai_rater_japanese_en_remote",
-      "to_score": 51.0,
-      "to_family": "ai_rater",
-      "to_seen": 0.0
-    }
-  ],
+  "candidate_search_precision_scarce_replacements": [],
   "candidate_search_precision_scarce_guard_behavior": "replace-known-negative-slot-with-unseen-or-stronger-different-family",
   "candidate_search_precision_zero_result_penalty": 32.0,
   "candidate_search_precision_zero_result_confidence_attempts": 4.0,
   "candidate_search_precision_zero_result_behavior": "penalize-successful-empty-profile-without-penalizing-provider-failure",
   "candidate_search_precision_rescue_active": false,
-  "candidate_search_precision_rescue_pool_size": 41,
+  "candidate_search_precision_rescue_pool_size": 30,
   "candidate_search_precision_rescue_critical_pool_max": 5,
   "candidate_search_precision_rescue_low_stock_pool_max": 30,
   "candidate_search_precision_rescue_window": 2,
   "candidate_search_precision_rescue_focus_target": 0,
-  "candidate_search_precision_rescue_focus_actual": 2,
+  "candidate_search_precision_rescue_focus_actual": 1,
   "candidate_search_precision_rescue_focus_share_target_pct": 75.0,
   "candidate_search_precision_rescue_profiles_added": 0,
   "candidate_search_precision_rescue_selected_profiles": [
-    "source_annotation_japanese_en_remote",
-    "source_ai_rater_japanese_en_remote"
+    "source_annotation_remote",
+    "source_ocr_home"
   ],
   "candidate_search_precision_rescue_focus_families": [
     "ai_rater",
@@ -3127,25 +3129,51 @@
     "dataannotation.tech",
     "jobs.telusdigital.com"
   ],
-  "candidate_final_apply_source_counts": {},
-  "candidate_final_apply_source_kind_counts": {},
-  "candidate_final_indeed_apply_jobs": 0,
-  "candidate_final_other_trusted_apply_jobs": 0,
+  "candidate_final_apply_source_counts": {
+    "OneForma": 9,
+    "Greenhouse": 9,
+    "Lever": 6,
+    "Alignerr": 4,
+    "Indeed": 1,
+    "Outlier": 1
+  },
+  "candidate_final_apply_source_kind_counts": {
+    "trusted-ats": 15,
+    "trusted-provider": 14,
+    "indeed": 1
+  },
+  "candidate_final_indeed_apply_jobs": 1,
+  "candidate_final_other_trusted_apply_jobs": 29,
   "serpapi_internal_monthly_cap_default": 245,
   "serpapi_provider_guard_remains_authoritative": true,
+  "candidate_refresh_pipeline_version": 2,
+  "candidate_refresh_attempted_at": "2026-08-21T03:25:55.937486+00:00",
+  "candidate_acquisition_step_outcome": "success",
+  "candidate_acquisition_outcome": "success",
+  "candidate_refresh_preserved_previous_feed": false,
+  "candidate_pool_size": 30,
+  "candidate_postprocess_pool_limit": 150,
+  "live_jobs": 0,
+  "new_jobs": 0,
+  "remote_search_only_jobs": 0,
+  "deduplicated_jobs": 0,
+  "remote_contradiction_dropped": 0,
+  "carryover_jobs": 30,
+  "candidate_reserve_max_days": 14,
+  "candidate_verification_status_version": 1,
+  "candidate_requires_recent_rediscovery": true,
+  "pool_under_display_target": true,
+  "postprocessed": true,
   "candidate_indeed_index_version": 2,
   "candidate_indeed_index_method": "google-web-simple-rotating-site-index-to-exact-indeed-viewjob",
   "candidate_indeed_index_direct_indeed_requests": 0,
-  "candidate_indeed_index_query_profile": "ai-trainer",
-  "candidate_indeed_index_query_profiles": [
-    "ai-trainer",
-    "rater"
-  ],
-  "candidate_indeed_index_hits_run": 3,
+  "candidate_indeed_index_query_profile": null,
+  "candidate_indeed_index_query_profiles": [],
+  "candidate_indeed_index_hits_run": 0,
   "candidate_indeed_index_seed_count": 3,
-  "candidate_indeed_index_promoted_run": 0,
-  "candidate_indeed_index_request_run": 2,
-  "candidate_indeed_index_successful_searches": 2,
+  "candidate_indeed_index_promoted_run": 1,
+  "candidate_indeed_index_request_run": 0,
+  "candidate_indeed_index_successful_searches": 0,
   "candidate_indeed_index_no_result_searches": 0,
   "candidate_indeed_index_error": null,
   "candidate_indeed_index_errors": [],
@@ -3180,33 +3208,15 @@
     }
   ],
   "candidate_indeed_index_truth_note": "Exact Indeed viewjob URLs are discovered through the public Google index; no backend request is made to Indeed. Only screened structured candidates may be promoted, and later company-level hardening can revert ambiguity.",
-  "candidate_indeed_index_budget_surplus_before_run": 3,
+  "candidate_indeed_index_budget_surplus_before_run": 0,
   "candidate_indeed_index_hardening_version": 1,
-  "candidate_indeed_index_hardening_reviewed": 0,
-  "candidate_indeed_index_hardening_kept": 0,
+  "candidate_indeed_index_hardening_reviewed": 1,
+  "candidate_indeed_index_hardening_kept": 1,
   "candidate_indeed_index_hardening_reverted": 0,
-  "serpapi_guard_checked_at": "2026-08-21T03:17:50.794542+00:00",
+  "serpapi_guard_checked_at": "2026-08-21T03:25:56.301619+00:00",
   "serpapi_guard_status": "ready",
-  "serpapi_safe_request_headroom": 31,
-  "serpapi_provider_month_usage": 219,
-  "candidate_refresh_pipeline_version": 2,
-  "candidate_refresh_attempted_at": "2026-08-21T03:17:50.929626+00:00",
-  "candidate_acquisition_step_outcome": "success",
-  "candidate_acquisition_outcome": "success",
-  "candidate_refresh_preserved_previous_feed": false,
-  "candidate_pool_size": 30,
-  "candidate_postprocess_pool_limit": 150,
-  "live_jobs": 0,
-  "new_jobs": 0,
-  "remote_search_only_jobs": 0,
-  "deduplicated_jobs": 0,
-  "remote_contradiction_dropped": 0,
-  "carryover_jobs": 30,
-  "candidate_reserve_max_days": 14,
-  "candidate_verification_status_version": 1,
-  "candidate_requires_recent_rediscovery": true,
-  "pool_under_display_target": true,
-  "postprocessed": true,
+  "serpapi_safe_request_headroom": 28,
+  "serpapi_provider_month_usage": 222,
   "candidate_integrity_gate_version": 1,
   "candidate_semantic_dedupe_version": 1,
   "candidate_requires_japan_compatible": true,
