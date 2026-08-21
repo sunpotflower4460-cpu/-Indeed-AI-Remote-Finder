@@ -1,14 +1,32 @@
+import importlib.util
+import sys
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
 
 
 class PrecisionEntrypointTests(unittest.TestCase):
-    def test_production_refresh_uses_adaptive_precision_wrapper(self):
+    def test_production_refresh_uses_indeed_first_quota_wrapper(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
-        self.assertIn("run: python scripts/acquisition_precision.py", workflow)
+        self.assertIn("run: python scripts/acquisition_indeed_first.py", workflow)
         self.assertNotIn("run: python scripts/acquisition_supply_yield.py", workflow)
+        indeed_first = (ROOT / "scripts/acquisition_indeed_first.py").read_text(encoding="utf-8")
+        self.assertIn("import acquisition_precision", indeed_first)
+        self.assertIn("acquisition_precision.main()", indeed_first)
+
+    def test_healthy_pool_reserves_structured_search_quota_for_indeed(self):
+        path = SCRIPTS / "acquisition_indeed_first.py"
+        spec = importlib.util.spec_from_file_location("acquisition_indeed_first_test", path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = mod
+        spec.loader.exec_module(mod)
+        self.assertTrue(mod.should_skip_structured_search({"candidate_pool_size": 30, "jobs": []}))
+        self.assertTrue(mod.should_skip_structured_search({"candidate_pool_size": 0, "jobs": [{}] * 30}))
+        self.assertFalse(mod.should_skip_structured_search({"candidate_pool_size": 29, "jobs": [{}] * 29}))
 
     def test_precision_wrapper_keeps_existing_supply_pipeline_as_underlying_engine(self):
         wrapper = (ROOT / "scripts/acquisition_precision.py").read_text(encoding="utf-8")
