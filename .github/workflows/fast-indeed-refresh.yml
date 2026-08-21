@@ -79,9 +79,16 @@ jobs:
           from pathlib import Path
           data=json.loads(Path('data/jobs.json').read_text(encoding='utf-8'))
           print('Indeed refresh result:', {
+              'version': data.get('candidate_indeed_index_version'),
+              'queries_attempted': data.get('candidate_indeed_index_request_run'),
+              'queries_successful': data.get('candidate_indeed_index_successful_searches'),
               'index_hits': data.get('candidate_indeed_index_hits_run'),
+              'exact_url_seeds': data.get('candidate_indeed_index_seed_count'),
               'promoted': data.get('candidate_indeed_index_promoted_run'),
               'final_indeed': data.get('candidate_final_indeed_apply_jobs'),
+              'profile_coverage': f"{data.get('candidate_indeed_index_profile_coverage_count')}/{data.get('candidate_indeed_index_profile_count')}",
+              'unseen_profiles': data.get('candidate_indeed_index_unseen_profiles'),
+              'indeed_body_directly_accessed': data.get('candidate_indeed_page_body_directly_accessed'),
               'pool': data.get('candidate_pool_size'),
           })
           PY
