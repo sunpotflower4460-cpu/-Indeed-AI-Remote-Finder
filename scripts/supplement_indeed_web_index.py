@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Stable entrypoint for current Indeed public-index discovery.
 
-The implementation lives in supplement_indeed_web_index_v2.py; that historical
-filename remains to avoid breaking workflow imports. The current v4 contract
-covers both directly indexed `/viewjob?jk=` URLs and Indeed search-page `vjk`
-job keys, while never requesting Indeed backend pages without partner permission.
+The current v5 implementation lives in supplement_indeed_web_index_v5.py. It
+keeps the v4 truth model, adds high-yield broad profiles, scans nested public
+search-result links/sitelinks for additional concrete Indeed job keys, and paces
+remaining SerpApi quota across the rest of the month.
 
 Safety contract:
 - Google public index only (`engine=google` via SerpApi)
@@ -12,8 +12,8 @@ Safety contract:
 - search-vjk evidence is discovery-only and cannot promote a candidate
 - no backend request is made to jp.indeed.com
 """
-from supplement_indeed_web_index_v2 import *  # noqa: F401,F403
-from supplement_indeed_web_index_v2 import main
+from supplement_indeed_web_index_v5 import *  # noqa: F401,F403
+from supplement_indeed_web_index_v5 import main
 
 
 if __name__ == "__main__":

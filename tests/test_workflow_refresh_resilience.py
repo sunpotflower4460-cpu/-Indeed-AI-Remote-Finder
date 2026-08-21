@@ -9,15 +9,19 @@ class RefreshResilienceWorkflowTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
         self.assertIn("id: acquisition", workflow)
         acquisition_block = workflow[
-            workflow.index("- name: Refresh diverse autonomous-work candidates"):
+            workflow.index("- name: Refresh broad structured candidates only when pool is low"):
             workflow.index("- name: Stamp safe provider guard diagnostics")
         ]
         self.assertIn("continue-on-error: true", acquisition_block)
-        self.assertIn("python scripts/acquisition_precision.py", acquisition_block)
+        self.assertIn("python scripts/acquisition_indeed_first.py", acquisition_block)
 
         wrapper = (ROOT / "scripts/acquisition_precision.py").read_text(encoding="utf-8")
         self.assertIn("import acquisition_supply_yield as supply", wrapper)
         self.assertIn("supply.main()", wrapper)
+
+        indeed_first = (ROOT / "scripts/acquisition_indeed_first.py").read_text(encoding="utf-8")
+        self.assertIn("acquisition_precision.main()", indeed_first)
+        self.assertIn("MIN_HEALTHY_POOL = 30", indeed_first)
 
         provider_block = workflow[
             workflow.index("- name: Stamp safe provider guard diagnostics"):
@@ -33,7 +37,7 @@ class RefreshResilienceWorkflowTests(unittest.TestCase):
         self.assertIn("ACQUISITION_OUTCOME: ${{ steps.acquisition.outcome }}", outcome_block)
         self.assertIn("python scripts/stamp_refresh_outcome.py", outcome_block)
 
-    def test_postprocess_runs_after_a_failed_acquisition(self):
+    def test_postprocess_runs_after_a_failed_or_skipped_acquisition(self):
         workflow = (ROOT / ".github/workflows/update-jobs.yml").read_text(encoding="utf-8")
         postprocess_block = workflow[
             workflow.index("- name: Deduplicate and maintain rolling candidate pool"):

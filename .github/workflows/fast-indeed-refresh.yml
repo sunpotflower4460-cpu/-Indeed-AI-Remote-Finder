@@ -2,32 +2,10 @@ name: Fast Indeed feed refresh
 run-name: Fast Indeed feed refresh
 on:
   workflow_dispatch:
-  push:
-    branches: ["main"]
-    paths:
-      - '.github/workflows/fast-indeed-refresh.yml'
-      - 'scripts/indeed_index_core.py'
-      - 'scripts/supplement_indeed_web_index.py'
-      - 'scripts/supplement_indeed_web_index_v2.py'
-      - 'scripts/harden_indeed_index_matches.py'
-      - 'scripts/validate_indeed_discovery_runtime.py'
-      - 'source-tabs.js'
-      - 'indeed-official.js'
-  pull_request:
-    branches: ["main"]
-    paths:
-      - '.github/workflows/fast-indeed-refresh.yml'
-      - 'scripts/indeed_index_core.py'
-      - 'scripts/supplement_indeed_web_index.py'
-      - 'scripts/supplement_indeed_web_index_v2.py'
-      - 'scripts/harden_indeed_index_matches.py'
-      - 'scripts/validate_indeed_discovery_runtime.py'
-      - 'source-tabs.js'
-      - 'indeed-official.js'
 permissions:
   contents: write
 concurrency:
-  group: fast-indeed-refresh-${{ github.event_name }}-${{ github.ref }}
+  group: fast-indeed-refresh
   cancel-in-progress: true
 jobs:
   refresh:
@@ -42,16 +20,6 @@ jobs:
         run: python -m unittest discover -s tests -q
       - name: Preserve previous feed
         run: cp data/jobs.json /tmp/previous-jobs.json
-      - name: Refresh structured candidates with Indeed priority
-        id: acquisition
-        continue-on-error: true
-        env:
-          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
-        run: python scripts/acquisition_precision.py
-      - name: Stamp acquisition outcome
-        env:
-          ACQUISITION_OUTCOME: ${{ steps.acquisition.outcome }}
-        run: python scripts/stamp_refresh_outcome.py
       - name: Restore rolling screened candidate stock before Indeed matching
         run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
       - name: Discover Indeed job keys from public index
@@ -89,18 +57,13 @@ jobs:
               'index_hits': data.get('candidate_indeed_index_hits_run'),
               'exact_url_hits': data.get('candidate_indeed_index_exact_url_hits_run'),
               'vjk_hits': data.get('candidate_indeed_index_search_vjk_hits_run'),
-              'exact_url_seeds': data.get('candidate_indeed_index_exact_url_seed_count'),
-              'vjk_seeds': data.get('candidate_indeed_index_search_vjk_seed_count'),
+              'seed_count': data.get('candidate_indeed_index_seed_count'),
               'promoted': data.get('candidate_indeed_index_promoted_run'),
-              'final_indeed': data.get('candidate_final_indeed_apply_jobs'),
               'profile_coverage': f"{data.get('candidate_indeed_index_profile_coverage_count')}/{data.get('candidate_indeed_index_profile_count')}",
-              'unseen_profiles': data.get('candidate_indeed_index_unseen_profiles'),
-              'indeed_body_directly_accessed': data.get('candidate_indeed_page_body_directly_accessed'),
-              'pool': data.get('candidate_pool_size'),
+              'nested_link_scan': data.get('candidate_indeed_index_nested_result_links_scanned'),
           })
           PY
       - name: Commit fresh feed
-        if: github.event_name != 'pull_request'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
