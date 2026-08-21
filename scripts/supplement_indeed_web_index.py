@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Compatibility entrypoint for resilient Indeed public-index discovery v2.
+"""Stable entrypoint for current Indeed public-index discovery.
 
-The implementation lives in supplement_indeed_web_index_v2.py. This filename is
-kept stable because the production workflow and historical tests already invoke
-it directly.
+The implementation lives in supplement_indeed_web_index_v2.py; that historical
+filename remains to avoid breaking workflow imports. The current v4 contract
+covers both directly indexed `/viewjob?jk=` URLs and Indeed search-page `vjk`
+job keys, while never requesting Indeed backend pages without partner permission.
 
-Implementation contract retained by v2:
-- "engine": "google"
-- "https://serpapi.com/search.json?"
+Safety contract:
+- Google public index only (`engine=google` via SerpApi)
 - candidate_indeed_index_direct_indeed_requests is always 0
+- search-vjk evidence is discovery-only and cannot promote a candidate
 - no backend request is made to jp.indeed.com
 """
 from supplement_indeed_web_index_v2 import *  # noqa: F401,F403
