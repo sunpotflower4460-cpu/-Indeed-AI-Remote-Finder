@@ -164,6 +164,9 @@ def _stamp_seed_truth(seed: dict) -> dict:
     direct = kind == "viewjob-jk"
     seed["indeed_index_link_kind"] = kind
     seed["indeed_job_key_verified"] = True
+    seed["indeed_job_title_verified"] = direct
+    seed["indeed_indexed_page_title_is_job_title"] = direct
+    seed["indeed_index_snippet_is_job_specific"] = direct
     seed["indeed_verification_level"] = (
         SEED_VERIFICATION_LEVEL if direct else "job-key-public-index"
     )
@@ -196,9 +199,10 @@ def extract_seeds(payload: dict, profile: str) -> list[dict]:
             if not title:
                 continue
         else:
-            # Search-page titles describe the query, not necessarily the selected
-            # vjk job. Never pretend that generic title is the job title.
-            title = f"Indeed求人ID確認（{profile}）"
+            # A search-page title describes the query/result page, not reliably
+            # the selected vjk job. Keep the actual job title empty so downstream
+            # search seeding and matching cannot accidentally treat it as verified.
+            title = ""
         found[jk] = _stamp_seed_truth({
             "jk": jk,
             "url": url,
