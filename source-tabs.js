@@ -80,9 +80,10 @@
       });
     }
     const counts=sourceCounts();
+    const seedCount=(Array.isArray(state.meta?.candidate_indeed_index_seeds)?state.meta.candidate_indeed_index_seeds:[]).length;
     const indeed=bar.querySelector('[data-source="indeed"]');
     const other=bar.querySelector('[data-source="other"]');
-    if(indeed)indeed.textContent=`Indeed ${counts.indeed}件`;
+    if(indeed)indeed.textContent=`Indeed本体・確認済み ${counts.indeed}件${seedCount>counts.indeed?`（実URL ${seedCount}件）`:''}`;
     if(other)other.textContent=`その他の求人サイト ${counts.other}件`;
     bar.querySelectorAll('.uxSourceTab').forEach(button=>button.classList.toggle('active',button.dataset.source===sourceMode));
   }
@@ -142,17 +143,23 @@
     const empty=document.querySelector('#jobs .empty');
     if(!empty)return;
     if(sourceMode==='indeed'){
-      empty.innerHTML='<b>現在、Indeed掲載を確認できた候補はありません。</b><br>他サイトの求人とは分けて表示しています。次回の自動更新ではIndeed候補を優先して探します。';
+      empty.innerHTML='<b>AI代替適性まで確認済みのIndeed求人は現在0件です。</b><br>これはIndeed全体が0件という意味ではありません。上の「Indeed本体から探す」と「Indeed実URL発見済み」を利用できます。';
     }else{
-      empty.innerHTML='<b>現在、その他の求人サイトの候補はありません。</b><br>上の「Indeed」に切り替えるとIndeed確認済み求人を表示します。';
+      empty.innerHTML='<b>現在、その他の求人サイトの候補はありません。</b><br>上の「Indeed本体」に切り替えるとIndeed本体検索と確認済み候補を表示します。';
     }
   }
 
   function updateSourceCopy(){
     const hero=document.querySelector('.hero p');
-    if(hero)hero.textContent='まずIndeedに掲載されている候補を表示します。Indeed以外の求人は「その他の求人サイト」に分離し、掲載元を明記しています。英語原文や細かな判定は「詳しく見る」に収納しています。';
+    if(hero)hero.textContent='Indeed本体の最新検索を最優先にし、実在URLを確認できた求人と、AI代替適性まで審査済みの求人を分けて表示します。Indeed以外は別タブです。';
     const openIndeed=document.querySelector('#openIndeed');
-    if(openIndeed)openIndeed.textContent='Indeedを直接開く';
+    if(openIndeed)openIndeed.textContent='Indeed本体で検索';
+  }
+
+  function updateListHeading(){
+    if(sourceMode!=='indeed')return;
+    const title=document.querySelector('#listTitle');
+    if(title)title.textContent='AI代替適性まで確認済みのIndeed求人';
   }
 
   function installStyles(){
@@ -173,6 +180,7 @@
     installSourceTabs();
     decorateCards();
     clarifyEmptyState();
+    updateListHeading();
   };
 
   if(Array.isArray(state.jobs)&&state.jobs.length)render();
