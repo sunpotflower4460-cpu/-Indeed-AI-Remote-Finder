@@ -34,6 +34,14 @@ class CandidateIntegrityWorkflowTests(unittest.TestCase):
         self.assertIn("candidate_integrity_gate_version", source)
         self.assertIn("human_identity_dependency==='none-detected'", source)
 
+    def test_pipeline_v2_uses_server_feed_as_display_truth(self):
+        source = (ROOT / "integrity.js").read_text(encoding="utf-8")
+        self.assertIn("SERVER_TRUTH_PIPELINE_VERSION=2", source)
+        self.assertIn("candidateServerTruthCacheMigrationV2", source)
+        self.assertIn("candidate_refresh_pipeline_version", source)
+        self.assertIn("row._localReserve!==true", source)
+        self.assertIn("表示件数は最新サーバーfeed基準", source)
+
     def test_check_workflow_syntax_checks_every_browser_layer(self):
         workflow = (ROOT / ".github/workflows/check.yml").read_text(encoding="utf-8")
         for filename in (
