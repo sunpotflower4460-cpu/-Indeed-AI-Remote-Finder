@@ -81,11 +81,17 @@ def validate(payload: dict) -> None:
         if kind == "viewjob-jk":
             if seed.get("indeed_exact_url_verified") is not True:
                 raise RuntimeError("Indeed runtime validation: direct seed lacks exact-url proof")
+            if seed.get("indeed_job_title_verified") is not True:
+                raise RuntimeError("Indeed runtime validation: direct seed lacks indexed title proof")
             if seed.get("indeed_promotion_eligible") is not True:
                 raise RuntimeError("Indeed runtime validation: direct seed unexpectedly non-promotable")
         elif kind == "search-vjk":
             if seed.get("indeed_job_key_verified") is not True:
                 raise RuntimeError("Indeed runtime validation: vjk seed lacks job-key proof")
+            if seed.get("indeed_job_title_verified") is not False:
+                raise RuntimeError("Indeed runtime validation: vjk seed falsely claims job-title proof")
+            if str(seed.get("title") or "").strip():
+                raise RuntimeError("Indeed runtime validation: vjk seed must not store an unverified job title")
             if seed.get("indeed_exact_url_verified") is not False:
                 raise RuntimeError("Indeed runtime validation: vjk seed falsely claims exact URL proof")
             if seed.get("indeed_canonical_url_derived_from_vjk") is not True:
