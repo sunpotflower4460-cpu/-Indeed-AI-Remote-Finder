@@ -15,6 +15,7 @@ class ActionRefillContractTests(unittest.TestCase):
         cls.source_tabs = (ROOT / "source-tabs.js").read_text(encoding="utf-8")
         cls.partner_config = (ROOT / "indeed-partner-config.js").read_text(encoding="utf-8")
         cls.indeed_official = (ROOT / "indeed-official.js").read_text(encoding="utf-8")
+        cls.source_presentation = (ROOT / "source-presentation.js").read_text(encoding="utf-8")
         cls.pages = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
 
     def test_existing_queue_replaces_actioned_row_immediately(self):
@@ -24,7 +25,6 @@ class ActionRefillContractTests(unittest.TestCase):
         self.assertIn("document.querySelectorAll('.applied')", self.app)
 
     def test_low_stock_refill_runs_after_apply_or_decline(self):
-        # 60 = the visible 30 plus another complete 30-row reserve batch.
         self.assertIn("const ACTION_REFILL_TRIGGER=60", self.refill)
         self.assertIn(".applied,.decline", self.refill)
         self.assertIn("setTimeout(()=>{void reloadLatestIfLow();},0)", self.refill)
@@ -47,7 +47,7 @@ class ActionRefillContractTests(unittest.TestCase):
     def test_pages_bundles_all_browser_layers_after_core_app(self):
         self.assertIn("cp index.html app.js sw.js manifest.webmanifest icon.svg _site/", self.pages)
         self.assertIn(
-            "cat integrity.js refill.js continuity.js ux.js source-tabs.js indeed-partner-config.js indeed-official.js >> _site/app.js",
+            "cat integrity.js refill.js continuity.js ux.js source-tabs.js indeed-partner-config.js indeed-official.js source-presentation.js >> _site/app.js",
             self.pages,
         )
 
@@ -60,6 +60,7 @@ class ActionRefillContractTests(unittest.TestCase):
             self.source_tabs,
             self.partner_config,
             self.indeed_official,
+            self.source_presentation,
         ):
             lower = source.lower()
             self.assertNotIn("serpapi.com", lower)
