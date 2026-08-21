@@ -43,7 +43,8 @@ class SimplifiedUXContractTests(unittest.TestCase):
         self.assertIn("let sourceMode='indeed'", self.source_tabs)
         self.assertIn("function isVerifiedIndeed(job)", self.source_tabs)
         self.assertIn("sourceMode==='indeed'?isVerifiedIndeed(job):!isVerifiedIndeed(job)", self.source_tabs)
-        self.assertIn("Indeed：AI適性確認 ${counts.indeed}件", self.source_tabs)
+        self.assertIn("function seedEvidenceCounts()", self.source_tabs)
+        self.assertIn("Indeed：AI適性確認 ${counts.indeed}件 / 実URL ${evidence.exact}件 / 求人ID ${evidence.vjk}件", self.source_tabs)
         self.assertIn("その他の求人サイト ${counts.other}件", self.source_tabs)
         self.assertIn("掲載元：${label}", self.source_tabs)
         self.assertIn("${label}で求人を見る →", self.source_tabs)
@@ -60,17 +61,30 @@ class SimplifiedUXContractTests(unittest.TestCase):
             "Indeed本体から探す",
             "Indeed本体で検索 →",
             "candidate_indeed_index_seeds",
-            "Indeed実URL確認",
+            "Indeed候補",
             "https://jp.indeed.com/jobs",
             "normalizeIndeedQuery",
             "探索語カバレッジ",
-            "URL確認済み・本文未自動取得",
+            "実URL確認済み・本文未自動取得",
         ):
             self.assertIn(needle, self.indeed_official)
         self.assertIn("url.searchParams.set('q',normalizeIndeedQuery(query))", self.indeed_official)
         self.assertNotIn("url.searchParams.set('l','在宅')", self.indeed_official)
         self.assertIn("DEFAULT_QUERY='AI 在宅'", self.indeed_official)
         self.assertIn("PRESETS", self.indeed_official)
+
+    def test_vjk_leads_are_visibly_weaker_than_exact_urls(self):
+        for needle in (
+            "求人ID確認（vjk）",
+            "candidate_indeed_index_search_vjk_seed_count",
+            "求人ID（vjk）確認・個別URLはIDから生成・本文未確認",
+            "Indeed求人ID候補",
+            "seedKind(seed)==='search-vjk'",
+            "実URL ${counts.exact} / 求人ID ${counts.vjk}",
+        ):
+            self.assertIn(needle, self.indeed_official)
+        self.assertIn("実URLまたは求人ID", self.source_tabs)
+        self.assertIn("求人ID確認", self.source_tabs)
 
     def test_official_plugin_is_ready_but_disabled_until_partner_ids_are_supplied(self):
         self.assertIn("partnerAppId:''", self.indeed_config)
