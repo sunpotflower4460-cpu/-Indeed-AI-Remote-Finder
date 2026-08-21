@@ -18,12 +18,13 @@ spec.loader.exec_module(mod)
 class IndeedIndexHardeningTests(unittest.TestCase):
     def promoted_row(self, company="Example AI"):
         return {
-            "id": "stable-id",
+            "id": "ABCDEF123456",
             "title": "Japanese AI Rater",
             "company": company,
             "url": "https://jp.indeed.com/viewjob?jk=ABCDEF123456",
             "apply_source": "Indeed",
             "apply_source_kind": "indeed",
+            "original_candidate_id": "stable-id",
             "original_apply_url": "https://jobs.example.com/rater",
             "original_apply_source": "Greenhouse",
             "original_apply_source_kind": "trusted-ats",
@@ -44,6 +45,7 @@ class IndeedIndexHardeningTests(unittest.TestCase):
         }
         got = mod.process(payload)
         row = got["jobs"][0]
+        self.assertEqual(row["id"], "ABCDEF123456")
         self.assertEqual(row["apply_source_kind"], "indeed")
         self.assertTrue(row["indeed_index_company_confirmed"])
         self.assertEqual(got["candidate_final_indeed_apply_jobs"], 1)
@@ -62,6 +64,7 @@ class IndeedIndexHardeningTests(unittest.TestCase):
         }
         got = mod.process(payload)
         row = got["jobs"][0]
+        self.assertEqual(row["id"], "stable-id")
         self.assertEqual(row["url"], "https://jobs.example.com/rater")
         self.assertEqual(row["apply_source"], "Greenhouse")
         self.assertEqual(row["apply_source_kind"], "trusted-ats")
@@ -73,6 +76,7 @@ class IndeedIndexHardeningTests(unittest.TestCase):
     def test_missing_seed_fails_closed_when_company_is_known(self):
         payload = {"jobs": [self.promoted_row()], "candidate_indeed_index_seeds": []}
         got = mod.process(payload)
+        self.assertEqual(got["jobs"][0]["id"], "stable-id")
         self.assertEqual(got["jobs"][0]["apply_source_kind"], "trusted-ats")
         self.assertEqual(got["candidate_final_indeed_apply_jobs"], 0)
 
@@ -84,6 +88,7 @@ class IndeedIndexHardeningTests(unittest.TestCase):
             ],
         }
         got = mod.process(payload)
+        self.assertEqual(got["jobs"][0]["id"], "ABCDEF123456")
         self.assertEqual(got["jobs"][0]["apply_source_kind"], "indeed")
         self.assertFalse(got["jobs"][0]["indeed_index_company_confirmed"])
 
