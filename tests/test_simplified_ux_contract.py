@@ -83,8 +83,8 @@ class SimplifiedUXContractTests(unittest.TestCase):
             "実URL ${counts.exact} / 求人ID ${counts.vjk}",
         ):
             self.assertIn(needle, self.indeed_official)
-        self.assertIn("実URLまたは求人ID", self.source_tabs)
-        self.assertIn("求人ID確認", self.source_tabs)
+        self.assertIn("「実URL確認」「求人ID確認」「AI代替適性まで確認」", self.source_tabs)
+        self.assertIn("求人ID ${evidence.vjk}件", self.source_tabs)
 
     def test_official_plugin_is_ready_but_disabled_until_partner_ids_are_supplied(self):
         self.assertIn("partnerAppId:''", self.indeed_config)
