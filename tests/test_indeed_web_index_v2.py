@@ -14,6 +14,8 @@ mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
 
+import indeed_index_core as core  # noqa: E402
+
 
 class IndeedWebIndexV2Tests(unittest.TestCase):
     def test_no_result_provider_message_is_valid_empty_search(self):
@@ -27,12 +29,25 @@ class IndeedWebIndexV2Tests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             mod.normalize_provider_payload({"error": "Invalid API key"})
 
-    def test_queries_are_short_direct_viewjob_searches(self):
-        self.assertGreaterEqual(len(mod.SEARCH_PROFILES), 6)
+    def test_queries_cover_broad_remote_role_wording(self):
+        self.assertGreaterEqual(len(mod.SEARCH_PROFILES), 18)
+        names={name for name,_ in mod.SEARCH_PROFILES}
+        for expected in (
+            "ai-trainer","ai-evaluation","rater","annotation","data-entry",
+            "translation","proofreading","transcription","research","search-quality",
+            "content-review","telus-rater","dataannotation",
+        ):
+            self.assertIn(expected,names)
         for name, query in mod.SEARCH_PROFILES:
             self.assertIn("site:jp.indeed.com/viewjob", query, name)
             self.assertNotIn(" OR ", query, name)
             self.assertLess(len(query), 120, name)
+
+    def test_one_provider_request_asks_for_more_index_results(self):
+        self.assertEqual(mod.RESULTS_PER_QUERY,20)
+        source=path.read_text(encoding="utf-8")
+        self.assertIn('"num": RESULTS_PER_QUERY',source)
+        self.assertGreaterEqual(core.MAX_SEEDS,80)
 
     def test_request_budget_uses_only_monthly_surplus(self):
         payload = {

@@ -2,15 +2,14 @@
 """Robust near-direct Indeed discovery through the public Google web index.
 
 The production app must not claim an Indeed listing unless it has an exact
-`https://jp.indeed.com/viewjob?jk=...` destination. This v2 layer searches the
-public web index with short, human-like queries, never requests Indeed pages,
-and reuses the strict title/company hardening before publication.
+`https://jp.indeed.com/viewjob?jk=...` destination. This layer searches the
+public web index with short human-like queries, never requests Indeed pages,
+and reuses strict title/company hardening before publication.
 
-Why this exists:
-- a Google/SerpApi no-result response must not abort the whole Indeed search;
-- one overly narrow query must not make the UI show zero forever;
-- request accounting must remain conservative even when a provider call fails;
-- only exact viewjob URLs become Indeed seeds/candidates.
+The query rotation intentionally covers wording variation used by real remote
+listings (在宅 / 完全在宅 / フルリモート plus Japanese and English role names).
+Exact Indeed URLs may be exposed as unreviewed discovery seeds in the UI, while
+only screened structured candidates can enter the trusted recommendation list.
 """
 from __future__ import annotations
 
@@ -41,18 +40,32 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "jobs.json"
 INDEX_VERSION = 2
 MAX_REQUESTS_PER_RUN = 2
+RESULTS_PER_QUERY = 20
 
-# Keep these intentionally simple. They are close to phrases a person would
-# actually search and proved more robust than one large nested OR expression.
+# Rotate compact queries instead of one brittle nested expression. We search for
+# exact Indeed viewjob URLs through Google's public index; a seed is not treated
+# as a trusted AI-substitutable recommendation until the normal gates pass.
 SEARCH_PROFILES: tuple[tuple[str, str], ...] = (
-    ("ai-trainer", 'site:jp.indeed.com/viewjob "完全在宅" "AIトレーナー"'),
-    ("rater", 'site:jp.indeed.com/viewjob "完全在宅" rater'),
-    ("annotation", 'site:jp.indeed.com/viewjob "完全在宅" アノテーション'),
-    ("data-entry", 'site:jp.indeed.com/viewjob "完全在宅" "データ入力"'),
-    ("translation", 'site:jp.indeed.com/viewjob "完全在宅" 翻訳'),
-    ("quality-review", 'site:jp.indeed.com/viewjob "フルリモート" "品質評価"'),
-    ("search-evaluation", 'site:jp.indeed.com/viewjob "フルリモート" "検索評価"'),
-    ("telus-rater", 'site:jp.indeed.com/viewjob "TELUS Digital" "完全在宅"'),
+    ("ai-trainer", 'site:jp.indeed.com/viewjob 在宅 "AIトレーナー"'),
+    ("ai-evaluation", 'site:jp.indeed.com/viewjob 在宅 "AI評価"'),
+    ("rater", 'site:jp.indeed.com/viewjob 在宅 rater'),
+    ("evaluator", 'site:jp.indeed.com/viewjob 在宅 evaluator'),
+    ("annotation", 'site:jp.indeed.com/viewjob 在宅 アノテーション'),
+    ("data-labeling", 'site:jp.indeed.com/viewjob 在宅 "データラベリング"'),
+    ("data-entry", 'site:jp.indeed.com/viewjob 在宅 "データ入力"'),
+    ("translation", 'site:jp.indeed.com/viewjob 在宅 翻訳'),
+    ("proofreading", 'site:jp.indeed.com/viewjob 在宅 校正'),
+    ("localization", 'site:jp.indeed.com/viewjob 在宅 ローカライズ'),
+    ("transcription", 'site:jp.indeed.com/viewjob 在宅 "文字起こし"'),
+    ("research", 'site:jp.indeed.com/viewjob 在宅 リサーチ'),
+    ("quality-review", 'site:jp.indeed.com/viewjob 在宅 "品質評価"'),
+    ("search-evaluation", 'site:jp.indeed.com/viewjob 在宅 "検索評価"'),
+    ("search-quality", 'site:jp.indeed.com/viewjob remote "search quality"'),
+    ("ads-quality", 'site:jp.indeed.com/viewjob remote "ads quality"'),
+    ("content-review", 'site:jp.indeed.com/viewjob 在宅 "コンテンツレビュー"'),
+    ("prompt-evaluation", 'site:jp.indeed.com/viewjob 在宅 プロンプト 評価'),
+    ("telus-rater", 'site:jp.indeed.com/viewjob "TELUS Digital" 在宅'),
+    ("dataannotation", 'site:jp.indeed.com/viewjob DataAnnotation 在宅'),
 )
 
 NO_RESULTS_MARKERS = (
@@ -77,26 +90,25 @@ def normalize_provider_payload(payload: object) -> dict:
             "search_metadata": payload.get("search_metadata"),
             "_indeed_index_no_results": True,
         }
-    # Keep public telemetry free of provider text/keys/plan details.
     raise RuntimeError("provider-search-error")
 
 
 def serpapi_search(query: str, api_key: str) -> dict:
-    """Run a minimal Google web query via SerpApi; never contact Indeed."""
+    """Run a Google web query via SerpApi; never contact Indeed directly."""
     params = {
         "engine": "google",
         "q": query,
         "google_domain": "google.co.jp",
         "hl": "ja",
         "gl": "jp",
-        "num": 10,
+        "num": RESULTS_PER_QUERY,
         "api_key": api_key,
         "output": "json",
     }
     url = "https://serpapi.com/search.json?" + urllib.parse.urlencode(params)
     request = urllib.request.Request(
         url,
-        headers={"User-Agent": "AI-Remote-Finder/9.0", "Accept": "application/json"},
+        headers={"User-Agent": "AI-Remote-Finder/10.0", "Accept": "application/json"},
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -159,8 +171,6 @@ def main() -> None:
     for offset in range(budget):
         profile, query = SEARCH_PROFILES[(cursor + offset) % len(SEARCH_PROFILES)]
         profiles_run.append(profile)
-        # Conservative accounting: a provider request may consume quota even if
-        # the response is an error, so count it before parsing the result.
         attempted += 1
         used += 1
         try:
@@ -172,7 +182,6 @@ def main() -> None:
         except Exception as exc:
             errors.append(type(exc).__name__)
 
-    # Deduplicate fresh seeds by real Indeed job key before merging with history.
     fresh_by_jk: dict[str, dict] = {}
     for seed in fresh:
         if not isinstance(seed, dict):
@@ -187,11 +196,13 @@ def main() -> None:
 
     payload["candidate_indeed_index_version"] = INDEX_VERSION
     payload["candidate_indeed_index_method"] = (
-        "google-web-simple-rotating-site-index-to-exact-indeed-viewjob"
+        "google-web-rotating-site-index-to-exact-indeed-viewjob"
     )
     payload["candidate_indeed_index_direct_indeed_requests"] = 0
+    payload["candidate_indeed_index_results_per_query"] = RESULTS_PER_QUERY
     payload["candidate_indeed_index_query_profile"] = profiles_run[0] if profiles_run else None
     payload["candidate_indeed_index_query_profiles"] = profiles_run
+    payload["candidate_indeed_index_profile_count"] = len(SEARCH_PROFILES)
     payload["candidate_indeed_index_hits_run"] = len(fresh)
     payload["candidate_indeed_index_seed_count"] = len(seeds)
     payload["candidate_indeed_index_promoted_run"] = promoted
@@ -208,8 +219,8 @@ def main() -> None:
     payload["candidate_indeed_index_seeds"] = seeds
     payload["candidate_indeed_index_truth_note"] = (
         "Exact Indeed viewjob URLs are discovered through the public Google index; "
-        "no backend request is made to Indeed. Only screened structured candidates "
-        "may be promoted, and later company-level hardening can revert ambiguity."
+        "no backend request is made to Indeed. Exact URLs may be shown as discovery "
+        "seeds, while only screened candidates enter the trusted recommendation list."
     )
     payload["candidate_indeed_index_budget_surplus_before_run"] = surplus
 
