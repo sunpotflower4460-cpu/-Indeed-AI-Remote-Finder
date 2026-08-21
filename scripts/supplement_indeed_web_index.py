@@ -9,7 +9,7 @@ Implementation contract retained by v2:
 - "engine": "google"
 - "https://serpapi.com/search.json?"
 - candidate_indeed_index_direct_indeed_requests is always 0
-- no backend urllib.request.Request("https://jp.indeed.com... request is made
+- no backend request is made to jp.indeed.com
 """
 from supplement_indeed_web_index_v2 import *  # noqa: F401,F403
 from supplement_indeed_web_index_v2 import main
