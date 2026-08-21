@@ -36,12 +36,12 @@ jobs:
         run: python -m unittest discover -s tests -q
       - name: Preserve previous feed for carryover and LLM cache
         run: cp data/jobs.json /tmp/previous-jobs.json
-      - name: Refresh diverse autonomous-work candidates
+      - name: Refresh broad structured candidates only when pool is low
         id: acquisition
         continue-on-error: true
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
-        run: python scripts/acquisition_precision.py
+        run: python scripts/acquisition_indeed_first.py
       - name: Supplement from public employer ATS feeds
         id: public_ats
         if: always()
