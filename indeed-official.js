@@ -17,6 +17,16 @@
     ['文字起こし','文字起こし 在宅'],
     ['検索品質','search quality remote']
   ];
+  const PROFILE_LABELS={
+    'ai-trainer':'AIトレーナー','search-vjk-ai-trainer':'AIトレーナー',
+    'annotation':'アノテーション','search-vjk-annotation':'アノテーション',
+    'senior-rater':'レイター','search-vjk-rater':'レイター',
+    'data-labeling':'データラベリング','search-vjk-data-labeling':'データラベリング',
+    'translation':'翻訳','search-vjk-translation':'翻訳',
+    'remote-ai-general':'AI・完全在宅','search-vjk-remote-ai':'AI・完全在宅',
+    'dataannotation':'DataAnnotation','search-vjk-dataannotation':'DataAnnotation',
+    'telus-rater':'TELUS レイター','search-vjk-telus':'TELUS レイター'
+  };
 
   function configured(){
     return Boolean(String(config.partnerAppId||'').trim()&&String(config.placementId||'').trim());
@@ -32,6 +42,25 @@
       if(!url.searchParams.get('jk'))return null;
       return url;
     }catch{return null;}
+  }
+
+  function seedKind(seed){
+    return String(seed?.indeed_index_link_kind||'viewjob-jk')==='search-vjk'?'search-vjk':'viewjob-jk';
+  }
+
+  function seedCounts(raw){
+    let exact=0,vjk=0;
+    for(const seed of raw||[]){
+      if(!seed||!safeIndeedViewjob(seed.url))continue;
+      if(seedKind(seed)==='search-vjk')vjk+=1;else exact+=1;
+    }
+    return{exact,vjk,total:exact+vjk};
+  }
+
+  function profileLabel(value){
+    const key=String(value||'').trim();
+    if(!key)return'候補';
+    return PROFILE_LABELS[key]||key.replace(/^search-vjk-/,'').replace(/-/g,' ');
   }
 
   function normalizeIndeedQuery(query){
@@ -56,8 +85,8 @@
     const time=Date.parse(String(value||''));
     if(!Number.isFinite(time))return'確認日時不明';
     const days=Math.max(0,Math.floor((Date.now()-time)/864e5));
-    if(days===0)return'24時間以内にURL確認';
-    return`${days}日前にURL確認`;
+    if(days===0)return'24時間以内に確認';
+    return`${days}日前に確認`;
   }
 
   function ensureSection(){
@@ -71,7 +100,7 @@
     section.innerHTML=`
       <div class="indeedOfficialHead">
         <b>Indeed本体から探す</b>
-        <span>Indeedの現在の検索結果を直接開きます。アプリが自動取得した候補とは別に、まず本体側の求人を確認できます。</span>
+        <span>Indeedの現在の検索結果を直接開きます。下の候補は「実URLまで確認」と「求人IDだけ確認」を分けて表示します。</span>
       </div>
       <div id="indeedTruthBar" class="indeedTruthBar"></div>
       <div id="indeedPublisherArea" class="uxHidden">
@@ -115,13 +144,19 @@
     const bar=section?.querySelector('#indeedTruthBar');
     if(!bar)return;
     const meta=state.meta||{};
+    const raw=Array.isArray(meta.candidate_indeed_index_seeds)?meta.candidate_indeed_index_seeds:[];
+    const fallback=seedCounts(raw);
     const covered=Number(meta.candidate_indeed_index_profile_coverage_count||0);
     const total=Number(meta.candidate_indeed_index_profile_count||0);
-    const seeds=Number(meta.candidate_indeed_index_seed_count||0);
+    const exact=Number.isFinite(Number(meta.candidate_indeed_index_exact_url_seed_count))
+      ?Number(meta.candidate_indeed_index_exact_url_seed_count):fallback.exact;
+    const vjk=Number.isFinite(Number(meta.candidate_indeed_index_search_vjk_seed_count))
+      ?Number(meta.candidate_indeed_index_search_vjk_seed_count):fallback.vjk;
     const finalCount=Number(meta.candidate_final_indeed_apply_jobs||0);
     bar.innerHTML=`
       <span><b>Indeed本文</b> ${configured()?'公式Pluginでライブ表示':'バックエンド未自動取得'}</span>
-      <span><b>実URL</b> ${seeds}件</span>
+      <span><b>実URL確認</b> ${exact}件</span>
+      <span><b>求人ID確認（vjk）</b> ${vjk}件</span>
       <span><b>AI適性まで照合</b> ${finalCount}件</span>
       <span><b>探索語カバレッジ</b> ${covered}/${total||'—'}</span>
     `;
@@ -132,21 +167,22 @@
     if(!area)return;
     area.replaceChildren();
     const raw=Array.isArray(state.meta?.candidate_indeed_index_seeds)?state.meta.candidate_indeed_index_seeds:[];
-    const seeds=raw.filter(seed=>seed&&safeIndeedViewjob(seed.url)).slice(0,16);
+    const seeds=raw.filter(seed=>seed&&safeIndeedViewjob(seed.url)).slice(0,20);
+    const counts=seedCounts(seeds);
 
     const head=document.createElement('div');
     head.className='indeedSeedHead';
     const title=document.createElement('b');
-    title.textContent=`Indeed実URL確認 ${seeds.length}件`;
+    title.textContent=`Indeed候補 ${counts.total}件（実URL ${counts.exact} / 求人ID ${counts.vjk}）`;
     const note=document.createElement('span');
-    note.textContent='公開検索インデックスでIndeed個別URLを確認した候補です。Indeed本文そのものは、このバックエンドでは自動取得していません。';
+    note.textContent='「実URL」は個別viewjob URLを公開インデックスで確認済み。「求人ID」は検索ページのvjkだけ確認済みで、個別URLはIDから生成しています。どちらもIndeed本文そのものはバックエンドで自動取得していません。';
     head.append(title,note);
     area.appendChild(head);
 
     if(!seeds.length){
       const empty=document.createElement('div');
       empty.className='indeedSeedEmpty';
-      empty.textContent='現在保存されているIndeed実URLはありません。上のIndeed本体検索はいつでも利用できます。';
+      empty.textContent='現在保存されているIndeed候補はありません。上のIndeed本体検索はいつでも利用できます。';
       area.appendChild(empty);
       return;
     }
@@ -156,21 +192,26 @@
     for(const seed of seeds){
       const url=safeIndeedViewjob(seed.url);
       if(!url)continue;
+      const isVjk=seedKind(seed)==='search-vjk';
+      const profile=String(seed.profile||'').trim();
       const card=document.createElement('a');
-      card.className='indeedSeedCard';
+      card.className=`indeedSeedCard${isVjk?' indeedSeedCardVjk':''}`;
       card.href=url.toString();
       card.target='_blank';
       card.rel='noopener';
       const main=document.createElement('span');
       main.className='indeedSeedTitle';
-      main.textContent=String(seed.title||'Indeed求人');
+      main.textContent=isVjk
+        ?`Indeed求人ID候補：${profileLabel(profile)}`
+        :String(seed.title||'Indeed求人');
       const truth=document.createElement('span');
       truth.className='indeedSeedTruth';
-      truth.textContent='URL確認済み・本文未自動取得';
+      truth.textContent=isVjk
+        ?'求人ID（vjk）確認・個別URLはIDから生成・本文未確認'
+        :'実URL確認済み・本文未自動取得';
       const meta=document.createElement('span');
       meta.className='indeedSeedMeta';
-      const profile=String(seed.profile||'').trim();
-      meta.textContent=`${ageLabel(seed.last_seen)}${profile?` · ${profile}`:''} · Indeedで本文を見る →`;
+      meta.textContent=`${ageLabel(seed.last_seen)}${profile?` · ${profileLabel(profile)}`:''} · ${isVjk?'Indeedで候補本文を開いて確認':'Indeedで本文を見る'} →`;
       card.append(main,truth,meta);
       list.appendChild(card);
     }
@@ -239,9 +280,10 @@
   style.textContent=`
     .indeedOfficialSearch{margin:12px 0 16px;border:1px solid #24465f;border-radius:18px;background:#071522;padding:16px;overflow:hidden}
     .indeedOfficialHead{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}.indeedOfficialHead b{font-size:16px;color:#e8f8ff}.indeedOfficialHead span,.indeedPluginStatus,.indeedDirectNote{font-size:10px;color:#91a9bb;line-height:1.65}
-    .indeedTruthBar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 12px}.indeedTruthBar span{border:1px solid #17364c;border-radius:10px;background:#081927;padding:8px 9px;font-size:9px;color:#91a9bb;line-height:1.4}.indeedTruthBar b{display:block;color:#dff8ff;font-size:9px;margin-bottom:2px}
+    .indeedTruthBar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:0 0 12px}.indeedTruthBar span{border:1px solid #17364c;border-radius:10px;background:#081927;padding:8px 9px;font-size:9px;color:#91a9bb;line-height:1.4}.indeedTruthBar b{display:block;color:#dff8ff;font-size:9px;margin-bottom:2px}
     .indeedOfficialLabel{font-size:11px;font-weight:850;color:#7de7f3;margin-bottom:8px}.indeedDirectArea{display:flex;flex-direction:column;gap:8px}.indeedSearchRow{display:grid;grid-template-columns:1fr auto;gap:8px}.indeedSearchRow input{min-width:0;border:1px solid #29475c;border-radius:12px;background:#04111c;color:#e8f8ff;padding:12px 13px;font-size:13px}.indeedSearchRow button{border:0;border-radius:12px;padding:0 16px;background:linear-gradient(135deg,#67e8f9,#a78bfa);color:#06101d;font-size:12px;font-weight:900;cursor:pointer}.indeedPresetBar{display:flex;gap:6px;flex-wrap:wrap}.indeedPreset{border:1px solid #29475c;border-radius:999px;background:#0a1b28;color:#b9ccda;padding:7px 10px;font-size:10px;font-weight:800;cursor:pointer}.indeedPreset:hover{border-color:#67e8f9;color:#eafcff}
-    .indeedSeedArea{margin-top:14px;padding-top:13px;border-top:1px solid #173248}.indeedSeedHead{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}.indeedSeedHead b{font-size:12px;color:#e6f8ff}.indeedSeedHead span,.indeedSeedEmpty{font-size:9px;color:#8099ac;line-height:1.55}.indeedSeedList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.indeedSeedCard{display:flex;flex-direction:column;gap:3px;padding:10px 11px;border:1px solid #1f4058;border-radius:12px;background:#0a1a27;text-decoration:none}.indeedSeedCard:hover{border-color:#67e8f9}.indeedSeedTitle{font-size:11px;font-weight:850;color:#e9f8ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.indeedSeedTruth{font-size:9px;color:#f4ca7a}.indeedSeedMeta{font-size:9px;color:#79cbd8}.indeedPluginStatus{margin-top:8px}
+    .indeedSeedArea{margin-top:14px;padding-top:13px;border-top:1px solid #173248}.indeedSeedHead{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}.indeedSeedHead b{font-size:12px;color:#e6f8ff}.indeedSeedHead span,.indeedSeedEmpty{font-size:9px;color:#8099ac;line-height:1.55}.indeedSeedList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.indeedSeedCard{display:flex;flex-direction:column;gap:3px;padding:10px 11px;border:1px solid #1f4058;border-radius:12px;background:#0a1a27;text-decoration:none}.indeedSeedCard:hover{border-color:#67e8f9}.indeedSeedCardVjk{border-style:dashed;background:#091722}.indeedSeedTitle{font-size:11px;font-weight:850;color:#e9f8ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.indeedSeedTruth{font-size:9px;color:#f4ca7a}.indeedSeedMeta{font-size:9px;color:#79cbd8}.indeedPluginStatus{margin-top:8px}
+    @media(max-width:900px){.indeedTruthBar{grid-template-columns:repeat(3,minmax(0,1fr))}}
     @media(max-width:760px){.indeedTruthBar{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:650px){.indeedSearchRow{grid-template-columns:1fr}.indeedSearchRow button{padding:12px}.indeedSeedList{grid-template-columns:1fr}}
   `;
@@ -251,5 +293,5 @@
   render=function(){previousRender();sync();};
   sync();
 
-  window.__indeedOfficial={configured,sync,buildIndeedSearchUrl,normalizeIndeedQuery};
+  window.__indeedOfficial={configured,sync,buildIndeedSearchUrl,normalizeIndeedQuery,seedKind,seedCounts};
 })();
