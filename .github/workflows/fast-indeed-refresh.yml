@@ -1,0 +1,79 @@
+name: Fast Indeed feed refresh
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - '.github/workflows/fast-indeed-refresh.yml'
+      - 'scripts/indeed_index_core.py'
+      - 'scripts/supplement_indeed_web_index.py'
+      - 'scripts/supplement_indeed_web_index_v2.py'
+      - 'scripts/harden_indeed_index_matches.py'
+      - 'scripts/validate_indeed_discovery_runtime.py'
+permissions:
+  contents: write
+concurrency:
+  group: update-job-candidates
+  cancel-in-progress: true
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Run core feed tests
+        run: |
+          python -m unittest tests.test_indeed_near_direct tests.test_indeed_index_v2_resilience tests.test_indeed_index_hardening tests.test_candidate_integrity_gate -q
+      - name: Preserve previous feed
+        run: cp data/jobs.json /tmp/previous-jobs.json
+      - name: Refresh structured candidates with Indeed priority
+        id: acquisition
+        continue-on-error: true
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+        run: python scripts/acquisition_precision.py
+      - name: Discover exact Indeed viewjob URLs
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+        run: python scripts/supplement_indeed_web_index.py --previous /tmp/previous-jobs.json
+      - name: Validate Indeed discovery runtime and harden matches
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+        run: python scripts/stamp_provider_health.py
+      - name: Stamp acquisition outcome
+        env:
+          ACQUISITION_OUTCOME: ${{ steps.acquisition.outcome }}
+        run: python scripts/stamp_refresh_outcome.py
+      - name: Merge with rolling stock
+        run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
+      - name: Enforce candidate integrity
+        run: python scripts/apply_candidate_integrity_gate.py
+      - name: Reuse existing LLM vetoes without new paid review calls
+        run: python scripts/apply_llm_quality_gate.py
+      - name: Enforce AI-tool policy
+        run: python scripts/apply_ai_tool_policy_gate.py
+      - name: Validate publishable feed
+        run: |
+          python scripts/validate_feed_trusted.py
+          python scripts/validate_remote_feed.py
+          python scripts/validate_candidate_integrity.py
+          python scripts/validate_indeed_discovery_runtime.py
+      - name: Commit fresh feed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "main moved during fast refresh; refusing to publish stale data."
+            exit 1
+          fi
+          git add data/jobs.json
+          if git diff --cached --quiet; then
+            echo "Feed content did not change."
+            exit 0
+          fi
+          git commit -m "chore: refresh Indeed-first job feed"
+          git push origin HEAD:main
