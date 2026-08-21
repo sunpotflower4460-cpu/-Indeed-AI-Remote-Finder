@@ -1,4 +1,5 @@
 name: Fast Indeed feed refresh
+run-name: Fast Indeed feed refresh
 on:
   workflow_dispatch:
   push:
