@@ -5,8 +5,8 @@ This is intentionally a runtime contract rather than a market-supply contract.
 Zero matching jobs can be legitimate; silently running old code or crashing before
 telemetry is written is not. The validator therefore never requires a positive
 Indeed job count. It only requires the v2 discovery telemetry to be present and,
-when the step reports budget surplus, at least one search attempt to have been
-recorded.
+when SerpApi is configured and the step reports budget surplus, at least one search
+attempt to have been recorded.
 """
 from __future__ import annotations
 
@@ -43,14 +43,15 @@ def validate(payload: dict) -> None:
     if direct != 0:
         raise RuntimeError("Indeed runtime validation: direct Indeed backend access must remain zero")
 
+    configured = payload.get("provider_configured") is True
     surplus = int(payload.get("candidate_indeed_index_budget_surplus_before_run") or 0)
     attempted = int(payload.get("candidate_indeed_index_request_run") or 0)
     profiles = payload.get("candidate_indeed_index_query_profiles") or []
 
-    # If the production step had quota surplus, it must record at least one
-    # attempted public-index query. This catches crashes/import failures that
-    # otherwise leave a stale v1 feed looking like a legitimate zero-result run.
-    if surplus > 0 and attempted <= 0:
+    # If SerpApi is configured and this run had quota surplus, it must record at
+    # least one public-index query attempt. This catches crashes/import failures
+    # that otherwise leave stale telemetry looking like a legitimate zero-result run.
+    if configured and surplus > 0 and attempted <= 0:
         raise RuntimeError(
             "Indeed runtime validation: quota surplus existed but no search attempt was recorded"
         )
