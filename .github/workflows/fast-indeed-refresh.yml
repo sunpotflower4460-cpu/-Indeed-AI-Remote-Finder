@@ -11,6 +11,8 @@ on:
       - 'scripts/supplement_indeed_web_index_v2.py'
       - 'scripts/harden_indeed_index_matches.py'
       - 'scripts/validate_indeed_discovery_runtime.py'
+      - 'source-tabs.js'
+      - 'indeed-official.js'
   pull_request:
     branches: ["main"]
     paths:
@@ -20,6 +22,8 @@ on:
       - 'scripts/supplement_indeed_web_index_v2.py'
       - 'scripts/harden_indeed_index_matches.py'
       - 'scripts/validate_indeed_discovery_runtime.py'
+      - 'source-tabs.js'
+      - 'indeed-official.js'
 permissions:
   contents: write
 concurrency:
@@ -50,7 +54,7 @@ jobs:
         run: python scripts/stamp_refresh_outcome.py
       - name: Restore rolling screened candidate stock before Indeed matching
         run: python scripts/postprocess_feed.py --previous /tmp/previous-jobs.json
-      - name: Discover exact Indeed viewjob URLs and match restored candidates
+      - name: Discover Indeed job keys from public index
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: python scripts/supplement_indeed_web_index.py --previous /tmp/previous-jobs.json
@@ -83,7 +87,10 @@ jobs:
               'queries_attempted': data.get('candidate_indeed_index_request_run'),
               'queries_successful': data.get('candidate_indeed_index_successful_searches'),
               'index_hits': data.get('candidate_indeed_index_hits_run'),
-              'exact_url_seeds': data.get('candidate_indeed_index_seed_count'),
+              'exact_url_hits': data.get('candidate_indeed_index_exact_url_hits_run'),
+              'vjk_hits': data.get('candidate_indeed_index_search_vjk_hits_run'),
+              'exact_url_seeds': data.get('candidate_indeed_index_exact_url_seed_count'),
+              'vjk_seeds': data.get('candidate_indeed_index_search_vjk_seed_count'),
               'promoted': data.get('candidate_indeed_index_promoted_run'),
               'final_indeed': data.get('candidate_final_indeed_apply_jobs'),
               'profile_coverage': f"{data.get('candidate_indeed_index_profile_coverage_count')}/{data.get('candidate_indeed_index_profile_count')}",
