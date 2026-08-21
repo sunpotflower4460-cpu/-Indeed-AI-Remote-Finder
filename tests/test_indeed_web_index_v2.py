@@ -29,31 +29,54 @@ class IndeedWebIndexV2Tests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             mod.normalize_provider_payload({"error": "Invalid API key"})
 
-    def test_queries_cover_current_remote_ai_role_wording(self):
-        self.assertGreaterEqual(len(mod.SEARCH_PROFILES), 30)
-        names={name for name,_ in mod.SEARCH_PROFILES}
+    def test_queries_cover_direct_viewjob_and_search_vjk_surfaces(self):
+        self.assertEqual(mod.INDEX_VERSION, 4)
+        self.assertGreaterEqual(len(mod.SEARCH_PROFILES), 36)
+        names = {name for name, _ in mod.SEARCH_PROFILES}
         for expected in (
-            "ai-trainer","ai-evaluation","senior-rater","quality-assurance-rater",
-            "rater","annotation","data-labeling","ai-data","data-entry",
-            "translation","proofreading","bilingual-editor","transcription","research",
-            "fact-check","search-quality","content-review","chatbot-training",
-            "generative-ai-review","llm-evaluation","qa-testing","telus-rater",
-            "dataannotation",
+            "ai-trainer", "search-vjk-ai-trainer", "annotation",
+            "search-vjk-annotation", "senior-rater", "search-vjk-rater",
+            "data-labeling", "search-vjk-data-labeling", "translation",
+            "search-vjk-translation", "remote-ai-general", "search-vjk-remote-ai",
+            "dataannotation", "search-vjk-dataannotation", "telus-rater",
+            "search-vjk-telus", "ai-evaluation", "quality-assurance-rater",
+            "proofreading", "bilingual-editor", "transcription", "research",
+            "fact-check", "search-quality", "content-review", "chatbot-training",
+            "generative-ai-review", "llm-evaluation", "qa-testing",
         ):
-            self.assertIn(expected,names)
+            self.assertIn(expected, names)
+
+        direct = []
+        vjk = []
         for name, query in mod.SEARCH_PROFILES:
-            self.assertIn("site:jp.indeed.com/viewjob", query, name)
             self.assertNotIn(" OR ", query, name)
             self.assertLess(len(query), 120, name)
+            if name.startswith("search-vjk-"):
+                self.assertIn("site:jp.indeed.com/q-", query, name)
+                self.assertIn("inurl:vjk", query, name)
+                vjk.append(name)
+            else:
+                self.assertIn("site:jp.indeed.com/viewjob", query, name)
+                direct.append(name)
+        self.assertGreaterEqual(len(direct), 24)
+        self.assertGreaterEqual(len(vjk), 8)
+
+    def test_version_bump_samples_both_surfaces_first(self):
+        first_name, first_query = mod.SEARCH_PROFILES[0]
+        second_name, second_query = mod.SEARCH_PROFILES[1]
+        self.assertFalse(first_name.startswith("search-vjk-"))
+        self.assertIn("/viewjob", first_query)
+        self.assertTrue(second_name.startswith("search-vjk-"))
+        self.assertIn("inurl:vjk", second_query)
 
     def test_one_provider_request_asks_for_more_index_results(self):
-        self.assertEqual(mod.RESULTS_PER_QUERY,20)
-        source=path.read_text(encoding="utf-8")
-        self.assertIn('"num": RESULTS_PER_QUERY',source)
-        self.assertGreaterEqual(core.MAX_SEEDS,80)
+        self.assertEqual(mod.RESULTS_PER_QUERY, 20)
+        source = path.read_text(encoding="utf-8")
+        self.assertIn('"num": RESULTS_PER_QUERY', source)
+        self.assertGreaterEqual(core.MAX_SEEDS, 100)
 
     def test_request_budget_reserves_one_structured_search_per_future_day(self):
-        self.assertEqual(core.BASELINE_REQUESTS_PER_DAY,1)
+        self.assertEqual(core.BASELINE_REQUESTS_PER_DAY, 1)
         payload = {
             "serpapi_requests_month": 220,
             "serpapi_monthly_request_cap": 245,
@@ -68,21 +91,26 @@ class IndeedWebIndexV2Tests(unittest.TestCase):
         self.assertEqual(surplus, 0)
         self.assertEqual(budget, 0)
 
-    def test_profile_coverage_is_persisted_in_payload(self):
-        source=path.read_text(encoding="utf-8")
+    def test_profile_coverage_and_evidence_mix_are_persisted(self):
+        source = path.read_text(encoding="utf-8")
         for needle in (
             "candidate_indeed_index_profile_last_attempt",
             "candidate_indeed_index_profile_last_success",
             "candidate_indeed_index_profile_coverage_count",
             "candidate_indeed_index_unseen_profiles",
+            "candidate_indeed_index_exact_url_hits_run",
+            "candidate_indeed_index_search_vjk_hits_run",
+            "candidate_indeed_index_exact_url_seed_count",
+            "candidate_indeed_index_search_vjk_seed_count",
         ):
-            self.assertIn(needle,source)
+            self.assertIn(needle, source)
 
     def test_truth_metadata_explicitly_says_indeed_body_is_not_fetched(self):
-        source=path.read_text(encoding="utf-8")
-        self.assertIn('candidate_indeed_page_body_directly_accessed',source)
-        self.assertIn('False',source)
-        self.assertIn('backend does not fetch Indeed job-page bodies',source)
+        source = path.read_text(encoding="utf-8")
+        self.assertIn("candidate_indeed_page_body_directly_accessed", source)
+        self.assertIn("False", source)
+        self.assertIn("backend does not fetch Indeed job-page bodies", source)
+        self.assertIn("Search-vjk", source)
 
     def test_search_uses_google_japan_without_indeed_backend_request(self):
         source = path.read_text(encoding="utf-8")
@@ -90,7 +118,7 @@ class IndeedWebIndexV2Tests(unittest.TestCase):
         self.assertIn('"engine": "google"', source)
         self.assertIn('"https://serpapi.com/search.json?"', source)
         self.assertNotIn('urllib.request.Request("https://jp.indeed.com', source)
-        self.assertIn('candidate_indeed_index_direct_indeed_requests', source)
+        self.assertIn("candidate_indeed_index_direct_indeed_requests", source)
 
 
 if __name__ == "__main__":
