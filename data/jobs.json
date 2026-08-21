@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-21T05:01:07.389121+00:00",
+  "generated_at": "2026-08-21T07:07:24.284170+00:00",
   "query_success": 1,
   "query_total": 1,
   "raw_jobs": 0,
@@ -16,20 +16,20 @@
   "acquisition_mode": "replenish",
   "pool_before_refresh": 30,
   "serpapi_budget_month": "2026-08",
-  "serpapi_requests_run": 1,
+  "serpapi_requests_run": 3,
   "serpapi_paginated_requests_run": 0,
-  "serpapi_requests_month": 226,
+  "serpapi_requests_month": 229,
   "serpapi_monthly_request_cap": 245,
   "serpapi_monthly_pacing_version": 1,
   "serpapi_month_days_remaining": 11,
-  "serpapi_requests_month_before_run": 225,
-  "serpapi_monthly_requests_remaining_before_run": 20,
+  "serpapi_requests_month_before_run": 226,
+  "serpapi_monthly_requests_remaining_before_run": 19,
   "serpapi_pool_based_request_limit": 6,
   "serpapi_monthly_paced_request_limit": 1,
   "serpapi_effective_request_limit": 1,
   "serpapi_monthly_pacing_active": true,
-  "serpapi_monthly_requests_remaining_after_run": 19,
-  "serpapi_rotation_cursor": 12,
+  "serpapi_monthly_requests_remaining_after_run": 16,
+  "serpapi_rotation_cursor": 13,
   "jobs": [
     {
       "id": "0980f7c1e106c7d1",
@@ -151,8 +151,13 @@
       "indeed_index_match_score": 1.0,
       "indeed_index_jk": "0980f7c1e106c7d1",
       "indeed_index_verified_at": "2026-08-21T03:25:56.159005+00:00",
-      "indeed_index_hardening_version": 1,
-      "indeed_index_company_confirmed": true
+      "indeed_index_hardening_version": 2,
+      "indeed_index_company_confirmed": true,
+      "indeed_verification_level": "exact-url-title-company-index-match",
+      "indeed_exact_url_verified": true,
+      "indeed_page_body_verified": false,
+      "indeed_page_body_access_method": "not-accessed-without-partner-permission",
+      "indeed_content_screening_basis": "separate-screened-source"
     },
     {
       "id": "apply-9f99deb450a41083497c1354",
@@ -2673,363 +2678,363 @@
   "candidate_search_failed_profile_count": 0,
   "candidate_search_profile_learning_version": 8,
   "candidate_search_profile_learning_active": true,
-  "candidate_search_profile_learning_through": "2026-08-21T03:25:55.438907+00:00",
+  "candidate_search_profile_learning_through": "2026-08-21T05:01:07.389121+00:00",
   "candidate_search_profile_learning": [
     {
       "profile": "source_ai_trainer_remote",
-      "seen": 6.581,
-      "indeed_apply": 2.901,
-      "accepted": 1.451,
-      "final_survivors": 0.326,
-      "hard_rejections": 2.524,
-      "no_indeed": 0.567,
-      "soft_rejections": 1.451,
-      "observed_runs": 1.451,
-      "post_gate_losses": 1.124,
-      "search_attempts": 1.262,
-      "precision_score": 72.28
+      "seen": 5.396,
+      "indeed_apply": 2.379,
+      "accepted": 1.19,
+      "final_survivors": 0.267,
+      "hard_rejections": 2.07,
+      "no_indeed": 0.465,
+      "soft_rejections": 1.19,
+      "observed_runs": 1.19,
+      "post_gate_losses": 0.922,
+      "search_attempts": 1.035,
+      "precision_score": 73.12
     },
     {
       "profile": "source_rescue_ai_rater_generated_jp",
-      "seen": 1.676,
-      "indeed_apply": 0.503,
-      "hard_rejections": 0.167,
-      "soft_rejections": 0.335,
-      "observed_runs": 0.167,
-      "search_attempts": 0.167,
-      "precision_score": 49.19
+      "seen": 1.374,
+      "indeed_apply": 0.412,
+      "hard_rejections": 0.137,
+      "soft_rejections": 0.275,
+      "observed_runs": 0.137,
+      "search_attempts": 0.137,
+      "precision_score": 49.25
     },
     {
       "profile": "source_rescue_ai_rater_japanese_nationwide",
+      "observed_runs": 0.167,
+      "search_attempts": 0.167,
+      "zero_result_attempts": 0.167,
+      "precision_score": 37.4
+    },
+    {
+      "profile": "source_rescue_ai_rater_llm_japanese",
       "observed_runs": 0.204,
       "search_attempts": 0.204,
       "zero_result_attempts": 0.204,
       "precision_score": 37.22
     },
     {
-      "profile": "source_rescue_ai_rater_llm_japanese",
+      "profile": "anchor_indeed_ai_rater_english",
       "observed_runs": 0.249,
       "search_attempts": 0.249,
       "zero_result_attempts": 0.249,
-      "precision_score": 37.0
+      "precision_score": 36.0
     },
     {
-      "profile": "anchor_indeed_ai_rater_english",
-      "observed_runs": 0.304,
-      "search_attempts": 0.304,
-      "zero_result_attempts": 0.304,
-      "precision_score": 35.74
+      "profile": "source_annotation_remote",
+      "seen": 4.802,
+      "indeed_apply": 2.401,
+      "accepted": 0.48,
+      "hard_rejections": 2.796,
+      "no_indeed": 0.14,
+      "soft_rejections": 0.48,
+      "observed_runs": 0.48,
+      "post_gate_losses": 0.48,
+      "search_attempts": 0.452,
+      "precision_score": 35.91
     },
     {
       "profile": "source_ai_rating_home",
-      "seen": 1.1,
-      "observed_runs": 0.137,
-      "search_attempts": 0.137,
+      "seen": 0.902,
+      "observed_runs": 0.112,
+      "search_attempts": 0.112,
       "precision_score": 35.0
     },
     {
       "profile": "source_ai_rater_japanese_en_remote",
-      "observed_runs": 0.82,
-      "search_attempts": 0.82,
-      "zero_result_attempts": 0.82,
-      "precision_score": 34.26
-    },
-    {
-      "profile": "source_annotation_remote",
-      "seen": 5.856,
-      "indeed_apply": 2.928,
-      "accepted": 0.586,
-      "hard_rejections": 3.41,
-      "no_indeed": 0.171,
-      "soft_rejections": 0.586,
-      "observed_runs": 0.586,
-      "post_gate_losses": 0.586,
-      "search_attempts": 0.551,
-      "precision_score": 33.74
+      "observed_runs": 0.672,
+      "search_attempts": 0.672,
+      "zero_result_attempts": 0.672,
+      "precision_score": 34.97
     },
     {
       "profile": "ai_rater",
-      "seen": 0.376,
-      "no_indeed": 0.376,
-      "observed_runs": 0.041,
-      "precision_score": 33.32
+      "seen": 0.308,
+      "no_indeed": 0.308,
+      "observed_runs": 0.034,
+      "precision_score": 33.4
     },
     {
       "profile": "anchor_core_ai_rater",
-      "seen": 0.418,
-      "indeed_apply": 0.041,
-      "hard_rejections": 0.041,
-      "no_indeed": 0.376,
-      "observed_runs": 0.041,
-      "precision_score": 31.9
+      "seen": 0.343,
+      "indeed_apply": 0.034,
+      "hard_rejections": 0.034,
+      "no_indeed": 0.308,
+      "observed_runs": 0.034,
+      "precision_score": 31.98
     },
     {
       "profile": "anchor_core_annotation",
-      "seen": 0.741,
-      "observed_runs": 0.371,
-      "search_attempts": 0.371,
+      "seen": 0.608,
+      "observed_runs": 0.304,
+      "search_attempts": 0.304,
       "precision_score": 28.0
     },
     {
       "profile": "direct_official_oneforma-voice-assistant-annotation-japan",
-      "final_survivors": 2.046,
+      "final_survivors": 1.678,
       "precision_score": 28.0
     },
     {
       "profile": "official_japan_depth_dataannotation-japanese",
-      "final_survivors": 2.046,
+      "final_survivors": 1.678,
       "precision_score": 28.0
     },
     {
       "profile": "source_rescue_annotation_jp",
-      "seen": 2.044,
-      "indeed_apply": 0.204,
-      "hard_rejections": 0.409,
-      "observed_runs": 0.204,
-      "search_attempts": 0.204,
-      "precision_score": 24.87
+      "seen": 1.676,
+      "indeed_apply": 0.167,
+      "hard_rejections": 0.335,
+      "observed_runs": 0.167,
+      "search_attempts": 0.167,
+      "precision_score": 25.1
     },
     {
       "profile": "anchor_indeed_ai_trainer_english",
-      "observed_runs": 0.371,
-      "search_attempts": 0.371,
-      "zero_result_attempts": 0.371,
-      "precision_score": 24.42
-    },
-    {
-      "profile": "source_rescue_annotation_japanese_nationwide",
-      "observed_runs": 0.417,
-      "search_attempts": 0.417,
-      "zero_result_attempts": 0.417,
-      "precision_score": 18.2
-    },
-    {
-      "profile": "anchor_indeed_annotation_english",
       "observed_runs": 0.304,
       "search_attempts": 0.304,
       "zero_result_attempts": 0.304,
-      "precision_score": 17.74
+      "precision_score": 24.74
+    },
+    {
+      "profile": "source_rescue_annotation_japanese_nationwide",
+      "observed_runs": 0.342,
+      "search_attempts": 0.342,
+      "zero_result_attempts": 0.342,
+      "precision_score": 18.56
+    },
+    {
+      "profile": "anchor_indeed_annotation_english",
+      "observed_runs": 0.249,
+      "search_attempts": 0.249,
+      "zero_result_attempts": 0.249,
+      "precision_score": 18.0
     },
     {
       "profile": "source_annotation_japanese_en_remote",
-      "observed_runs": 0.82,
-      "search_attempts": 0.82,
-      "zero_result_attempts": 0.82,
-      "precision_score": 16.26
+      "observed_runs": 0.672,
+      "search_attempts": 0.672,
+      "zero_result_attempts": 0.672,
+      "precision_score": 16.97
     },
     {
       "profile": "source_rescue_search_eval_japanese_nationwide",
-      "observed_runs": 0.204,
-      "search_attempts": 0.204,
-      "zero_result_attempts": 0.204,
-      "precision_score": 11.22
+      "observed_runs": 0.167,
+      "search_attempts": 0.167,
+      "zero_result_attempts": 0.167,
+      "precision_score": 11.4
     },
     {
       "profile": "source_rescue_search_eval_welo_japanese",
-      "observed_runs": 0.417,
-      "search_attempts": 0.417,
-      "zero_result_attempts": 0.417,
-      "precision_score": 10.2
+      "observed_runs": 0.342,
+      "search_attempts": 0.342,
+      "zero_result_attempts": 0.342,
+      "precision_score": 10.56
     },
     {
       "profile": "source_labeling_remote",
-      "seen": 1.039,
-      "indeed_apply": 0.34,
-      "hard_rejections": 0.207,
-      "no_indeed": 0.7,
-      "soft_rejections": 0.132,
-      "observed_runs": 0.104,
-      "precision_score": 5.94
+      "seen": 0.852,
+      "indeed_apply": 0.279,
+      "hard_rejections": 0.17,
+      "no_indeed": 0.574,
+      "soft_rejections": 0.108,
+      "observed_runs": 0.085,
+      "precision_score": 6.19
     },
     {
       "profile": "direct_official_alignerr-ai-language-japanese",
-      "final_survivors": 2.046,
+      "final_survivors": 1.678,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_alignerr-general-ai-trainer",
-      "final_survivors": 2.046,
+      "final_survivors": 1.678,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_alignerr-japanese-language-expert",
-      "final_survivors": 2.046,
+      "final_survivors": 1.678,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_alignerr-japanese-localization",
-      "final_survivors": 2.046,
+      "final_survivors": 1.678,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_oneforma-intent-japan",
-      "final_survivors": 2.046,
+      "final_survivors": 1.678,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_oneforma-maps-japan",
-      "final_survivors": 2.046,
+      "final_survivors": 1.678,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_oneforma-uhrs-japan",
-      "final_survivors": 2.046,
+      "final_survivors": 1.678,
       "precision_score": 0.0
     },
     {
       "profile": "direct_official_outlier-japanese",
-      "final_survivors": 2.046,
+      "final_survivors": 1.678,
       "precision_score": 0.0
     },
     {
       "profile": "oneforma_catalog",
-      "final_survivors": 8.186,
+      "final_survivors": 6.713,
       "precision_score": 0.0
     },
     {
       "profile": "public_ats_ashby_lilt-production",
-      "final_survivors": 17.082,
+      "final_survivors": 14.007,
       "precision_score": 0.0
     },
     {
       "profile": "public_ats_greenhouse_agency",
-      "final_survivors": 23.276,
+      "final_survivors": 19.086,
       "precision_score": 0.0
     },
     {
       "profile": "public_ats_lever_rws",
-      "final_survivors": 4.093,
+      "final_survivors": 3.356,
       "precision_score": 0.0
     },
     {
       "profile": "public_ats_lever_weloglobal",
-      "final_survivors": 10.898,
+      "final_survivors": 8.936,
       "precision_score": 0.0
     },
     {
       "profile": "targeted_ats_lilt_language_ops",
-      "final_survivors": 13.417,
+      "final_survivors": 11.002,
       "precision_score": 0.0
     },
     {
       "profile": "targeted_ats_prolific_japanese_ai",
-      "final_survivors": 8.3,
+      "final_survivors": 6.806,
       "precision_score": 0.0
     },
     {
       "profile": "source_ocr_home",
-      "seen": 0.51,
-      "indeed_apply": 0.152,
-      "hard_rejections": 0.152,
-      "no_indeed": 0.357,
-      "observed_runs": 0.05,
-      "precision_score": -2.19
+      "seen": 0.418,
+      "indeed_apply": 0.125,
+      "hard_rejections": 0.125,
+      "no_indeed": 0.293,
+      "observed_runs": 0.041,
+      "precision_score": -2.03
     },
     {
       "profile": "source_data_check_home",
-      "seen": 1.127,
-      "indeed_apply": 0.226,
-      "hard_rejections": 0.226,
-      "no_indeed": 0.902,
-      "observed_runs": 0.112,
-      "precision_score": -3.64
-    },
-    {
-      "profile": "direct_official_oneforma-podcast-transcription-japan",
-      "final_survivors": 2.046,
-      "precision_score": -6.0
+      "seen": 0.924,
+      "indeed_apply": 0.185,
+      "hard_rejections": 0.185,
+      "no_indeed": 0.74,
+      "observed_runs": 0.092,
+      "precision_score": -3.36
     },
     {
       "profile": "source_annotation_home",
-      "seen": 1.809,
-      "indeed_apply": 0.904,
-      "hard_rejections": 1.809,
-      "observed_runs": 0.452,
-      "search_attempts": 0.452,
-      "precision_score": -6.86
+      "seen": 1.483,
+      "indeed_apply": 0.741,
+      "hard_rejections": 1.483,
+      "observed_runs": 0.371,
+      "search_attempts": 0.371,
+      "precision_score": -5.83
+    },
+    {
+      "profile": "direct_official_oneforma-podcast-transcription-japan",
+      "final_survivors": 1.678,
+      "precision_score": -6.0
     },
     {
       "profile": "source_web_research_home",
-      "seen": 0.758,
-      "indeed_apply": 0.454,
-      "hard_rejections": 0.379,
-      "no_indeed": 0.303,
-      "soft_rejections": 0.075,
-      "observed_runs": 0.075,
-      "precision_score": -13.74
-    },
-    {
-      "profile": "indeed_index_seed_0980f7c1e106",
-      "observed_runs": 1.0,
-      "search_attempts": 1.0,
-      "zero_result_attempts": 1.0,
-      "precision_score": -17.6
+      "seen": 0.622,
+      "indeed_apply": 0.372,
+      "hard_rejections": 0.311,
+      "no_indeed": 0.248,
+      "soft_rejections": 0.061,
+      "observed_runs": 0.061,
+      "precision_score": -13.51
     },
     {
       "profile": "source_proofreading_home",
-      "seen": 0.281,
-      "indeed_apply": 0.112,
-      "hard_rejections": 0.112,
-      "no_indeed": 0.168,
-      "observed_runs": 0.028,
-      "precision_score": -19.26
-    },
-    {
-      "profile": "source_data_entry_remote",
-      "seen": 0.343,
-      "indeed_apply": 0.343,
-      "hard_rejections": 0.275,
-      "soft_rejections": 0.069,
-      "observed_runs": 0.034,
-      "precision_score": -20.65
+      "seen": 0.23,
+      "indeed_apply": 0.092,
+      "hard_rejections": 0.092,
+      "no_indeed": 0.138,
+      "observed_runs": 0.023,
+      "precision_score": -19.17
     },
     {
       "profile": "source_transcription_home",
-      "seen": 0.844,
-      "indeed_apply": 0.362,
-      "hard_rejections": 0.362,
-      "no_indeed": 0.482,
-      "observed_runs": 0.121,
-      "precision_score": -20.68
+      "seen": 0.692,
+      "indeed_apply": 0.297,
+      "hard_rejections": 0.297,
+      "no_indeed": 0.395,
+      "observed_runs": 0.099,
+      "precision_score": -20.42
     },
     {
-      "profile": "source_testing_home",
-      "seen": 1.884,
-      "indeed_apply": 1.319,
-      "hard_rejections": 1.492,
-      "no_indeed": 0.152,
-      "soft_rejections": 0.239,
-      "observed_runs": 0.189,
-      "search_attempts": 0.137,
-      "precision_score": -30.86
+      "profile": "source_data_entry_remote",
+      "seen": 0.281,
+      "indeed_apply": 0.281,
+      "hard_rejections": 0.226,
+      "soft_rejections": 0.057,
+      "observed_runs": 0.028,
+      "precision_score": -20.55
+    },
+    {
+      "profile": "indeed_index_seed_0980f7c1e106",
+      "observed_runs": 1.82,
+      "search_attempts": 1.82,
+      "zero_result_attempts": 1.82,
+      "precision_score": -21.54
     },
     {
       "profile": "source_product_entry_home",
-      "seen": 5.514,
-      "indeed_apply": 3.86,
-      "hard_rejections": 4.411,
-      "soft_rejections": 1.103,
-      "observed_runs": 0.551,
-      "search_attempts": 0.551,
-      "precision_score": -32.31
+      "seen": 4.521,
+      "indeed_apply": 3.165,
+      "hard_rejections": 3.617,
+      "soft_rejections": 0.904,
+      "observed_runs": 0.452,
+      "search_attempts": 0.452,
+      "precision_score": -30.03
+    },
+    {
+      "profile": "source_testing_home",
+      "seen": 1.545,
+      "indeed_apply": 1.082,
+      "hard_rejections": 1.223,
+      "no_indeed": 0.125,
+      "soft_rejections": 0.196,
+      "observed_runs": 0.155,
+      "search_attempts": 0.112,
+      "precision_score": -30.08
     },
     {
       "profile": "source_document_check_home",
-      "seen": 1.374,
-      "indeed_apply": 0.412,
-      "hard_rejections": 1.374,
-      "observed_runs": 0.137,
-      "search_attempts": 0.137,
-      "precision_score": -41.03
+      "seen": 1.127,
+      "indeed_apply": 0.338,
+      "hard_rejections": 1.127,
+      "observed_runs": 0.112,
+      "search_attempts": 0.112,
+      "precision_score": -40.18
     },
     {
       "profile": "source_metadata_remote",
-      "seen": 7.346,
-      "hard_rejections": 6.052,
-      "no_indeed": 0.622,
-      "observed_runs": 0.734,
-      "search_attempts": 0.672,
-      "precision_score": -48.95
+      "seen": 6.024,
+      "hard_rejections": 4.963,
+      "no_indeed": 0.51,
+      "observed_runs": 0.602,
+      "search_attempts": 0.551,
+      "precision_score": -44.57
     }
   ],
   "candidate_search_precision_policy": "v8-critical-low-stock-focus+v7-zero-result+scarce-quality-floor+family-handoff",
@@ -3041,16 +3046,16 @@
     "source_ai_rater_translation_remote",
     "source_ai_trainer_japanese_en_remote",
     "source_ai_trainer_language_remote",
+    "source_annotation_remote",
     "source_ai_rating_home",
     "source_ai_rater_japanese_en_remote",
-    "source_annotation_remote",
     "source_model_response_eval_remote",
     "source_prompt_eval_japanese_remote",
     "source_search_eval_japanese_remote",
     "source_annotation_japanese_en_remote",
     "source_labeling_remote"
   ],
-  "candidate_search_precision_phase": 18,
+  "candidate_search_precision_phase": 19,
   "candidate_search_precision_post_gate_loss_penalty": 300.0,
   "candidate_search_precision_post_gate_loss_definition": "pre-llm-accepted-minus-final-live-survivors",
   "candidate_search_precision_family_diversity_window": 2,
@@ -3073,7 +3078,7 @@
   "candidate_search_precision_family_handoff_min_profile_score": 12.0,
   "candidate_search_precision_family_handoff_profile": "source_annotation_remote",
   "candidate_search_precision_family_handoff_family": "annotation",
-  "candidate_search_precision_family_handoff_score": 33.74,
+  "candidate_search_precision_family_handoff_score": 35.91,
   "candidate_search_precision_family_handoff_reason": "proven-family-query-rotation",
   "candidate_search_precision_family_handoff_behavior": "rotate-query-within-proven-family-before-unrelated-search",
   "candidate_search_precision_scarce_guard_active": true,
@@ -3153,7 +3158,7 @@
   "serpapi_internal_monthly_cap_default": 245,
   "serpapi_provider_guard_remains_authoritative": true,
   "candidate_refresh_pipeline_version": 2,
-  "candidate_refresh_attempted_at": "2026-08-21T05:01:07.750558+00:00",
+  "candidate_refresh_attempted_at": "2026-08-21T07:07:24.845171+00:00",
   "candidate_acquisition_step_outcome": "success",
   "candidate_acquisition_outcome": "success",
   "candidate_refresh_preserved_previous_feed": false,
@@ -3170,23 +3175,110 @@
   "candidate_requires_recent_rediscovery": true,
   "pool_under_display_target": true,
   "postprocessed": true,
-  "candidate_indeed_index_version": 2,
-  "candidate_indeed_index_method": "google-web-rotating-site-index-to-exact-indeed-viewjob",
+  "candidate_indeed_index_version": 3,
+  "candidate_indeed_index_method": "google-web-rotating-public-index-to-exact-indeed-viewjob",
   "candidate_indeed_index_direct_indeed_requests": 0,
   "candidate_indeed_index_results_per_query": 20,
-  "candidate_indeed_index_query_profile": null,
-  "candidate_indeed_index_query_profiles": [],
-  "candidate_indeed_index_profile_count": 20,
-  "candidate_indeed_index_hits_run": 0,
-  "candidate_indeed_index_seed_count": 3,
+  "candidate_indeed_index_query_profile": "senior-rater",
+  "candidate_indeed_index_query_profiles": [
+    "senior-rater",
+    "quality-assurance-rater"
+  ],
+  "candidate_indeed_index_profile_count": 32,
+  "candidate_indeed_index_profile_last_attempt": {
+    "senior-rater": "2026-08-21T07:07:25.066484+00:00",
+    "quality-assurance-rater": "2026-08-21T07:07:25.066484+00:00"
+  },
+  "candidate_indeed_index_profile_last_success": {
+    "senior-rater": "2026-08-21T07:07:25.066484+00:00",
+    "quality-assurance-rater": "2026-08-21T07:07:25.066484+00:00"
+  },
+  "candidate_indeed_index_profile_coverage_count": 2,
+  "candidate_indeed_index_profile_success_coverage_count": 2,
+  "candidate_indeed_index_unseen_profiles": [
+    "ai-trainer",
+    "ai-evaluation",
+    "rater",
+    "evaluator",
+    "annotation",
+    "data-labeling",
+    "ai-data",
+    "data-entry",
+    "translation",
+    "proofreading",
+    "localization",
+    "bilingual-editor",
+    "transcription",
+    "research",
+    "fact-check",
+    "quality-review",
+    "search-evaluation",
+    "search-quality",
+    "ads-quality",
+    "content-review",
+    "prompt-evaluation",
+    "chatbot-training",
+    "generative-ai-review",
+    "llm-evaluation",
+    "qa-testing",
+    "data-quality",
+    "remote-ai-general",
+    "full-remote-ai",
+    "telus-rater",
+    "dataannotation"
+  ],
+  "candidate_indeed_index_hits_run": 3,
+  "candidate_indeed_index_seed_count": 5,
   "candidate_indeed_index_promoted_run": 0,
-  "candidate_indeed_index_request_run": 0,
-  "candidate_indeed_index_successful_searches": 0,
+  "candidate_indeed_index_request_run": 2,
+  "candidate_indeed_index_successful_searches": 2,
   "candidate_indeed_index_no_result_searches": 0,
   "candidate_indeed_index_error": null,
   "candidate_indeed_index_errors": [],
-  "candidate_indeed_index_cursor": 2,
+  "candidate_indeed_index_cursor": 4,
   "candidate_indeed_index_seeds": [
+    {
+      "jk": "77af5c7308ff02da",
+      "url": "https://jp.indeed.com/viewjob?jk=77af5c7308ff02da",
+      "title": "シニアレイター(Senior Rater)/AI生成コンテンツ評価",
+      "snippet": "今回募集するのは、検索結果やAI生成コンテンツの 品質向上を支える「シニアレイター（Senior Rater）」。 ... 分析力やリサーチ力を活かして活躍いただける ...",
+      "profile": "senior-rater",
+      "last_seen": "2026-08-21T07:07:25.066484+00:00",
+      "indeed_verification_level": "exact-url-public-index",
+      "indeed_exact_url_verified": true,
+      "indeed_page_body_verified": false,
+      "indeed_page_body_access_method": "not-accessed-without-partner-permission",
+      "indeed_evidence_source": "google-public-index",
+      "first_seen": "2026-08-21T03:17:48.365926+00:00"
+    },
+    {
+      "jk": "b592a6e27286ce3f",
+      "url": "https://jp.indeed.com/viewjob?jk=b592a6e27286ce3f",
+      "title": "シニアレイター(Senior Rater)募集",
+      "snippet": "シニアレイター(Senior Rater)募集. TELUS Digital. 東京都・フルリモート. 時給 3,664円. カンタン応募. プロフィールの入力だけで応募できる求人です。 高返信率.",
+      "profile": "senior-rater",
+      "last_seen": "2026-08-21T07:07:25.066484+00:00",
+      "indeed_verification_level": "exact-url-public-index",
+      "indeed_exact_url_verified": true,
+      "indeed_page_body_verified": false,
+      "indeed_page_body_access_method": "not-accessed-without-partner-permission",
+      "indeed_evidence_source": "google-public-index",
+      "first_seen": "2026-08-21T07:07:25.066484+00:00"
+    },
+    {
+      "jk": "a601f146f40dacc7",
+      "url": "https://jp.indeed.com/viewjob?jk=a601f146f40dacc7",
+      "title": "Quality Assurance Rater - Japanese (Japan)",
+      "snippet": "Quality Assurance Rater - Japanese (Japan). TELUS Digital. 〒150-0002 東京都 渋谷区. 時給 3,665円. Indeed で応募. Indeed 履歴書で即応募できる求人です。",
+      "profile": "quality-assurance-rater",
+      "last_seen": "2026-08-21T07:07:25.066484+00:00",
+      "indeed_verification_level": "exact-url-public-index",
+      "indeed_exact_url_verified": true,
+      "indeed_page_body_verified": false,
+      "indeed_page_body_access_method": "not-accessed-without-partner-permission",
+      "indeed_evidence_source": "google-public-index",
+      "first_seen": "2026-08-21T07:07:25.066484+00:00"
+    },
     {
       "jk": "0980f7c1e106c7d1",
       "url": "https://jp.indeed.com/viewjob?jk=0980f7c1e106c7d1",
@@ -3194,7 +3286,12 @@
       "snippet": "英日翻訳者 - AIトレーナー. DataAnnotation- JP. 【在宅・フルリモート】AI ... 完全在宅勤務; プロジェクトベースでのお仕事（希望に応じて選択可）; 自由な ...",
       "profile": "ai-trainer",
       "last_seen": "2026-08-21T03:17:48.365926+00:00",
-      "first_seen": "2026-08-21T03:17:48.365926+00:00"
+      "first_seen": "2026-08-21T03:17:48.365926+00:00",
+      "indeed_verification_level": "exact-url-public-index",
+      "indeed_exact_url_verified": true,
+      "indeed_page_body_verified": false,
+      "indeed_page_body_access_method": "not-accessed-without-partner-permission",
+      "indeed_evidence_source": "google-public-index"
     },
     {
       "jk": "7f8815fa39d11de3",
@@ -3203,28 +3300,26 @@
       "snippet": "バイリンガルコンテンツ編集者 - AIトレーナー. DataAnnotation- JP. 【在宅・フル ... 完全在宅勤務; プロジェクトベースでのお仕事（希望に応じて選択可）; 自由な ...",
       "profile": "ai-trainer",
       "last_seen": "2026-08-21T03:17:48.365926+00:00",
-      "first_seen": "2026-08-21T03:17:48.365926+00:00"
-    },
-    {
-      "jk": "77af5c7308ff02da",
-      "url": "https://jp.indeed.com/viewjob?jk=77af5c7308ff02da",
-      "title": "シニアレイター(Senior Rater)/AI生成コンテンツ評価",
-      "snippet": "【こんな方にピッタリ！】 ・完全在宅で働ける仕事をお探しの方 ・英語力を活かせる仕事をお探しの方 ・インターネットを利用した情報収集や検索 ...",
-      "profile": "rater",
-      "last_seen": "2026-08-21T03:17:48.365926+00:00",
-      "first_seen": "2026-08-21T03:17:48.365926+00:00"
+      "first_seen": "2026-08-21T03:17:48.365926+00:00",
+      "indeed_verification_level": "exact-url-public-index",
+      "indeed_exact_url_verified": true,
+      "indeed_page_body_verified": false,
+      "indeed_page_body_access_method": "not-accessed-without-partner-permission",
+      "indeed_evidence_source": "google-public-index"
     }
   ],
-  "candidate_indeed_index_truth_note": "Exact Indeed viewjob URLs are discovered through the public Google index; no backend request is made to Indeed. Exact URLs may be shown as discovery seeds, while only screened candidates enter the trusted recommendation list.",
-  "candidate_indeed_index_budget_surplus_before_run": 0,
-  "candidate_indeed_index_hardening_version": 1,
+  "candidate_indeed_page_body_directly_accessed": false,
+  "candidate_indeed_page_body_access_reason": "Indeed backend pages are not automatically fetched without partner permission",
+  "candidate_indeed_index_truth_note": "Exact Indeed viewjob URLs are discovered through the public Google index. The backend does not fetch Indeed job-page bodies. Seed title/snippet evidence comes from the public index; trusted recommendations additionally require a separately screened source and title/company match.",
+  "candidate_indeed_index_budget_surplus_before_run": 8,
+  "candidate_indeed_index_hardening_version": 2,
   "candidate_indeed_index_hardening_reviewed": 1,
   "candidate_indeed_index_hardening_kept": 1,
   "candidate_indeed_index_hardening_reverted": 0,
-  "serpapi_guard_checked_at": "2026-08-21T05:01:08.331203+00:00",
+  "serpapi_guard_checked_at": "2026-08-21T07:07:25.267612+00:00",
   "serpapi_guard_status": "ready",
-  "serpapi_safe_request_headroom": 27,
-  "serpapi_provider_month_usage": 223,
+  "serpapi_safe_request_headroom": 24,
+  "serpapi_provider_month_usage": 226,
   "candidate_integrity_gate_version": 1,
   "candidate_semantic_dedupe_version": 1,
   "candidate_requires_japan_compatible": true,
