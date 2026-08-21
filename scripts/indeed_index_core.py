@@ -205,6 +205,7 @@ def promote_matches(payload: dict, seeds: list[dict]) -> int:
         if not canonical:
             continue
         url, jk = canonical
+        row["original_candidate_id"] = row.get("original_candidate_id") or row.get("id")
         row["original_apply_url"] = row.get("original_apply_url") or row.get("url")
         row["original_apply_source"] = row.get("original_apply_source") or row.get(
             "apply_source"
@@ -212,6 +213,10 @@ def promote_matches(payload: dict, seeds: list[dict]) -> int:
         row["original_apply_source_kind"] = row.get(
             "original_apply_source_kind"
         ) or row.get("apply_source_kind")
+        # Legacy feed validation and browser identity both treat the Indeed jk as
+        # the canonical ID for an Indeed viewjob destination. Keep URL and ID in
+        # lockstep when a screened row is promoted.
+        row["id"] = jk
         row["url"] = url
         row["apply_source"] = "Indeed"
         row["apply_source_kind"] = "indeed"
