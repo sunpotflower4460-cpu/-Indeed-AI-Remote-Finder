@@ -55,6 +55,22 @@
     return{indeed,other};
   }
 
+  function seedEvidenceCounts(){
+    const meta=state.meta||{};
+    const raw=Array.isArray(meta.candidate_indeed_index_seeds)?meta.candidate_indeed_index_seeds:[];
+    let fallbackExact=0,fallbackVjk=0;
+    for(const seed of raw){
+      if(String(seed?.indeed_index_link_kind||'viewjob-jk')==='search-vjk')fallbackVjk+=1;
+      else fallbackExact+=1;
+    }
+    const exactRaw=Number(meta.candidate_indeed_index_exact_url_seed_count);
+    const vjkRaw=Number(meta.candidate_indeed_index_search_vjk_seed_count);
+    return{
+      exact:Number.isFinite(exactRaw)?exactRaw:fallbackExact,
+      vjk:Number.isFinite(vjkRaw)?vjkRaw:fallbackVjk,
+    };
+  }
+
   const previousCurrentRows=currentRows;
   currentRows=function(){
     const rows=previousCurrentRows();
@@ -80,10 +96,10 @@
       });
     }
     const counts=sourceCounts();
-    const seedCount=(Array.isArray(state.meta?.candidate_indeed_index_seeds)?state.meta.candidate_indeed_index_seeds:[]).length;
+    const evidence=seedEvidenceCounts();
     const indeed=bar.querySelector('[data-source="indeed"]');
     const other=bar.querySelector('[data-source="other"]');
-    if(indeed)indeed.textContent=`Indeed：AI適性確認 ${counts.indeed}件${seedCount?` / 実URL ${seedCount}件`:''}`;
+    if(indeed)indeed.textContent=`Indeed：AI適性確認 ${counts.indeed}件 / 実URL ${evidence.exact}件 / 求人ID ${evidence.vjk}件`;
     if(other)other.textContent=`その他の求人サイト ${counts.other}件`;
     bar.querySelectorAll('.uxSourceTab').forEach(button=>button.classList.toggle('active',button.dataset.source===sourceMode));
   }
@@ -159,7 +175,7 @@
     const empty=document.querySelector('#jobs .empty');
     if(!empty)return;
     if(sourceMode==='indeed'){
-      empty.innerHTML='<b>AI代替適性まで確認済みのIndeed求人は現在0件です。</b><br>これはIndeed全体が0件という意味ではありません。上の「Indeed本体から探す」と「Indeed実URL確認」を利用できます。';
+      empty.innerHTML='<b>AI代替適性まで確認済みのIndeed求人は現在0件です。</b><br>これはIndeed全体が0件という意味ではありません。上の「Indeed本体から探す」と「Indeed候補（実URL／求人ID）」を利用できます。';
     }else{
       empty.innerHTML='<b>現在、その他の求人サイトの候補はありません。</b><br>上の「Indeed」に切り替えるとIndeed本体検索と確認済み候補を表示します。';
     }
@@ -167,7 +183,7 @@
 
   function updateSourceCopy(){
     const hero=document.querySelector('.hero p');
-    if(hero)hero.textContent='Indeed本体の最新検索を最優先にし、「実URL確認」と「AI代替適性まで確認」を分けて表示します。Indeed本文を自動取得していない場合も明記します。';
+    if(hero)hero.textContent='Indeed本体の最新検索を最優先にし、「実URL確認」「求人ID確認」「AI代替適性まで確認」を分けて表示します。Indeed本文を自動取得していない場合も明記します。';
     const openIndeed=document.querySelector('#openIndeed');
     if(openIndeed)openIndeed.textContent='Indeed本体で検索';
   }
@@ -181,7 +197,7 @@
   function installStyles(){
     const style=document.createElement('style');
     style.textContent=`
-      .uxSourceTabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.uxSourceTab{appearance:none;border:1px solid var(--line);background:#071522;color:#a8bfd2;border-radius:12px;padding:11px 8px;font-size:11px;font-weight:850;cursor:pointer}.uxSourceTab.active{background:#e7f8ff;color:#06101d;border-color:#e7f8ff}.uxSourceBadge{display:inline-block;margin:-2px 0 5px;font-size:9px;font-weight:850;color:#88dff0;background:#102b3c;border-radius:999px;padding:4px 7px}.uxIndeedTruth{display:block;width:max-content;max-width:100%;margin:0 0 8px;font-size:9px;font-weight:750;color:#f2ca7a;background:#2a2414;border-radius:999px;padding:4px 7px}.uxSourcePrimary{font-size:13px!important;padding:13px 12px!important;background:linear-gradient(135deg,#67e8f9,#a78bfa)!important;color:#06101d!important}.uxAltLinks a.uxHidden{display:none!important}
+      .uxSourceTabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.uxSourceTab{appearance:none;border:1px solid var(--line);background:#071522;color:#a8bfd2;border-radius:12px;padding:11px 8px;font-size:11px;font-weight:850;cursor:pointer;white-space:normal;line-height:1.45}.uxSourceTab.active{background:#e7f8ff;color:#06101d;border-color:#e7f8ff}.uxSourceBadge{display:inline-block;margin:-2px 0 5px;font-size:9px;font-weight:850;color:#88dff0;background:#102b3c;border-radius:999px;padding:4px 7px}.uxIndeedTruth{display:block;width:max-content;max-width:100%;margin:0 0 8px;font-size:9px;font-weight:750;color:#f2ca7a;background:#2a2414;border-radius:999px;padding:4px 7px}.uxSourcePrimary{font-size:13px!important;padding:13px 12px!important;background:linear-gradient(135deg,#67e8f9,#a78bfa)!important;color:#06101d!important}.uxAltLinks a.uxHidden{display:none!important}
       @media(max-width:500px){.uxSourceTabs{grid-template-columns:1fr}.uxSourceTab{padding:10px}}
     `;
     document.head.appendChild(style);
@@ -201,5 +217,5 @@
 
   if(Array.isArray(state.jobs)&&state.jobs.length)render();
 
-  window.__jobSourceTabs={isVerifiedIndeed,sourceLabel,get mode(){return sourceMode;}};
+  window.__jobSourceTabs={isVerifiedIndeed,sourceLabel,seedEvidenceCounts,get mode(){return sourceMode;}};
 })();
