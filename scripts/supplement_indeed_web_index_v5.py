@@ -13,12 +13,12 @@ from __future__ import annotations
 from typing import Iterator
 
 import indeed_index_core as core
-import supplement_indeed_web_index_v2 as legacy
+import supplement_indeed_web_index_v2 as v4
 from supplement_indeed_web_index_v2 import *  # noqa: F401,F403
 
 INDEX_VERSION = 5
 MAX_REQUESTS_PER_RUN = 2
-RESULTS_PER_QUERY = legacy.RESULTS_PER_QUERY
+RESULTS_PER_QUERY = v4.RESULTS_PER_QUERY
 
 BOOST_PROFILES: tuple[tuple[str, str], ...] = (
     (
@@ -31,7 +31,7 @@ BOOST_PROFILES: tuple[tuple[str, str], ...] = (
     ),
 )
 SEARCH_PROFILES: tuple[tuple[str, str], ...] = BOOST_PROFILES + tuple(
-    item for item in legacy.SEARCH_PROFILES if item[0] not in {name for name, _ in BOOST_PROFILES}
+    item for item in v4.SEARCH_PROFILES if item[0] not in {name for name, _ in BOOST_PROFILES}
 )
 
 
@@ -113,16 +113,16 @@ def request_budget(payload: dict) -> tuple[int, int, int, int]:
 
 
 def install() -> None:
-    legacy.INDEX_VERSION = INDEX_VERSION
-    legacy.MAX_REQUESTS_PER_RUN = MAX_REQUESTS_PER_RUN
-    legacy.SEARCH_PROFILES = SEARCH_PROFILES
-    legacy.extract_seeds = extract_seeds
-    legacy.request_budget = request_budget
+    v4.INDEX_VERSION = INDEX_VERSION
+    v4.MAX_REQUESTS_PER_RUN = MAX_REQUESTS_PER_RUN
+    v4.SEARCH_PROFILES = SEARCH_PROFILES
+    v4.extract_seeds = extract_seeds
+    v4.request_budget = request_budget
 
 
 def main() -> None:
     install()
-    legacy.main()
+    v4.main()
     payload = core.load_json(core.OUT)
     if not payload:
         return
