@@ -96,7 +96,7 @@
     const url=new URL('https://jp.indeed.com/jobs');
     const company=String(job?.company||'').trim();
     const title=String(job?.title||'').replace(/\s*[–—-]\s*remote\b/ig,'').trim();
-    url.searchParams.set('q',[company,title,'在宅 OR リモート'].filter(Boolean).join(' '));
+    url.searchParams.set('q',[company,title,'(在宅 OR リモート)'].filter(Boolean).join(' '));
     url.searchParams.set('sort','date');
     return url.toString();
   }
