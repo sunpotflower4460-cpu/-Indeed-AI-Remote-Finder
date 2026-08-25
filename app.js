@@ -246,7 +246,7 @@ async function loadFeed(){
 async function boot(){try{await loadFeed()}catch(e){$('#jobs').innerHTML='<div class="empty"><b>求人データを読み込めませんでした。</b><br>下の「Indeedで今すぐ検索」は利用できます。</div>';$('#countAvailable').textContent='0';$('#countHigh').textContent='0';$('#todayApplied').textContent=`${todayAppliedCount()}/${DAILY_TARGET}`;$('#updated').textContent='-';}}
 
 $('#search').addEventListener('input',e=>{state.q=e.target.value;resetWindow();render()});
-$('#openIndeed').onclick=()=>{const q=$('#search').value.trim()||'("完全在宅" OR "フルリモート") ("データ入力" OR アノテーション OR "AIトレーナー" OR "文字起こし" OR 校正 OR "商品登録")';const u=new URL('https://jp.indeed.com/jobs');u.searchParams.set('q',q);u.searchParams.set('l','在宅');u.searchParams.set('sort','date');u.searchParams.set('fromage','7');window.open(u.toString(),'_blank','noopener');};
+$('#openIndeed').onclick=()=>{const q=$('#search').value.trim()||'("完全在宅" OR "フルリモート") ("データ入力" OR アノテーション OR "AIトレーナー" OR "文字起こし" OR 校正 OR "商品登録")';const u=new URL('https://jp.indeed.com/jobs');u.searchParams.set('q',q);u.searchParams.set('sort','date');u.searchParams.set('fromage','7');window.open(u.toString(),'_blank','noopener');};
 $('#chips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;document.querySelectorAll('.chip[data-mode]').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.mode=b.dataset.mode;resetWindow();render();});
 $('#sort').addEventListener('change',e=>{state.sort=e.target.value;resetWindow();render()});
 $('#refreshFeed').onclick=async()=>{const b=$('#refreshFeed');b.disabled=true;b.textContent='読込中…';try{await loadFeed()}catch{}finally{b.disabled=false;b.textContent='最新候補を再読込';}};

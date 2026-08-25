@@ -1,5 +1,5 @@
-const CACHE='ai-remote-finder-v13';
-const ASSETS=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg','./icon-180.png','./icon-192.png','./icon-512.png'];
+const CACHE='ai-remote-finder-v14';
+const ASSETS=['./','./index.html','./app.js','./manifest.webmanifest','./icon.svg','./icon-180.png','./icon-192.png','./icon-512.png','./data/jobs.json'];
 const INDEX_URL=new URL('./index.html',self.registration.scope).toString();
 const DATA_URL=new URL('./data/jobs.json',self.registration.scope).toString();
 

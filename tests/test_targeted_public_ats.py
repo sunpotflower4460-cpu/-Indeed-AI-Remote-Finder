@@ -108,5 +108,39 @@ class TargetedPublicATSTests(unittest.TestCase):
         self.assertIsNone(mod._prolific_job(voice))
 
 
-if __name__ == "__main__":
-    unittest.main()
+    def test_existing_ats_row_gets_timestamp_refreshed_even_when_it_wins_quality_comparison(self):
+        """When the existing row scores equal or higher, the ATS timestamp must still be updated.
+
+        Before the fix, the `_better` comparison would keep the existing row unchanged,
+        leaving `ats_live_verified_at` stale. This caused older-published jobs to fall
+        outside the 3-day live-ATS window and become invisible to the PWA client.
+        """
+        # welo(1) → apply URL https://jobs.lever.co/weloglobal/welo-1 → ID apply-c56f5cd7d8774e42bf17a398
+        known_id = "apply-c56f5cd7d8774e42bf17a398"
+        old_ts = "2026-08-01T00:00:00+00:00"
+        # Pre-populate with a row that has a very high score so _better() returns False
+        existing_row = {
+            "id": known_id,
+            "tier": "high",   # higher than the review tier the new row gets
+            "score": 100,
+            "automation_confidence": 100,
+            "ats_live_verified_at": old_ts,
+            "discovery_source": "targeted-public-employer-ats",
+            "url": "https://jobs.lever.co/weloglobal/welo-1/apply",
+        }
+        out = mod.top_up(
+            {"jobs": [existing_row]},
+            {},
+            welo_posts=[welo(1)],
+            lilt_posts=[],
+            prolific_posts=[],
+        )
+        refreshed = next((r for r in out["jobs"] if r.get("id") == known_id), None)
+        self.assertIsNotNone(refreshed, "expected row to be present after top_up")
+        self.assertNotEqual(
+            refreshed.get("ats_live_verified_at"),
+            old_ts,
+            "ats_live_verified_at must be refreshed even when the existing row wins the quality comparison",
+        )
+
+

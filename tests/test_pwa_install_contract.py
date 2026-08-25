@@ -43,7 +43,7 @@ class PWAInstallContractTests(unittest.TestCase):
         self.assertEqual(png_size(ROOT / "icon-512.png"), (512, 512))
 
     def test_service_worker_precaches_all_install_icons(self):
-        self.assertIn("ai-remote-finder-v13", self.sw)
+        self.assertIn("ai-remote-finder-v14", self.sw)
         for name in ("icon-180.png", "icon-192.png", "icon-512.png"):
             self.assertIn(name, self.sw)
 
