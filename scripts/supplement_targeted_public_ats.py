@@ -278,6 +278,11 @@ def _build_rows(
         current = by_id.get(jid)
         if current is None or _better(row, current):
             by_id[jid] = row
+        else:
+            # The existing row is at least as good; keep it but refresh the live
+            # ATS verification timestamp so the client never sees a stale window.
+            current["ats_live_verified_at"] = now
+            current["targeted_public_ats_version"] = VERSION
         accepted += 1
         accepted_by_provider[provider] += 1
 

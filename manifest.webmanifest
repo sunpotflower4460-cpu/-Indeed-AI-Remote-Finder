@@ -10,11 +10,17 @@
   "orientation":"portrait-primary",
   "background_color":"#06101d",
   "theme_color":"#07111f",
+  "prefer_related_applications":false,
   "categories":["business","productivity"],
   "icons":[
     {"src":"./icon-180.png","sizes":"180x180","type":"image/png","purpose":"any"},
     {"src":"./icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
     {"src":"./icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"},
     {"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}
+  ],
+  "shortcuts":[
+    {"name":"Indeed で在宅AIを検索","short_name":"Indeed検索","description":"Indeed本体でAI在宅求人を今すぐ検索","url":"./","icons":[{"src":"./icon-192.png","sizes":"192x192","type":"image/png"}]},
+    {"name":"高確度候補を見る","short_name":"高確度","description":"高確度の完全在宅AI代替可能候補","url":"./#high","icons":[{"src":"./icon-192.png","sizes":"192x192","type":"image/png"}]},
+    {"name":"応募済みを管理","short_name":"応募済み","description":"応募済み求人の一覧を確認する","url":"./#applied","icons":[{"src":"./icon-192.png","sizes":"192x192","type":"image/png"}]}
   ]
 }

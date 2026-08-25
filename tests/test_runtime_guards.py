@@ -186,7 +186,7 @@ class RuntimeGuardTests(unittest.TestCase):
 
     def test_service_worker_rotated_and_awaits_cache_writes(self):
         sw = (ROOT / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("ai-remote-finder-v13", sw)
+        self.assertIn("ai-remote-finder-v14", sw)
         self.assertIn("await cache.put(key,response)", sw)
         self.assertIn("cacheKey:DATA_URL", sw)
         self.assertIn("cacheKey:INDEX_URL", sw)
